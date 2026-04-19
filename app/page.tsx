@@ -89,67 +89,70 @@ export default function HomePage() {
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <Nav user={user} />
 
-      {/* Hero section — mug floats right, text wraps */}
-      <section className="container mx-auto max-w-6xl px-6 py-16" style={{ overflow: 'hidden' }}>
+      {/* Hero section — 2 col: text left, mug right (matches Divi Fullwidth Header) */}
+      <section className="container mx-auto max-w-6xl px-6 py-16" style={{ display: 'flex', gap: '3rem', alignItems: 'flex-start' }}>
 
-        {/* Mug: float right, big, starts at top */}
-        {!isOctober && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src="/mughhs.webp"
-            alt="Hallowed Hop Society"
-            style={{ float: 'right', width: '47%', maxWidth: '580px', minWidth: '280px', height: 'auto', marginLeft: '3rem', marginBottom: '1rem', opacity: 0.9 }}
-          />
-        )}
-        {isOctober && beer && (
-          <div style={{ float: 'right', width: '42%', maxWidth: '460px', minWidth: '280px', marginLeft: '3rem', marginBottom: '1rem', background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', borderRadius: '16px' }}>
-            <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">
-              Day {beer.day_number} · October {beer.day_number}
-            </div>
-            <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.75rem', lineHeight: 1.2, marginBottom: '0.5rem' }}>
-              {beer.name}
-            </h2>
-            <p style={{ color: 'var(--gold)', fontSize: '1.1rem', marginBottom: '0.75rem' }}>{beer.brewery}</p>
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              {beer.style}{beer.style && beer.abv ? ' · ' : ''}{beer.abv ? `${beer.abv}% ABV` : ''}
-            </div>
-            {beer.description && (
-              <p style={{ color: 'var(--text)', fontSize: '1rem', lineHeight: 1.7, borderTop: '1px solid var(--border)', paddingTop: '1rem', marginBottom: '1rem' }}>
-                {beer.description}
-              </p>
-            )}
-            {avgRating !== null && (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                <span style={{ color: 'var(--gold)' }}>{'★'.repeat(Math.round(avgRating))}{'☆'.repeat(5 - Math.round(avgRating))}</span>
-                {' '}{avgRating}/5 · {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}
-              </p>
-            )}
-          </div>
-        )}
+        {/* Left: title + body text */}
+        <div style={{ flex: '1 1 0', minWidth: 0 }}>
+          <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', lineHeight: 1.05, fontWeight: 900, marginBottom: '1.5rem' }}>
+            HALLOWED<br />HOP SOCIETY
+          </h2>
+          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+            As October&apos;s chill creeps in and shadows grow long, a devoted fellowship rises to honor the sacred tradition of the hop.
+          </p>
+          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+            <strong>The Hallowed Hop Society</strong> is an annual gathering of beer enthusiasts who embark on a solemn (and slightly ridiculous) ritual:{' '}
+            <em>31 unique beers in 31 haunted days.</em> No repeats. No excuses. Just pure, unfiltered reverence for the craft of brewing.
+          </p>
+          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+            Each year brings a new theme, a new lineup of brews, and new initiates brave enough to take the oath. From spiced pumpkin ales to bone-chilling stouts, we drink not just for the flavor—but for the fellowship.
+          </p>
+          <blockquote style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '1.25rem', margin: '1.5rem 0', color: 'var(--text)', fontSize: '1.15rem', fontWeight: 700 }}>
+            Through ritual we pour, through hops we unite.
+          </blockquote>
+          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '0.25rem' }}>
+            We are a society of the sip, the story, and the sacred pour.
+          </p>
+          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8 }}>
+            If you&apos;ve got a taste for adventure (and good beer), your place at the circle awaits.
+          </p>
+        </div>
 
-        {/* Text flows around the float */}
-        <h1 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1, fontWeight: 900, marginBottom: '1.5rem' }}>
-          HALLOWED<br />HOP SOCIETY
-        </h1>
-        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
-          As October&apos;s chill creeps in and shadows grow long, a devoted fellowship rises to honor the sacred tradition of the hop.
-        </p>
-        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
-          <strong>The Hallowed Hop Society</strong> is an annual gathering of beer enthusiasts who embark on a solemn (and slightly ridiculous) ritual:{' '}
-          <em>31 unique beers in 31 haunted days.</em> No repeats. No excuses. Just pure, unfiltered reverence for the craft of brewing.
-        </p>
-        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
-          Each year brings a new theme, a new lineup of brews, and new initiates brave enough to take the oath. From spiced pumpkin ales to bone-chilling stouts, we drink not just for the flavor—but for the fellowship.
-        </p>
-        <blockquote style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '1.25rem', margin: '1.5rem 0', color: 'var(--text)', fontSize: '1.15rem', fontWeight: 700 }}>
-          Through ritual we pour, through hops we unite.
-        </blockquote>
-        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '0.25rem' }}>
-          We are a society of the sip, the story, and the sacred pour.
-        </p>
-        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8 }}>
-          If you&apos;ve got a taste for adventure (and good beer), your place at the circle awaits.
-        </p>
+        {/* Right: mug fills full column */}
+        <div style={{ flex: '0 0 48%', maxWidth: '560px' }}>
+          {isOctober && beer ? (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', borderRadius: '16px' }}>
+              <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">
+                Day {beer.day_number} · October {beer.day_number}
+              </div>
+              <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.75rem', lineHeight: 1.2, marginBottom: '0.5rem' }}>
+                {beer.name}
+              </h2>
+              <p style={{ color: 'var(--gold)', fontSize: '1.1rem', marginBottom: '0.75rem' }}>{beer.brewery}</p>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                {beer.style}{beer.style && beer.abv ? ' · ' : ''}{beer.abv ? `${beer.abv}% ABV` : ''}
+              </div>
+              {beer.description && (
+                <p style={{ color: 'var(--text)', fontSize: '1rem', lineHeight: 1.7, borderTop: '1px solid var(--border)', paddingTop: '1rem', marginBottom: '1rem' }}>
+                  {beer.description}
+                </p>
+              )}
+              {avgRating !== null && (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  <span style={{ color: 'var(--gold)' }}>{'★'.repeat(Math.round(avgRating))}{'☆'.repeat(5 - Math.round(avgRating))}</span>
+                  {' '}{avgRating}/5 · {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}
+                </p>
+              )}
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/mughhs.webp"
+              alt="Hallowed Hop Society"
+              style={{ width: '100%', height: 'auto', opacity: 0.9 }}
+            />
+          )}
+        </div>
       </section>
 
       {/* Countdown or rating section */}

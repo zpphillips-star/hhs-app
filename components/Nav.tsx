@@ -22,7 +22,7 @@ export default function Nav({ user }: Props) {
   const links = [
     { href: '/', label: 'Home' },
     { href: '/beers', label: 'Beer Calendar' },
-    { href: '/leaderboard', label: 'Members' },
+    { href: '/leaderboard', label: 'Rankings' },
   ]
 
   return (

@@ -1,20 +1,15 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Modern+Antiqua&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
 
 :root {
-  --bg: #141422;
-  --bg-card: #1c1c2e;
-  --text: #e8dcc8;
-  --text-muted: #8a7f6e;
-  --gold: #c8843c;
-  --gold-light: #e8a84c;
-  --gold-dim: rgba(200, 132, 60, 0.15);
-  --border: rgba(200, 132, 60, 0.2);
-}
-
-@theme inline {
-  --font-sans: var(--font-crimson);
-  --font-display: var(--font-cinzel);
+  --bg: #191726;
+  --bg-card: #201d30;
+  --text: #d9d8d2;
+  --text-muted: #7a7468;
+  --gold: #d97c2b;
+  --gold-light: #e8953a;
+  --gold-dim: rgba(217, 124, 43, 0.12);
+  --border: rgba(217, 124, 43, 0.18);
 }
 
 * { box-sizing: border-box; }
@@ -22,14 +17,18 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Crimson Text', Georgia, serif;
-  font-size: 18px;
-  line-height: 1.6;
+  font-family: 'Modern Antiqua', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.7;
 }
 
 h1, h2, h3, h4, .font-display {
-  font-family: 'Cinzel', serif;
-  letter-spacing: 0.02em;
+  font-family: 'Modern Antiqua', serif;
+  letter-spacing: 0.03em;
+}
+
+input, textarea, button {
+  font-family: 'Modern Antiqua', Georgia, serif;
 }
 
 /* Scrollbar */

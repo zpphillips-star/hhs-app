@@ -43,7 +43,7 @@ export default function AuthPage() {
 
   const labelStyle = {
     display: 'block',
-    fontFamily: "'Cinzel', serif",
+    fontFamily: "'Modern Antiqua', serif",
     fontSize: '0.65rem',
     letterSpacing: '0.2em',
     color: 'var(--text-muted)',
@@ -55,8 +55,8 @@ export default function AuthPage() {
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
       <div style={{ width: '100%', maxWidth: '400px' }}>
         <div className="text-center mb-10">
-          <Image src="/hhs-logo-8.25-1.png" alt="HHS" width={100} height={100} className="mx-auto mb-4 opacity-90" />
-          <h1 style={{ fontFamily: "'Cinzel', serif", color: 'var(--text)', fontSize: '1.5rem', fontWeight: 700, letterSpacing: '0.1em' }}>
+          <Image src="/hhs_no_circles_300dpi.webp" alt="HHS" width={100} height={100} className="mx-auto mb-4 opacity-90" />
+          <h1 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.5rem', fontWeight: 700, letterSpacing: '0.1em' }}>
             Hallowed Hop Society
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', fontStyle: 'italic' }}>Members Only</p>
@@ -72,7 +72,7 @@ export default function AuthPage() {
                 style={{
                   flex: 1,
                   padding: '0.6rem',
-                  fontFamily: "'Cinzel', serif",
+                  fontFamily: "'Modern Antiqua', serif",
                   fontSize: '0.7rem',
                   letterSpacing: '0.2em',
                   textTransform: 'uppercase',
@@ -113,7 +113,7 @@ export default function AuthPage() {
               style={{
                 background: loading ? 'var(--text-muted)' : 'var(--gold)',
                 color: 'var(--bg)',
-                fontFamily: "'Cinzel', serif",
+                fontFamily: "'Modern Antiqua', serif",
                 fontSize: '0.75rem',
                 letterSpacing: '0.2em',
                 padding: '0.875rem',
@@ -133,3 +133,4 @@ export default function AuthPage() {
     </div>
   )
 }
+

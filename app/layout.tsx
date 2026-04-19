@@ -1,18 +1,11 @@
 import type { Metadata } from "next";
-import { Cinzel, Crimson_Text } from "next/font/google";
+import { Modern_Antiqua } from "next/font/google";
 import "./globals.css";
 
-const cinzel = Cinzel({
-  variable: "--font-cinzel",
+const modernAntiqua = Modern_Antiqua({
+  variable: "--font-modern-antiqua",
   subsets: ["latin"],
-  weight: ["400", "600", "700", "900"],
-});
-
-const crimsonText = Crimson_Text({
-  variable: "--font-crimson",
-  subsets: ["latin"],
-  weight: ["400", "600"],
-  style: ["normal", "italic"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -26,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${cinzel.variable} ${crimsonText.variable} h-full`}>
+    <html lang="en" className={`${modernAntiqua.variable} h-full`}>
       <body className="min-h-full flex flex-col" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
         {children}
       </body>

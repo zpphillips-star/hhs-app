@@ -29,8 +29,8 @@ export default function Nav({ user }: Props) {
     <nav style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }} className="px-6 py-4">
       <div className="container mx-auto max-w-6xl flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
-          <Image src="/hhs-logo-8.25-1.png" alt="HHS" width={44} height={44} className="opacity-90" />
-          <span style={{ fontFamily: "'Cinzel', serif", color: 'var(--gold)', fontSize: '0.75rem', letterSpacing: '0.3em' }} className="uppercase hidden sm:block">
+          <Image src="/hhs_no_circles_300dpi.webp" alt="HHS" width={44} height={44} className="opacity-90" />
+          <span style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: '0.75rem', letterSpacing: '0.3em' }} className="uppercase hidden sm:block">
             HHS
           </span>
         </Link>
@@ -41,7 +41,7 @@ export default function Nav({ user }: Props) {
               key={link.href}
               href={link.href}
               style={{
-                fontFamily: "'Cinzel', serif",
+                fontFamily: "'Modern Antiqua', serif",
                 color: pathname === link.href ? 'var(--gold)' : 'var(--text-muted)',
                 fontSize: '0.75rem',
                 letterSpacing: '0.15em',
@@ -54,7 +54,7 @@ export default function Nav({ user }: Props) {
           {user ? (
             <button
               onClick={signOut}
-              style={{ fontFamily: "'Cinzel', serif", color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.15em' }}
+              style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.15em' }}
               className="uppercase tracking-wider transition-colors hover:text-[var(--gold)]"
             >
               Sign Out
@@ -62,7 +62,7 @@ export default function Nav({ user }: Props) {
           ) : (
             <Link
               href="/auth"
-              style={{ fontFamily: "'Cinzel', serif", color: 'var(--gold)', fontSize: '0.75rem', letterSpacing: '0.15em' }}
+              style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: '0.75rem', letterSpacing: '0.15em' }}
               className="uppercase tracking-wider"
             >
               Members Only
@@ -73,3 +73,4 @@ export default function Nav({ user }: Props) {
     </nav>
   )
 }
+

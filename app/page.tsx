@@ -94,7 +94,7 @@ export default function HomePage() {
       <section className="container mx-auto max-w-6xl px-6 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         {/* Left: text */}
         <div>
-          <h1 style={{ fontFamily: "'Cinzel', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1, fontWeight: 900 }}>
+          <h1 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1, fontWeight: 900 }}>
             HALLOWED<br />HOP SOCIETY
           </h1>
           <div style={{ width: '4rem', height: '2px', background: 'var(--gold)', margin: '1.5rem 0' }} />
@@ -111,7 +111,7 @@ export default function HomePage() {
           <div className="flex gap-4 mt-6">
             <Link
               href="/beers"
-              style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Cinzel', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.5rem', fontWeight: 700 }}
+              style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.5rem', fontWeight: 700 }}
               className="uppercase tracking-widest transition-opacity hover:opacity-80"
             >
               Beer Calendar
@@ -119,7 +119,7 @@ export default function HomePage() {
             {!user && (
               <Link
                 href="/auth"
-                style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Cinzel', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.5rem' }}
+                style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.5rem' }}
                 className="uppercase tracking-widest transition-opacity hover:opacity-80"
               >
                 Join the Society
@@ -132,10 +132,10 @@ export default function HomePage() {
         <div className="flex justify-center items-center">
           {isOctober && beer ? (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', maxWidth: '420px', width: '100%' }}>
-              <div style={{ color: 'var(--gold)', fontFamily: "'Cinzel', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">
+              <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">
                 Day {beer.day_number} · October {beer.day_number}
               </div>
-              <h2 style={{ fontFamily: "'Cinzel', serif", color: 'var(--text)', fontSize: '1.75rem', lineHeight: 1.2, marginBottom: '0.5rem' }}>
+              <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.75rem', lineHeight: 1.2, marginBottom: '0.5rem' }}>
                 {beer.name}
               </h2>
               <p style={{ color: 'var(--gold)', fontSize: '1.1rem', marginBottom: '0.75rem' }}>{beer.brewery}</p>
@@ -156,10 +156,10 @@ export default function HomePage() {
             </div>
           ) : (
             <Image
-              src="/hhs-logo-8.25-1.png"
+              src="/mughhs.webp"
               alt="Hallowed Hop Society"
-              width={420}
-              height={420}
+              width={480}
+              height={480}
               className="opacity-90 max-w-full"
               style={{ maxWidth: '380px' }}
             />
@@ -174,7 +174,7 @@ export default function HomePage() {
       <section className="container mx-auto max-w-6xl px-6 py-16">
         {!isOctober ? (
           <div className="text-center">
-            <p style={{ color: 'var(--text-muted)', fontFamily: "'Cinzel', serif", fontSize: '0.75rem', letterSpacing: '0.3em', marginBottom: '2rem' }} className="uppercase">
+            <p style={{ color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.3em', marginBottom: '2rem' }} className="uppercase">
               The ritual begins in
             </p>
             <div className="flex justify-center gap-8 mb-12">
@@ -185,7 +185,7 @@ export default function HomePage() {
                 { val: countdown.seconds, label: 'Second(s)' },
               ].map(({ val, label }) => (
                 <div key={label} className="text-center">
-                  <div style={{ fontFamily: "'Cinzel', serif", color: 'var(--gold)', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 700, lineHeight: 1 }}>
+                  <div style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 700, lineHeight: 1 }}>
                     {pad(val)}
                   </div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.15em', marginTop: '0.5rem' }} className="uppercase">
@@ -195,12 +195,12 @@ export default function HomePage() {
               ))}
             </div>
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '3rem' }}>
-              <h2 style={{ fontFamily: "'Cinzel', serif", color: 'var(--text)', fontSize: '1.75rem', marginBottom: '2rem', fontWeight: 700, letterSpacing: '0.1em' }}>
+              <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.75rem', marginBottom: '2rem', fontWeight: 700, letterSpacing: '0.1em' }}>
                 WANT TO JOIN THE SOCIETY?
               </h2>
               <Link
                 href="/auth"
-                style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Cinzel', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.875rem 2.5rem', fontWeight: 700 }}
+                style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.875rem 2.5rem', fontWeight: 700 }}
                 className="uppercase tracking-widest inline-block hover:opacity-80 transition-opacity"
               >
                 I Want In
@@ -209,7 +209,7 @@ export default function HomePage() {
           </div>
         ) : isOctober && !loading && beer && user ? (
           <div className="max-w-xl mx-auto">
-            <h2 style={{ fontFamily: "'Cinzel', serif", color: 'var(--text)', fontSize: '1.25rem', marginBottom: '1.5rem', letterSpacing: '0.1em' }}>
+            <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.25rem', marginBottom: '1.5rem', letterSpacing: '0.1em' }}>
               {userRating ? 'Your Rating' : 'Rate Today&apos;s Beer'}
             </h2>
             <StarRating initialStars={userRating?.stars} initialNotes={userRating?.notes || ''} onSubmit={handleRate} />
@@ -219,7 +219,7 @@ export default function HomePage() {
             <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '1.1rem' }}>Sign in to rate today&apos;s beer and track your progress.</p>
             <Link
               href="/auth"
-              style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Cinzel', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 2rem' }}
+              style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 2rem' }}
               className="uppercase inline-block hover:opacity-80 transition-opacity"
             >
               Members Only
@@ -230,3 +230,5 @@ export default function HomePage() {
     </div>
   )
 }
+
+

@@ -74,7 +74,7 @@ export default function StarRating({ initialStars, initialNotes = '', onSubmit }
           background: saved ? 'transparent' : !stars || saving ? 'transparent' : 'var(--gold)',
           border: saved ? '1px solid var(--text-muted)' : '1px solid var(--gold)',
           color: saved ? 'var(--text-muted)' : !stars || saving ? 'var(--text-muted)' : 'var(--bg)',
-          fontFamily: "'Cinzel', serif",
+          fontFamily: "'Modern Antiqua', serif",
           fontSize: '0.7rem',
           letterSpacing: '0.2em',
           padding: '0.625rem 1.5rem',
@@ -87,3 +87,4 @@ export default function StarRating({ initialStars, initialNotes = '', onSubmit }
     </div>
   )
 }
+

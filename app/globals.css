@@ -10,6 +10,9 @@
   --gold-light: #e8953a;
   --gold-dim: rgba(217, 124, 43, 0.12);
   --border: rgba(217, 124, 43, 0.18);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
 }
 
 * { box-sizing: border-box; }
@@ -29,6 +32,7 @@ h1, h2, h3, h4, .font-display {
 
 input, textarea, button {
   font-family: 'Modern Antiqua', Georgia, serif;
+  border-radius: var(--radius-sm);
 }
 
 /* Scrollbar */

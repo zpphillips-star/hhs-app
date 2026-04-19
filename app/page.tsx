@@ -108,10 +108,10 @@ export default function HomePage() {
           <blockquote style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '1.25rem', margin: '1.5rem 0', fontStyle: 'italic', color: 'var(--gold)', fontSize: '1.15rem' }}>
             Through ritual we pour, through hops we unite.
           </blockquote>
-          <div className="flex gap-4 mt-6">
+          <div className="flex gap-4 mt-6 flex-wrap">
             <Link
               href="/beers"
-              style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.5rem', fontWeight: 700 }}
+              style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '8px' }}
               className="uppercase tracking-widest transition-opacity hover:opacity-80"
             >
               Beer Calendar
@@ -119,7 +119,7 @@ export default function HomePage() {
             {!user && (
               <Link
                 href="/auth"
-                style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.5rem' }}
+                style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.75rem', borderRadius: '8px' }}
                 className="uppercase tracking-widest transition-opacity hover:opacity-80"
               >
                 Join the Society
@@ -131,7 +131,7 @@ export default function HomePage() {
         {/* Right: logo or beer */}
         <div className="flex justify-center items-center">
           {isOctober && beer ? (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', maxWidth: '420px', width: '100%' }}>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', maxWidth: '420px', width: '100%', borderRadius: '16px' }}>
               <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">
                 Day {beer.day_number} · October {beer.day_number}
               </div>
@@ -158,10 +158,10 @@ export default function HomePage() {
             <Image
               src="/mughhs.webp"
               alt="Hallowed Hop Society"
-              width={480}
-              height={480}
+              width={600}
+              height={600}
               className="opacity-90 max-w-full"
-              style={{ maxWidth: '380px' }}
+              style={{ maxWidth: '600px', width: '100%' }}
             />
           )}
         </div>
@@ -174,18 +174,19 @@ export default function HomePage() {
       <section className="container mx-auto max-w-6xl px-6 py-16">
         {!isOctober ? (
           <div className="text-center">
+            <div style={{ borderTop: '1px solid var(--border)', marginBottom: '2.5rem' }} />
             <p style={{ color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.3em', marginBottom: '2rem' }} className="uppercase">
               The ritual begins in
             </p>
-            <div className="flex justify-center gap-8 mb-12">
+            <div className="flex justify-center gap-8 mb-8">
               {[
-                { val: countdown.days, label: 'Day(s)' },
-                { val: countdown.hours, label: 'Hour(s)' },
-                { val: countdown.minutes, label: 'Minute(s)' },
-                { val: countdown.seconds, label: 'Second(s)' },
+                { val: countdown.days, label: 'Days' },
+                { val: countdown.hours, label: 'Hours' },
+                { val: countdown.minutes, label: 'Minutes' },
+                { val: countdown.seconds, label: 'Seconds' },
               ].map(({ val, label }) => (
                 <div key={label} className="text-center">
-                  <div style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 700, lineHeight: 1 }}>
+                  <div style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', fontWeight: 700, lineHeight: 1 }}>
                     {pad(val)}
                   </div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.15em', marginTop: '0.5rem' }} className="uppercase">
@@ -200,7 +201,7 @@ export default function HomePage() {
               </h2>
               <Link
                 href="/auth"
-                style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.875rem 2.5rem', fontWeight: 700 }}
+                style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.875rem 2.5rem', fontWeight: 700, borderRadius: '8px' }}
                 className="uppercase tracking-widest inline-block hover:opacity-80 transition-opacity"
               >
                 I Want In

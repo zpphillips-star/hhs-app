@@ -39,6 +39,7 @@ export default function AuthPage() {
     fontSize: '1rem',
     fontFamily: "'Crimson Text', Georgia, serif",
     outline: 'none',
+    borderRadius: 'var(--radius-sm)',
   }
 
   const labelStyle = {
@@ -62,7 +63,7 @@ export default function AuthPage() {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', fontStyle: 'italic' }}>Members Only</p>
         </div>
 
-        <div style={{ border: '1px solid var(--border)', padding: '2rem', background: 'var(--bg-card)' }}>
+        <div style={{ border: '1px solid var(--border)', padding: '2rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
           {/* Mode toggle */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '2rem' }}>
             {(['login', 'signup'] as const).map(m => (
@@ -123,6 +124,7 @@ export default function AuthPage() {
                 border: 'none',
                 width: '100%',
                 transition: 'opacity 0.2s',
+                borderRadius: 'var(--radius-sm)',
               }}
             >
               {loading ? 'One moment...' : mode === 'login' ? 'Enter the Circle' : 'Take the Oath'}

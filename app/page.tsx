@@ -90,9 +90,9 @@ export default function HomePage() {
       <Nav user={user} />
 
       {/* Hero section — 2 col: text left, mug right (matches Divi Fullwidth Header) */}
-      <section className="container mx-auto max-w-6xl px-6 py-16" style={{ display: 'flex', gap: '3rem', alignItems: 'flex-start' }}>
+      <section className="container mx-auto px-8 py-16" style={{ maxWidth: '1400px', display: 'flex', gap: '4rem', alignItems: 'flex-start' }}>
 
-        {/* Left: title + body text */}
+        {/* Left: title + body text — wider so lines feel free */}
         <div style={{ flex: '1 1 0', minWidth: 0 }}>
           <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', lineHeight: 1.05, fontWeight: 900, marginBottom: '1.5rem' }}>
             HALLOWED<br />HOP SOCIETY
@@ -118,8 +118,8 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Right: mug fills full column */}
-        <div style={{ flex: '0 0 48%', maxWidth: '560px' }}>
+        {/* Right: mug — 38% so text gets more room */}
+        <div style={{ flex: '0 0 38%', maxWidth: '500px' }}>
           {isOctober && beer ? (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', borderRadius: '16px' }}>
               <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">

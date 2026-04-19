@@ -29,7 +29,9 @@ export default function Nav({ user }: Props) {
     <nav style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }} className="px-6 py-4">
       <div className="container mx-auto max-w-6xl flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
-          <Image src="/hhs_no_circles_300dpi.webp" alt="HHS" width={44} height={44} className="opacity-90" />
+          <div style={{ width: '44px', height: '28px', overflow: 'hidden' }}>
+            <Image src="/hhs_no_circles_300dpi.webp" alt="HHS" width={44} height={44} className="opacity-90" style={{ marginTop: '-2px' }} />
+          </div>
         </Link>
 
         <div className="flex items-center gap-6">

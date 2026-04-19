@@ -449,96 +449,127 @@ export default function BeersPage() {
                   color: 'var(--text)',
                   fontSize: 'clamp(1.75rem, 4vw, 2.75rem)',
                   lineHeight: 1.1,
-                  marginBottom: '0.4rem',
+                  marginBottom: '1.5rem',
                 }}>
                   {todayBeer.name}
                 </h1>
 
-                <p style={{ color: 'var(--gold)', fontSize: '1.1rem', marginBottom: '0.4rem', fontFamily: "'Modern Antiqua', serif" }}>
-                  {todayBeer.brewery}
-                </p>
+                {/* ── RATING (moved up) ─────────────────────────────────── */}
+                <div style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  padding: '1.1rem 1.5rem',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1.5rem',
+                  flexWrap: 'wrap',
+                }}>
+                  {/* Community avg */}
+                  <div>
+                    <div style={{
+                      color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                      fontSize: '0.58rem', letterSpacing: '0.28em',
+                      textTransform: 'uppercase', marginBottom: '0.4rem',
+                    }}>Society Rating</div>
+                    {avgRating !== null ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ color: 'var(--gold)', fontSize: '1.2rem' }}>
+                          {'★'.repeat(Math.round(avgRating))}{'☆'.repeat(5 - Math.round(avgRating))}
+                        </span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                          {avgRating} / 5 · {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No ratings yet</span>
+                    )}
+                  </div>
 
-                {(todayBeer.style || todayBeer.abv) && (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
-                    {todayBeer.style}{todayBeer.style && todayBeer.abv ? ' · ' : ''}{todayBeer.abv ? `${todayBeer.abv}% ABV` : ''}
-                  </p>
-                )}
+                  {/* Divider */}
+                  <div style={{ width: '1px', height: '2rem', background: 'var(--border)', flexShrink: 0 }} />
 
-                {/* AI Tasting Notes */}
+                  {/* Your rating */}
+                  <div style={{ flex: 1, minWidth: '160px' }}>
+                    <div style={{
+                      color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                      fontSize: '0.58rem', letterSpacing: '0.28em',
+                      textTransform: 'uppercase', marginBottom: '0.4rem',
+                    }}>
+                      {userRating ? 'Your Rating' : 'Rate This Beer'}
+                    </div>
+                    {todayBeer.id === 'preview-space-dust' ? (
+                      <StarRating onSubmit={async () => {}} />
+                    ) : userRating ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ color: 'var(--gold)', fontSize: '1.4rem', letterSpacing: '0.08em' }}>
+                          {'★'.repeat(userRating.stars)}{'☆'.repeat(5 - userRating.stars)}
+                        </span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{userRating.stars} / 5</span>
+                      </div>
+                    ) : user ? (
+                      <StarRating onSubmit={async (stars) => { await handleRate(stars) }} />
+                    ) : (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
+                        <a href="/auth" style={{ color: 'var(--gold)' }}>Sign in</a> to rate
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── BREWERY INFO ──────────────────────────────────────── */}
                 <div style={{
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border)',
                   borderRadius: '12px',
                   padding: '1.25rem 1.5rem',
-                  marginBottom: '1.5rem',
+                  marginBottom: '1rem',
                 }}>
                   <div style={{
                     color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
-                    fontSize: '0.62rem', letterSpacing: '0.28em',
-                    textTransform: 'uppercase', marginBottom: '0.65rem',
+                    fontSize: '0.58rem', letterSpacing: '0.28em',
+                    textTransform: 'uppercase', marginBottom: '0.75rem',
+                  }}>
+                    The Brewery
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    <span style={{
+                      color: 'var(--text)',
+                      fontFamily: "'Modern Antiqua', serif",
+                      fontSize: '1.15rem',
+                      fontWeight: 600,
+                    }}>
+                      {todayBeer.brewery}
+                    </span>
+                    {(todayBeer.style || todayBeer.abv) && (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                        {todayBeer.style}{todayBeer.style && todayBeer.abv ? ' · ' : ''}{todayBeer.abv ? `${todayBeer.abv}% ABV` : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── TASTING NOTES ─────────────────────────────────────── */}
+                <div style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  padding: '1.25rem 1.5rem',
+                  marginBottom: '2rem',
+                }}>
+                  <div style={{
+                    color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '0.58rem', letterSpacing: '0.28em',
+                    textTransform: 'uppercase', marginBottom: '0.75rem',
                   }}>
                     Tasting Notes
                   </div>
-                  <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.8, fontStyle: 'italic', margin: 0 }}>
+                  <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.85, fontStyle: 'italic', margin: 0 }}>
                     {todayBeer.ai_notes ||
                       "Tasting notes coming soon — the society's chronicler is still studying the brew..."}
                   </p>
                 </div>
-
-                {/* Community rating */}
-                {avgRating !== null && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
-                    <span style={{ color: 'var(--gold)', fontSize: '1.1rem' }}>
-                      {'★'.repeat(Math.round(avgRating))}{'☆'.repeat(5 - Math.round(avgRating))}
-                    </span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                      {avgRating} / 5 · {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}
-                    </span>
-                  </div>
-                )}
-
-                {/* Your rating */}
-                {todayBeer.id === 'preview-space-dust' ? (
-                  <div style={{ marginBottom: '2rem' }}>
-                    <div style={{
-                      color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif",
-                      fontSize: '0.65rem', letterSpacing: '0.25em',
-                      textTransform: 'uppercase', marginBottom: '0.65rem',
-                    }}>
-                      Rate Today&apos;s Beer
-                    </div>
-                    <StarRating onSubmit={async () => {}} />
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '0.5rem', fontStyle: 'italic' }}>
-                      ✦ Preview mode — ratings save once the beer is added via Admin
-                    </p>
-                  </div>
-                ) : user ? (
-                  <div style={{ marginBottom: '2rem' }}>
-                    <div style={{
-                      color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif",
-                      fontSize: '0.65rem', letterSpacing: '0.25em',
-                      textTransform: 'uppercase', marginBottom: '0.65rem',
-                    }}>
-                      {userRating ? 'Your Rating' : "Rate Today's Beer"}
-                    </div>
-                    {userRating ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ color: 'var(--gold)', fontSize: '1.6rem', letterSpacing: '0.1em' }}>
-                          {'★'.repeat(userRating.stars)}{'☆'.repeat(5 - userRating.stars)}
-                        </span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                          {userRating.stars} / 5
-                        </span>
-                      </div>
-                    ) : (
-                      <StarRating onSubmit={async (stars) => { await handleRate(stars) }} />
-                    )}
-                  </div>
-                ) : (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>
-                    <a href="/auth" style={{ color: 'var(--gold)' }}>Sign in</a> to rate today&apos;s beer.
-                  </p>
-                )}
 
                 {/* Post box */}
                 {user && (

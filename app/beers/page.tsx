@@ -70,7 +70,7 @@ export default function BeersPage() {
             {/* ── CALENDAR VIEW (desktop) ── */}
             <div className="hhs-calendar-view">
               {/* Month header */}
-              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ marginBottom: '1rem' }}>
                 <span style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: '1.1rem', letterSpacing: '0.3em', textTransform: 'uppercase' }}>
                   October {year}
                 </span>
@@ -98,10 +98,10 @@ export default function BeersPage() {
                   return (
                     <div key={day} style={{
                       background: 'var(--bg-card)',
-                      border: `1px solid ${isToday ? 'var(--gold)' : 'var(--border)'}`,
+                      border: `1px solid ${isToday ? 'var(--gold)' : 'rgba(217,124,43,0.35)'}`,
                       borderRadius: '10px',
                       padding: '0.6rem',
-                      minHeight: '100px',
+                      minHeight: '75px',
                       display: 'flex',
                       flexDirection: 'column',
                       boxShadow: isToday ? '0 0 0 1px var(--gold)' : 'none',
@@ -112,7 +112,7 @@ export default function BeersPage() {
                         fontFamily: "'Modern Antiqua', serif",
                         fontSize: '0.85rem',
                         fontWeight: 700,
-                        color: isToday ? 'var(--gold)' : 'var(--text-muted)',
+                        color: isToday ? 'var(--gold)' : 'var(--text)',
                         marginBottom: '0.35rem',
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -136,7 +136,7 @@ export default function BeersPage() {
                           </div>
                         </>
                       ) : (
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontStyle: 'italic', marginTop: 'auto' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontStyle: 'italic' }}>
                           To be revealed...
                         </div>
                       )}

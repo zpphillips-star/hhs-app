@@ -98,7 +98,7 @@ export default function HomePage() {
           <img
             src="/mughhs.webp"
             alt="Hallowed Hop Society"
-            style={{ float: 'right', width: '42%', maxWidth: '560px', minWidth: '280px', height: 'auto', marginLeft: '3rem', marginBottom: '1rem', opacity: 0.9 }}
+            style={{ float: 'right', width: '48%', maxWidth: '640px', minWidth: '280px', height: 'auto', marginLeft: '3rem', marginTop: '3rem', marginBottom: '1rem', opacity: 0.9 }}
           />
         )}
         {isOctober && beer && (

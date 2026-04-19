@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Cinzel, Crimson_Text } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const cinzel = Cinzel({
+  variable: "--font-cinzel",
   subsets: ["latin"],
+  weight: ["400", "600", "700", "900"],
+});
+
+const crimsonText = Crimson_Text({
+  variable: "--font-crimson",
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
-  title: "Hallowed Hop Society — 31 Beers of October",
-  description: "Rate 31 beers across 31 days of October. Spooky season, hoppy vibes.",
+  title: "Hallowed Hop Society — XXXI",
+  description: "31 unique beers in 31 haunted days. Through ritual we pour, through hops we unite.",
 };
 
 export default function RootLayout({
@@ -18,8 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#0d0b0f]">{children}</body>
+    <html lang="en" className={`${cinzel.variable} ${crimsonText.variable} h-full`}>
+      <body className="min-h-full flex flex-col" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+        {children}
+      </body>
     </html>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
@@ -16,106 +17,115 @@ export default function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-    setMessage('')
-
+    setLoading(true); setError(''); setMessage('')
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { username } },
-      })
-      if (error) {
-        setError(error.message)
-      } else {
-        setMessage('Check your email to confirm your account, then sign in.')
-      }
+      const { error } = await supabase.auth.signUp({ email, password, options: { data: { username } } })
+      if (error) setError(error.message)
+      else setMessage('Check your email to confirm your account, then sign in.')
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) {
-        setError(error.message)
-      } else {
-        router.push('/')
-        router.refresh()
-      }
+      if (error) setError(error.message)
+      else { router.push('/'); router.refresh() }
     }
-
     setLoading(false)
   }
 
+  const inputStyle = {
+    width: '100%',
+    background: 'var(--bg)',
+    border: '1px solid var(--border)',
+    color: 'var(--text)',
+    padding: '0.75rem 1rem',
+    fontSize: '1rem',
+    fontFamily: "'Crimson Text', Georgia, serif",
+    outline: 'none',
+  }
+
+  const labelStyle = {
+    display: 'block',
+    fontFamily: "'Cinzel', serif",
+    fontSize: '0.65rem',
+    letterSpacing: '0.2em',
+    color: 'var(--text-muted)',
+    marginBottom: '0.4rem',
+    textTransform: 'uppercase' as const,
+  }
+
   return (
-    <div className="min-h-screen bg-[#0d0b0f] flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-3">🎃</div>
-          <h1 className="text-2xl font-bold text-orange-400">Hallowed Hop Society</h1>
-          <p className="text-gray-500 text-sm mt-1">31 Beers of October</p>
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+        <div className="text-center mb-10">
+          <Image src="/hhs-logo-8.25-1.png" alt="HHS" width={100} height={100} className="mx-auto mb-4 opacity-90" />
+          <h1 style={{ fontFamily: "'Cinzel', serif", color: 'var(--text)', fontSize: '1.5rem', fontWeight: 700, letterSpacing: '0.1em' }}>
+            Hallowed Hop Society
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', fontStyle: 'italic' }}>Members Only</p>
         </div>
 
-        <div className="bg-[#1a1520] border border-purple-900/60 rounded-2xl p-6">
-          <div className="flex bg-[#0d0b0f] rounded-lg p-1 mb-6">
+        <div style={{ border: '1px solid var(--border)', padding: '2rem', background: 'var(--bg-card)' }}>
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '2rem' }}>
             {(['login', 'signup'] as const).map(m => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
-                  mode === m ? 'bg-orange-500 text-black' : 'text-gray-400 hover:text-white'
-                }`}
+                style={{
+                  flex: 1,
+                  padding: '0.6rem',
+                  fontFamily: "'Cinzel', serif",
+                  fontSize: '0.7rem',
+                  letterSpacing: '0.2em',
+                  textTransform: 'uppercase',
+                  borderBottom: mode === m ? '2px solid var(--gold)' : '2px solid transparent',
+                  color: mode === m ? 'var(--gold)' : 'var(--text-muted)',
+                  background: 'none',
+                  cursor: 'pointer',
+                  transition: 'color 0.2s',
+                }}
               >
-                {m === 'login' ? 'Sign In' : 'Create Account'}
+                {m === 'login' ? 'Sign In' : 'Join the Society'}
               </button>
             ))}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {mode === 'signup' && (
               <div>
-                <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Username</label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  required
-                  className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
-                  placeholder="spookybrewer"
-                />
+                <label style={labelStyle}>Oath Name (Username)</label>
+                <input type="text" value={username} onChange={e => setUsername(e.target.value)} required style={inputStyle} placeholder="Choose your society name" />
               </div>
             )}
-
             <div>
-              <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
-                placeholder="you@example.com"
-              />
+              <label style={labelStyle}>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={inputStyle} placeholder="your@email.com" />
+            </div>
+            <div>
+              <label style={labelStyle}>Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required style={inputStyle} placeholder="••••••••" />
             </div>
 
-            <div>
-              <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {error && <p className="text-red-400 text-sm">{error}</p>}
-            {message && <p className="text-green-400 text-sm">{message}</p>}
+            {error && <p style={{ color: '#e57373', fontSize: '0.9rem' }}>{error}</p>}
+            {message && <p style={{ color: '#81c784', fontSize: '0.9rem' }}>{message}</p>}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold py-2.5 rounded-lg transition-colors"
+              style={{
+                background: loading ? 'var(--text-muted)' : 'var(--gold)',
+                color: 'var(--bg)',
+                fontFamily: "'Cinzel', serif",
+                fontSize: '0.75rem',
+                letterSpacing: '0.2em',
+                padding: '0.875rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                border: 'none',
+                width: '100%',
+                transition: 'opacity 0.2s',
+              }}
             >
-              {loading ? 'Loading...' : mode === 'login' ? 'Sign In' : 'Create Account'}
+              {loading ? 'One moment...' : mode === 'login' ? 'Enter the Circle' : 'Take the Oath'}
             </button>
           </form>
         </div>

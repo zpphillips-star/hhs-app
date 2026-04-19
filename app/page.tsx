@@ -6,6 +6,7 @@ import type { Beer, Rating } from '@/lib/types'
 import StarRating from '@/components/StarRating'
 import Nav from '@/components/Nav'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function HomePage() {
   const [beer, setBeer] = useState<Beer | null>(null)
@@ -14,10 +15,30 @@ export default function HomePage() {
   const [userRating, setUserRating] = useState<Rating | null>(null)
   const [avgRating, setAvgRating] = useState<number | null>(null)
   const [ratingCount, setRatingCount] = useState(0)
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
 
   const today = new Date()
   const isOctober = today.getMonth() === 9
   const dayNumber = isOctober ? today.getDate() : null
+
+  // Countdown to Oct 1
+  useEffect(() => {
+    if (isOctober) return
+    const tick = () => {
+      const now = new Date()
+      const oct1 = new Date(now.getFullYear(), 9, 1)
+      if (now > oct1) oct1.setFullYear(oct1.getFullYear() + 1)
+      const diff = oct1.getTime() - now.getTime()
+      const days = Math.floor(diff / 86400000)
+      const hours = Math.floor((diff % 86400000) / 3600000)
+      const minutes = Math.floor((diff % 3600000) / 60000)
+      const seconds = Math.floor((diff % 60000) / 1000)
+      setCountdown({ days, hours, minutes, seconds })
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [isOctober])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
@@ -63,77 +84,149 @@ export default function HomePage() {
     setUserRating(data)
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0d0b0f] flex items-center justify-center">
-        <div className="text-orange-400 text-xl animate-pulse">Loading...</div>
-      </div>
-    )
-  }
+  const pad = (n: number) => String(n).padStart(2, '0')
 
   return (
-    <div className="min-h-screen bg-[#0d0b0f]">
+    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <Nav user={user} />
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-orange-400 mb-1">Hallowed Hop Society</h1>
-          <p className="text-purple-400 text-sm tracking-widest uppercase">31 Beers of October</p>
-        </div>
 
-        {!isOctober ? (
-          <div className="text-center py-16">
-            <div className="text-8xl mb-4">🍺</div>
-            <h2 className="text-2xl font-bold text-orange-400 mb-2">October is Coming</h2>
-            <p className="text-gray-400 mb-6">The 31 Beers of October challenge starts October 1st. One beer per day, all month long.</p>
-            <div className="flex gap-4 justify-center text-sm">
-              <Link href="/beers" className="text-orange-400 hover:text-orange-300 underline">Browse Beer List</Link>
-              <Link href="/leaderboard" className="text-orange-400 hover:text-orange-300 underline">Leaderboard</Link>
-            </div>
-          </div>
-        ) : !beer ? (
-          <div className="text-center py-16">
-            <div className="text-8xl mb-4">🕯️</div>
-            <h2 className="text-2xl font-bold text-orange-400 mb-2">Day {dayNumber} Not Yet Revealed</h2>
-            <p className="text-gray-400">Check back soon — today&apos;s beer is being selected.</p>
-          </div>
-        ) : (
-          <div>
-            <div className="text-center mb-5">
-              <span className="bg-orange-500 text-black font-bold text-xs px-3 py-1.5 rounded-full uppercase tracking-widest">
-                Day {beer.day_number} · October {beer.day_number}
-              </span>
-            </div>
-            <div className="bg-[#1a1520] border border-purple-900/60 rounded-2xl p-6 mb-4">
-              <h2 className="text-3xl font-bold text-white mb-1">{beer.name}</h2>
-              <p className="text-orange-400 text-lg mb-2">{beer.brewery}</p>
-              <div className="flex gap-3 text-sm text-gray-500 mb-4">
-                {beer.style && <span>{beer.style}</span>}
-                {beer.abv && <><span>·</span><span>{beer.abv}% ABV</span></>}
-              </div>
-              {beer.description && (
-                <p className="text-gray-400 text-sm leading-relaxed border-t border-purple-900/40 pt-4">{beer.description}</p>
-              )}
-              {avgRating !== null && (
-                <div className="flex items-center gap-2 text-sm text-gray-500 mt-4 pt-4 border-t border-purple-900/40">
-                  <span className="text-orange-400">{'★'.repeat(Math.round(avgRating))}{'☆'.repeat(5 - Math.round(avgRating))}</span>
-                  <span>{avgRating} / 5 · {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}</span>
-                </div>
-              )}
-            </div>
-            {user ? (
-              <div className="bg-[#1a1520] border border-purple-900/60 rounded-2xl p-6">
-                <h3 className="text-white font-semibold mb-4">{userRating ? '✅ Your Rating' : '⭐ Rate This Beer'}</h3>
-                <StarRating initialStars={userRating?.stars} initialNotes={userRating?.notes || ''} onSubmit={handleRate} />
-              </div>
-            ) : (
-              <div className="text-center py-8 bg-[#1a1520] border border-purple-900/60 rounded-2xl">
-                <p className="text-gray-400 mb-4">Sign in to rate today&apos;s beer</p>
-                <Link href="/auth" className="bg-orange-500 hover:bg-orange-400 text-black font-bold py-2.5 px-6 rounded-lg transition-colors text-sm">Sign In</Link>
-              </div>
+      {/* Hero section */}
+      <section className="container mx-auto max-w-6xl px-6 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        {/* Left: text */}
+        <div>
+          <h1 style={{ fontFamily: "'Cinzel', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1, fontWeight: 900 }}>
+            HALLOWED<br />HOP SOCIETY
+          </h1>
+          <div style={{ width: '4rem', height: '2px', background: 'var(--gold)', margin: '1.5rem 0' }} />
+          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+            As October&apos;s chill creeps in and shadows grow long, a devoted fellowship rises to honor the sacred tradition of the hop.
+          </p>
+          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+            <strong>The Hallowed Hop Society</strong> is an annual gathering of beer enthusiasts who embark on a solemn (and slightly ridiculous) ritual:{' '}
+            <em>31 unique beers in 31 haunted days.</em> No repeats. No excuses.
+          </p>
+          <blockquote style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '1.25rem', margin: '1.5rem 0', fontStyle: 'italic', color: 'var(--gold)', fontSize: '1.15rem' }}>
+            Through ritual we pour, through hops we unite.
+          </blockquote>
+          <div className="flex gap-4 mt-6">
+            <Link
+              href="/beers"
+              style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Cinzel', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.5rem', fontWeight: 700 }}
+              className="uppercase tracking-widest transition-opacity hover:opacity-80"
+            >
+              Beer Calendar
+            </Link>
+            {!user && (
+              <Link
+                href="/auth"
+                style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Cinzel', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.5rem' }}
+                className="uppercase tracking-widest transition-opacity hover:opacity-80"
+              >
+                Join the Society
+              </Link>
             )}
           </div>
-        )}
-      </main>
+        </div>
+
+        {/* Right: logo or beer */}
+        <div className="flex justify-center items-center">
+          {isOctober && beer ? (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', maxWidth: '420px', width: '100%' }}>
+              <div style={{ color: 'var(--gold)', fontFamily: "'Cinzel', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">
+                Day {beer.day_number} · October {beer.day_number}
+              </div>
+              <h2 style={{ fontFamily: "'Cinzel', serif", color: 'var(--text)', fontSize: '1.75rem', lineHeight: 1.2, marginBottom: '0.5rem' }}>
+                {beer.name}
+              </h2>
+              <p style={{ color: 'var(--gold)', fontSize: '1.1rem', marginBottom: '0.75rem' }}>{beer.brewery}</p>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                {beer.style}{beer.style && beer.abv ? ' · ' : ''}{beer.abv ? `${beer.abv}% ABV` : ''}
+              </div>
+              {beer.description && (
+                <p style={{ color: 'var(--text)', fontSize: '1rem', lineHeight: 1.7, borderTop: '1px solid var(--border)', paddingTop: '1rem', marginBottom: '1rem' }}>
+                  {beer.description}
+                </p>
+              )}
+              {avgRating !== null && (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  <span style={{ color: 'var(--gold)' }}>{'★'.repeat(Math.round(avgRating))}{'☆'.repeat(5 - Math.round(avgRating))}</span>
+                  {' '}{avgRating}/5 · {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}
+                </p>
+              )}
+            </div>
+          ) : (
+            <Image
+              src="/hhs-logo-8.25-1.png"
+              alt="Hallowed Hop Society"
+              width={420}
+              height={420}
+              className="opacity-90 max-w-full"
+              style={{ maxWidth: '380px' }}
+            />
+          )}
+        </div>
+      </section>
+
+      {/* Divider */}
+      <div style={{ borderTop: '1px solid var(--border)', margin: '0 auto', maxWidth: '72rem' }} />
+
+      {/* Countdown or rating section */}
+      <section className="container mx-auto max-w-6xl px-6 py-16">
+        {!isOctober ? (
+          <div className="text-center">
+            <p style={{ color: 'var(--text-muted)', fontFamily: "'Cinzel', serif", fontSize: '0.75rem', letterSpacing: '0.3em', marginBottom: '2rem' }} className="uppercase">
+              The ritual begins in
+            </p>
+            <div className="flex justify-center gap-8 mb-12">
+              {[
+                { val: countdown.days, label: 'Day(s)' },
+                { val: countdown.hours, label: 'Hour(s)' },
+                { val: countdown.minutes, label: 'Minute(s)' },
+                { val: countdown.seconds, label: 'Second(s)' },
+              ].map(({ val, label }) => (
+                <div key={label} className="text-center">
+                  <div style={{ fontFamily: "'Cinzel', serif", color: 'var(--gold)', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 700, lineHeight: 1 }}>
+                    {pad(val)}
+                  </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.15em', marginTop: '0.5rem' }} className="uppercase">
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '3rem' }}>
+              <h2 style={{ fontFamily: "'Cinzel', serif", color: 'var(--text)', fontSize: '1.75rem', marginBottom: '2rem', fontWeight: 700, letterSpacing: '0.1em' }}>
+                WANT TO JOIN THE SOCIETY?
+              </h2>
+              <Link
+                href="/auth"
+                style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Cinzel', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.875rem 2.5rem', fontWeight: 700 }}
+                className="uppercase tracking-widest inline-block hover:opacity-80 transition-opacity"
+              >
+                I Want In
+              </Link>
+            </div>
+          </div>
+        ) : isOctober && !loading && beer && user ? (
+          <div className="max-w-xl mx-auto">
+            <h2 style={{ fontFamily: "'Cinzel', serif", color: 'var(--text)', fontSize: '1.25rem', marginBottom: '1.5rem', letterSpacing: '0.1em' }}>
+              {userRating ? 'Your Rating' : 'Rate Today&apos;s Beer'}
+            </h2>
+            <StarRating initialStars={userRating?.stars} initialNotes={userRating?.notes || ''} onSubmit={handleRate} />
+          </div>
+        ) : isOctober && !user ? (
+          <div className="text-center">
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '1.1rem' }}>Sign in to rate today&apos;s beer and track your progress.</p>
+            <Link
+              href="/auth"
+              style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Cinzel', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 2rem' }}
+              className="uppercase inline-block hover:opacity-80 transition-opacity"
+            >
+              Members Only
+            </Link>
+          </div>
+        ) : null}
+      </section>
     </div>
   )
 }

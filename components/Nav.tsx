@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import Image from 'next/image'
 
 type Props = {
-  user: { email?: string } | null
+  user: { id: string; email?: string } | null
 }
 
 export default function Nav({ user }: Props) {
@@ -19,49 +20,52 @@ export default function Nav({ user }: Props) {
   }
 
   const links = [
-    { href: '/', label: '🎃 Today' },
-    { href: '/beers', label: '🍺 Beers' },
-    { href: '/leaderboard', label: '🏆 Board' },
+    { href: '/', label: 'Home' },
+    { href: '/beers', label: 'Beer Calendar' },
+    { href: '/leaderboard', label: 'Members' },
   ]
 
   return (
-    <nav className="bg-[#0d0b0f] border-b border-purple-900/60 px-4 py-3">
-      <div className="container mx-auto max-w-2xl flex items-center justify-between">
-        <div className="flex gap-4">
+    <nav style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }} className="px-6 py-4">
+      <div className="container mx-auto max-w-6xl flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-3">
+          <Image src="/hhs-logo-8.25-1.png" alt="HHS" width={44} height={44} className="opacity-90" />
+          <span style={{ fontFamily: "'Cinzel', serif", color: 'var(--gold)', fontSize: '0.75rem', letterSpacing: '0.3em' }} className="uppercase hidden sm:block">
+            HHS
+          </span>
+        </Link>
+
+        <div className="flex items-center gap-6">
           {links.map(link => (
             <Link
               key={link.href}
               href={link.href}
-              className={`text-sm font-medium transition-colors ${
-                pathname === link.href
-                  ? 'text-orange-400'
-                  : 'text-gray-500 hover:text-orange-300'
-              }`}
+              style={{
+                fontFamily: "'Cinzel', serif",
+                color: pathname === link.href ? 'var(--gold)' : 'var(--text-muted)',
+                fontSize: '0.75rem',
+                letterSpacing: '0.15em',
+              }}
+              className="uppercase tracking-wider transition-colors hover:text-[var(--gold)]"
             >
               {link.label}
             </Link>
           ))}
-        </div>
-
-        <div className="flex items-center gap-3">
           {user ? (
-            <>
-              <span className="text-gray-600 text-xs hidden sm:block">
-                {user.email?.split('@')[0]}
-              </span>
-              <button
-                onClick={signOut}
-                className="text-xs text-gray-500 hover:text-red-400 transition-colors"
-              >
-                Sign out
-              </button>
-            </>
+            <button
+              onClick={signOut}
+              style={{ fontFamily: "'Cinzel', serif", color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.15em' }}
+              className="uppercase tracking-wider transition-colors hover:text-[var(--gold)]"
+            >
+              Sign Out
+            </button>
           ) : (
             <Link
               href="/auth"
-              className="text-sm text-orange-400 hover:text-orange-300 font-medium"
+              style={{ fontFamily: "'Cinzel', serif", color: 'var(--gold)', fontSize: '0.75rem', letterSpacing: '0.15em' }}
+              className="uppercase tracking-wider"
             >
-              Sign in
+              Members Only
             </Link>
           )}
         </div>

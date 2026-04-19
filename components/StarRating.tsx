@@ -25,15 +25,23 @@ export default function StarRating({ initialStars, initialNotes = '', onSubmit }
 
   return (
     <div>
-      <div className="flex gap-1 mb-4">
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
         {[1, 2, 3, 4, 5].map(n => (
           <button
             key={n}
             onClick={() => { setStars(n); setSaved(false) }}
             onMouseEnter={() => setHover(n)}
             onMouseLeave={() => setHover(0)}
-            className="text-4xl transition-transform hover:scale-110 leading-none"
-            style={{ color: n <= (hover || stars) ? '#f97316' : '#4b5563' }}
+            style={{
+              fontSize: '2.25rem',
+              color: n <= (hover || stars) ? 'var(--gold)' : 'var(--text-muted)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              lineHeight: 1,
+              transition: 'transform 0.1s, color 0.1s',
+              transform: hover === n ? 'scale(1.15)' : 'scale(1)',
+            }}
           >
             ★
           </button>
@@ -43,17 +51,38 @@ export default function StarRating({ initialStars, initialNotes = '', onSubmit }
       <textarea
         value={notes}
         onChange={e => { setNotes(e.target.value); setSaved(false) }}
-        placeholder="Tasting notes (optional)..."
-        className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg p-3 text-gray-300 text-sm placeholder-gray-600 resize-none focus:outline-none focus:border-orange-500 mb-3"
+        placeholder="Tasting notes, observations, lore..."
         rows={3}
+        style={{
+          width: '100%',
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          color: 'var(--text)',
+          padding: '0.75rem 1rem',
+          fontSize: '1rem',
+          fontFamily: "'Crimson Text', Georgia, serif",
+          resize: 'vertical',
+          outline: 'none',
+          marginBottom: '1rem',
+        }}
       />
 
       <button
         onClick={handleSubmit}
         disabled={!stars || saving || saved}
-        className="bg-orange-500 hover:bg-orange-400 disabled:bg-gray-800 disabled:text-gray-600 text-black font-bold py-2 px-5 rounded-lg transition-colors text-sm"
+        style={{
+          background: saved ? 'transparent' : !stars || saving ? 'transparent' : 'var(--gold)',
+          border: saved ? '1px solid var(--text-muted)' : '1px solid var(--gold)',
+          color: saved ? 'var(--text-muted)' : !stars || saving ? 'var(--text-muted)' : 'var(--bg)',
+          fontFamily: "'Cinzel', serif",
+          fontSize: '0.7rem',
+          letterSpacing: '0.2em',
+          padding: '0.625rem 1.5rem',
+          textTransform: 'uppercase',
+          cursor: !stars || saving || saved ? 'not-allowed' : 'pointer',
+        }}
       >
-        {saving ? 'Saving...' : saved ? '✓ Saved' : 'Submit Rating'}
+        {saving ? 'Recording...' : saved ? '✓ Recorded' : 'Submit Rating'}
       </button>
     </div>
   )

@@ -30,9 +30,6 @@ export default function Nav({ user }: Props) {
       <div className="container mx-auto max-w-6xl flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
           <Image src="/hhs_no_circles_300dpi.webp" alt="HHS" width={44} height={44} className="opacity-90" />
-          <span style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: '0.75rem', letterSpacing: '0.3em' }} className="uppercase hidden sm:block">
-            HHS
-          </span>
         </Link>
 
         <div className="flex items-center gap-6">

@@ -54,13 +54,6 @@ export default function BeersPage() {
       <Nav user={user} />
       <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '3rem 2rem' }}>
 
-        <div style={{ marginBottom: '2.5rem' }}>
-          <h1 style={headerStyle}>31 Beers of October</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', letterSpacing: '0.05em' }}>
-            {beers.length} of 31 beers entered
-          </p>
-        </div>
-
         {loading ? (
           <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", textAlign: 'center', padding: '3rem 0' }}>
             Loading the sacred list...

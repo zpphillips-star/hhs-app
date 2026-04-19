@@ -91,55 +91,11 @@ export default function HomePage() {
       <Nav user={user} />
 
       {/* Hero section */}
-      <section className="container mx-auto max-w-6xl px-6 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-        {/* Left: text */}
-        <div>
-          <h1 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1, fontWeight: 900 }}>
-            HALLOWED<br />HOP SOCIETY
-          </h1>
-          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem', marginTop: '1.5rem' }}>
-            As October&apos;s chill creeps in and shadows grow long, a devoted fellowship rises to honor the sacred tradition of the hop.
-          </p>
-          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
-            <strong>The Hallowed Hop Society</strong> is an annual gathering of beer enthusiasts who embark on a solemn (and slightly ridiculous) ritual:{' '}
-            <em>31 unique beers in 31 haunted days.</em> No repeats. No excuses. Just pure, unfiltered reverence for the craft of brewing.
-          </p>
-          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
-            Each year brings a new theme, a new lineup of brews, and new initiates brave enough to take the oath. From spiced pumpkin ales to bone-chilling stouts, we drink not just for the flavor—but for the fellowship.
-          </p>
-          <blockquote style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '1.25rem', margin: '1.5rem 0', color: 'var(--text)', fontSize: '1.15rem', fontWeight: 700 }}>
-            Through ritual we pour, through hops we unite.
-          </blockquote>
-          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '0.25rem' }}>
-            We are a society of the sip, the story, and the sacred pour.
-          </p>
-          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1.5rem' }}>
-            If you&apos;ve got a taste for adventure (and good beer), your place at the circle awaits.
-          </p>
-          <div className="flex gap-4 mt-6 flex-wrap">
-            <Link
-              href="/beers"
-              style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '8px' }}
-              className="uppercase tracking-widest transition-opacity hover:opacity-80"
-            >
-              Beer Calendar
-            </Link>
-            {!user && (
-              <Link
-                href="/auth"
-                style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.75rem', borderRadius: '8px' }}
-                className="uppercase tracking-widest transition-opacity hover:opacity-80"
-              >
-                Join the Society
-              </Link>
-            )}
-          </div>
-        </div>
-
-        {/* Right: logo or beer */}
-        <div className="flex justify-center items-center">
+      <section className="container mx-auto max-w-6xl px-6 py-16" style={{ overflow: 'hidden' }}>
+        {/* Mug floated right — text wraps around it */}
+        <div style={{ float: 'right', marginLeft: '2.5rem', marginBottom: '1rem' }}>
           {isOctober && beer ? (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', maxWidth: '420px', width: '100%', borderRadius: '16px' }}>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', width: '420px', borderRadius: '16px' }}>
               <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">
                 Day {beer.day_number} · October {beer.day_number}
               </div>
@@ -168,9 +124,51 @@ export default function HomePage() {
               alt="Hallowed Hop Society"
               width={600}
               height={600}
-              className="opacity-90 max-w-full"
-              style={{ maxWidth: '600px', width: '100%' }}
+              className="opacity-90"
+              style={{ width: '45vw', maxWidth: '620px', minWidth: '320px', height: 'auto' }}
             />
+          )}
+        </div>
+
+        {/* Text flows around the float */}
+        <h1 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1, fontWeight: 900, marginBottom: '1.5rem' }}>
+          HALLOWED<br />HOP SOCIETY
+        </h1>
+        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+          As October&apos;s chill creeps in and shadows grow long, a devoted fellowship rises to honor the sacred tradition of the hop.
+        </p>
+        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+          <strong>The Hallowed Hop Society</strong> is an annual gathering of beer enthusiasts who embark on a solemn (and slightly ridiculous) ritual:{' '}
+          <em>31 unique beers in 31 haunted days.</em> No repeats. No excuses. Just pure, unfiltered reverence for the craft of brewing.
+        </p>
+        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+          Each year brings a new theme, a new lineup of brews, and new initiates brave enough to take the oath. From spiced pumpkin ales to bone-chilling stouts, we drink not just for the flavor—but for the fellowship.
+        </p>
+        <blockquote style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '1.25rem', margin: '1.5rem 0', color: 'var(--text)', fontSize: '1.15rem', fontWeight: 700 }}>
+          Through ritual we pour, through hops we unite.
+        </blockquote>
+        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '0.25rem' }}>
+          We are a society of the sip, the story, and the sacred pour.
+        </p>
+        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1.5rem' }}>
+          If you&apos;ve got a taste for adventure (and good beer), your place at the circle awaits.
+        </p>
+        <div className="flex gap-4 flex-wrap" style={{ clear: 'none' }}>
+          <Link
+            href="/beers"
+            style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '8px' }}
+            className="uppercase tracking-widest transition-opacity hover:opacity-80"
+          >
+            Beer Calendar
+          </Link>
+          {!user && (
+            <Link
+              href="/auth"
+              style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.75rem', borderRadius: '8px' }}
+              className="uppercase tracking-widest transition-opacity hover:opacity-80"
+            >
+              Join the Society
+            </Link>
           )}
         </div>
       </section>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Beer, Rating } from '@/lib/types'
 import StarRating from '@/components/StarRating'
@@ -8,6 +9,7 @@ import Nav from '@/components/Nav'
 import Link from 'next/link'
 
 export default function HomePage() {
+  const router = useRouter()
   const [beer, setBeer] = useState<Beer | null>(null)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
@@ -40,12 +42,17 @@ export default function HomePage() {
   }, [isOctober])
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+      // Logged-in members go straight to the daily ritual during October
+      if (user && isOctober) router.replace('/beers')
+    })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+      if (session?.user && isOctober) router.replace('/beers')
     })
     return () => subscription.unsubscribe()
-  }, [])
+  }, [isOctober, router])
 
   useEffect(() => {
     const fetchBeer = async () => {

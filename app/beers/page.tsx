@@ -27,18 +27,25 @@ export default function BeersPage() {
   const todayDay = isOctober ? today.getDate() : null
 
   return (
-    <div className="min-h-screen bg-[#0d0b0f]">
+    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <Nav user={user} />
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-orange-400">🍺 31 Beers of October</h1>
-          <p className="text-gray-500 text-sm mt-1">{beers.length} of 31 beers entered</p>
+      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '3rem 2rem' }}>
+
+        <div style={{ marginBottom: '2.5rem' }}>
+          <h1 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 900, lineHeight: 1.1, marginBottom: '0.5rem' }}>
+            31 Beers of October
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', letterSpacing: '0.05em' }}>
+            {beers.length} of 31 beers entered
+          </p>
         </div>
 
         {loading ? (
-          <div className="text-center text-orange-400 animate-pulse py-12">Loading beers...</div>
+          <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", textAlign: 'center', padding: '3rem 0' }}>
+            Loading the sacred list...
+          </p>
         ) : (
-          <div className="space-y-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {slots.map(day => {
               const beer = beerMap[day]
               const isToday = day === todayDay
@@ -47,32 +54,64 @@ export default function BeersPage() {
               return (
                 <div
                   key={day}
-                  className={`bg-[#1a1520] border rounded-xl p-4 flex items-center gap-4 transition-colors ${
-                    isToday ? 'border-orange-500' : 'border-purple-900/40 hover:border-purple-700'
-                  }`}
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: `1px solid ${isToday ? 'var(--gold)' : 'var(--border)'}`,
+                    borderRadius: '12px',
+                    padding: '1rem 1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    boxShadow: isToday ? '0 0 0 1px var(--gold)' : 'none',
+                  }}
                 >
-                  <div className={`text-xl font-bold w-7 text-center shrink-0 ${
-                    isToday ? 'text-orange-400' : isPast ? 'text-gray-500' : 'text-gray-700'
-                  }`}>
+                  {/* Day number */}
+                  <div style={{
+                    fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '1.25rem',
+                    fontWeight: 700,
+                    width: '2rem',
+                    textAlign: 'center',
+                    flexShrink: 0,
+                    color: isToday ? 'var(--gold)' : isPast ? 'var(--text-muted)' : 'var(--border)',
+                  }}>
                     {day}
                   </div>
 
                   {beer ? (
-                    <div className="flex-1 min-w-0">
-                      <div className="text-white font-semibold truncate">{beer.name}</div>
-                      <div className="text-orange-400 text-sm truncate">{beer.brewery}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: 'var(--text)', fontWeight: 600, fontFamily: "'Modern Antiqua', serif", fontSize: '1.05rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {beer.name}
+                      </div>
+                      <div style={{ color: 'var(--gold)', fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {beer.brewery}
+                      </div>
                       {(beer.style || beer.abv) && (
-                        <div className="text-gray-600 text-xs">
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                           {beer.style}{beer.style && beer.abv ? ' · ' : ''}{beer.abv ? `${beer.abv}% ABV` : ''}
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="flex-1 text-gray-700 italic text-sm">To be revealed...</div>
+                    <div style={{ flex: 1, color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                      To be revealed...
+                    </div>
                   )}
 
                   {isToday && (
-                    <span className="text-xs bg-orange-500 text-black font-bold px-2 py-0.5 rounded-full shrink-0">TODAY</span>
+                    <span style={{
+                      background: 'var(--gold)',
+                      color: 'var(--bg)',
+                      fontSize: '0.65rem',
+                      fontFamily: "'Modern Antiqua', serif",
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: '999px',
+                      flexShrink: 0,
+                    }}>
+                      TODAY
+                    </span>
                   )}
                 </div>
               )

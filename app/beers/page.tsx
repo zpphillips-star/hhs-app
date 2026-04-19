@@ -454,7 +454,39 @@ export default function BeersPage() {
                   {todayBeer.name}
                 </h1>
 
-                {/* ── RATING (moved up) ─────────────────────────────────── */}
+                {/* ── BREWERY INFO ──────────────────────────────────────── */}
+                <div style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  padding: '1.25rem 1.5rem',
+                  marginBottom: '1rem',
+                }}>
+                  <div style={{
+                    color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '0.58rem', letterSpacing: '0.28em',
+                    textTransform: 'uppercase', marginBottom: '0.75rem',
+                  }}>
+                    The Brewery
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    <span style={{
+                      color: 'var(--text)',
+                      fontFamily: "'Modern Antiqua', serif",
+                      fontSize: '1.15rem',
+                      fontWeight: 600,
+                    }}>
+                      {todayBeer.brewery}
+                    </span>
+                    {(todayBeer.style || todayBeer.abv) && (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                        {todayBeer.style}{todayBeer.style && todayBeer.abv ? ' · ' : ''}{todayBeer.abv ? `${todayBeer.abv}% ABV` : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── RATING ────────────────────────────────────────────── */}
                 <div style={{
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border)',
@@ -514,38 +546,6 @@ export default function BeersPage() {
                       <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
                         <a href="/auth" style={{ color: 'var(--gold)' }}>Sign in</a> to rate
                       </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* ── BREWERY INFO ──────────────────────────────────────── */}
-                <div style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '12px',
-                  padding: '1.25rem 1.5rem',
-                  marginBottom: '1rem',
-                }}>
-                  <div style={{
-                    color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
-                    fontSize: '0.58rem', letterSpacing: '0.28em',
-                    textTransform: 'uppercase', marginBottom: '0.75rem',
-                  }}>
-                    The Brewery
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                    <span style={{
-                      color: 'var(--text)',
-                      fontFamily: "'Modern Antiqua', serif",
-                      fontSize: '1.15rem',
-                      fontWeight: 600,
-                    }}>
-                      {todayBeer.brewery}
-                    </span>
-                    {(todayBeer.style || todayBeer.abv) && (
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                        {todayBeer.style}{todayBeer.style && todayBeer.abv ? ' · ' : ''}{todayBeer.abv ? `${todayBeer.abv}% ABV` : ''}
-                      </span>
                     )}
                   </div>
                 </div>

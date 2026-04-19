@@ -494,9 +494,8 @@ export default function BeersPage() {
                   padding: '1.1rem 1.5rem',
                   marginBottom: '1rem',
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: '1.5rem',
-                  flexWrap: 'wrap',
+                  flexDirection: 'column',
+                  gap: '1rem',
                 }}>
                   {/* Community avg */}
                   <div>
@@ -519,11 +518,11 @@ export default function BeersPage() {
                     )}
                   </div>
 
-                  {/* Divider */}
-                  <div style={{ width: '1px', height: '2rem', background: 'var(--border)', flexShrink: 0 }} />
+                  {/* Horizontal divider */}
+                  <div style={{ height: '1px', background: 'var(--border)' }} />
 
                   {/* Your rating */}
-                  <div style={{ flex: 1, minWidth: '160px' }}>
+                  <div>
                     <div style={{
                       color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
                       fontSize: '0.58rem', letterSpacing: '0.28em',

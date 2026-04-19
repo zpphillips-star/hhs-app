@@ -63,10 +63,11 @@ export default function BeersPage() {
             {/* ── CALENDAR VIEW (desktop) ── */}
             <div className="hhs-calendar-view">
               {/* Month header */}
-              <div style={{ marginBottom: '1rem' }}>
-                <span style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: '1.1rem', letterSpacing: '0.3em', textTransform: 'uppercase' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <div style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
                   October {year}
-                </span>
+                </div>
+                <div style={{ width: '6rem', height: '2px', background: 'var(--gold)', margin: '0 auto', opacity: 0.6 }} />
               </div>
 
               {/* Day-of-week headers */}
@@ -89,7 +90,7 @@ export default function BeersPage() {
                   const isPast = todayDay ? day < todayDay : false
 
                   return (
-                    <div key={day} style={{
+                    <div key={day} className="hhs-cal-cell" style={{
                       background: 'var(--bg-card)',
                       border: `1px solid ${isToday ? 'var(--gold)' : 'var(--border)'}`,
                       borderRadius: '10px',

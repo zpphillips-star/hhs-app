@@ -98,10 +98,10 @@ export default function BeersPage() {
                   return (
                     <div key={day} style={{
                       background: 'var(--bg-card)',
-                      border: `1px solid ${isToday ? 'var(--gold)' : 'rgba(217,124,43,0.35)'}`,
+                      border: `1px solid ${isToday ? 'var(--gold)' : 'var(--border)'}`,
                       borderRadius: '10px',
                       padding: '0.6rem',
-                      minHeight: '75px',
+                      minHeight: '100px',
                       display: 'flex',
                       flexDirection: 'column',
                       boxShadow: isToday ? '0 0 0 1px var(--gold)' : 'none',
@@ -136,7 +136,7 @@ export default function BeersPage() {
                           </div>
                         </>
                       ) : (
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontStyle: 'italic' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontStyle: 'italic', marginTop: 'auto' }}>
                           To be revealed...
                         </div>
                       )}

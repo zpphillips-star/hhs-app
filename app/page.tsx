@@ -194,7 +194,7 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '3rem' }}>
+            <div style={{ borderTop: '3px solid var(--gold)', paddingTop: '3rem' }}>
               <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.75rem', marginBottom: '2rem', fontWeight: 700, letterSpacing: '0.1em' }}>
                 WANT TO JOIN THE SOCIETY?
               </h2>

@@ -150,24 +150,6 @@ export default function HomePage() {
         <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1.5rem' }}>
           If you&apos;ve got a taste for adventure (and good beer), your place at the circle awaits.
         </p>
-        <div className="flex gap-4 flex-wrap" style={{ clear: 'left' }}>
-          <Link
-            href="/beers"
-            style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '8px' }}
-            className="uppercase tracking-widest transition-opacity hover:opacity-80"
-          >
-            Beer Calendar
-          </Link>
-          {!user && (
-            <Link
-              href="/auth"
-              style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 1.75rem', borderRadius: '8px' }}
-              className="uppercase tracking-widest transition-opacity hover:opacity-80"
-            >
-              Join the Society
-            </Link>
-          )}
-        </div>
       </section>
 
       {/* Countdown or rating section */}

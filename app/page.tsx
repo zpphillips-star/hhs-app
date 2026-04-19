@@ -118,8 +118,8 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Right: mug — 38% so text gets more room */}
-        <div style={{ flex: '0 0 38%', maxWidth: '500px' }}>
+        {/* Right: mug — 53% (40% bigger than before) */}
+        <div style={{ flex: '0 0 53%', maxWidth: '700px' }}>
           {isOctober && beer ? (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', borderRadius: '16px' }}>
               <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">

@@ -200,13 +200,31 @@ function PostCard({
   )
 }
 
+// ── PREVIEW MODE ─────────────────────────────────────────────────────────────
+// TODO: Remove PREVIEW_MODE and PREVIEW_BEER before October launch
+const PREVIEW_MODE = true
+
+const PREVIEW_BEER = {
+  id: 'preview-space-dust',
+  day_number: 19,
+  name: 'Space Dust IPA',
+  brewery: 'Elysian Brewing',
+  style: 'IPA',
+  abv: 8.2,
+  description: 'A hazy, hop-forward IPA from Seattle\'s Elysian Brewing.',
+  image_url: null,
+  ai_notes: "Pours a radiant deep amber with a pillowy off-white head. The nose launches you straight into the cosmos — a tropical supernova of mango, tangerine, and fresh-cut pine resin. On the palate, a wave of citrus peel crashes first, followed by a smooth, almost creamy malt backbone that keeps the bitterness from spiraling out of orbit. The finish is long, resinous, and lightly warming at 8.2% ABV. A beer that earns its name: bold enough to feel interstellar, balanced enough to keep you grounded. Drink it fresh, drink it cold, drink it like you've earned it.",
+  created_at: new Date().toISOString(),
+} as Beer
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function BeersPage() {
   const today    = new Date()
-  const isOctober = today.getMonth() === 9
+  // In PREVIEW_MODE, treat today as an active beer day regardless of month
+  const isOctober = today.getMonth() === 9 || PREVIEW_MODE
   const year      = today.getFullYear()
-  const todayDay  = isOctober ? today.getDate() : null
+  const todayDay  = today.getDate()
   const oct1DOW   = new Date(year, 9, 1).getDay()
 
   const [user,         setUser]         = useState<{ id: string; email?: string } | null>(null)
@@ -241,7 +259,9 @@ export default function BeersPage() {
     supabase.from('beers').select('*').order('day_number').then(({ data }) => {
       const list = data || []
       setBeers(list)
-      if (todayDay) setTodayBeer(list.find(b => b.day_number === todayDay) ?? null)
+      const found = list.find(b => b.day_number === todayDay)
+      // In PREVIEW_MODE, fall back to hardcoded Space Dust if no DB beer for today
+      setTodayBeer(found ?? (PREVIEW_MODE ? PREVIEW_BEER : null))
       setLoading(false)
     })
   }, [todayDay])
@@ -249,6 +269,8 @@ export default function BeersPage() {
   // ── Load ratings + posts for today's beer ───────────────────────────────────
   useEffect(() => {
     if (!todayBeer) return
+    // Skip DB calls for preview-only beer (no real UUID in DB)
+    if (todayBeer.id === 'preview-space-dust') return
     supabase.from('ratings').select('stars').eq('beer_id', todayBeer.id).then(({ data }) => {
       if (data && data.length > 0) {
         const avg = data.reduce((s, r) => s + r.stars, 0) / data.length
@@ -262,7 +284,7 @@ export default function BeersPage() {
 
   // ── User's own rating for today ─────────────────────────────────────────────
   useEffect(() => {
-    if (!user || !todayBeer) return
+    if (!user || !todayBeer || todayBeer.id === 'preview-space-dust') return
     supabase.from('ratings').select('*')
       .eq('user_id', user.id).eq('beer_id', todayBeer.id)
       .maybeSingle()
@@ -281,7 +303,7 @@ export default function BeersPage() {
 
   // ── Rate today's beer ───────────────────────────────────────────────────────
   const handleRate = async (stars: number) => {
-    if (!user || !todayBeer || userRating) return
+    if (!user || !todayBeer || userRating || todayBeer.id === 'preview-space-dust') return
     const { data } = await supabase
       .from('ratings')
       .insert({ user_id: user.id, beer_id: todayBeer.id, stars })
@@ -311,7 +333,7 @@ export default function BeersPage() {
 
   // ── Submit post ─────────────────────────────────────────────────────────────
   const handleSubmitPost = async () => {
-    if (!user || !todayBeer || !postContent.trim() || submitting) return
+    if (!user || !todayBeer || !postContent.trim() || submitting || todayBeer.id === 'preview-space-dust') return
     setSubmitting(true)
     let photoUrl: string | null = null
     if (postPhoto) {
@@ -402,7 +424,23 @@ export default function BeersPage() {
                   fontSize: '0.65rem', letterSpacing: '0.35em', marginBottom: '0.75rem',
                   textTransform: 'uppercase',
                 }}>
-                  Day {todayBeer.day_number} · October {todayBeer.day_number}, {year}
+                  {today.getMonth() === 9
+                    ? `Day ${todayBeer.day_number} · October ${todayBeer.day_number}, ${year}`
+                    : today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+                  }
+                  {todayBeer.id === 'preview-space-dust' && (
+                    <span style={{
+                      marginLeft: '0.75rem',
+                      background: 'rgba(255,140,0,0.15)',
+                      color: 'var(--gold)',
+                      border: '1px solid rgba(255,140,0,0.3)',
+                      borderRadius: '4px',
+                      padding: '1px 6px',
+                      fontSize: '0.55rem',
+                      letterSpacing: '0.2em',
+                      verticalAlign: 'middle',
+                    }}>PREVIEW</span>
+                  )}
                 </div>
 
                 {/* Beer name */}
@@ -460,7 +498,21 @@ export default function BeersPage() {
                 )}
 
                 {/* Your rating */}
-                {user ? (
+                {todayBeer.id === 'preview-space-dust' ? (
+                  <div style={{ marginBottom: '2rem' }}>
+                    <div style={{
+                      color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif",
+                      fontSize: '0.65rem', letterSpacing: '0.25em',
+                      textTransform: 'uppercase', marginBottom: '0.65rem',
+                    }}>
+                      Rate Today&apos;s Beer
+                    </div>
+                    <StarRating onSubmit={async () => {}} />
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '0.5rem', fontStyle: 'italic' }}>
+                      ✦ Preview mode — ratings save once the beer is added via Admin
+                    </p>
+                  </div>
+                ) : user ? (
                   <div style={{ marginBottom: '2rem' }}>
                     <div style={{
                       color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif",

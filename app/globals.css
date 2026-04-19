@@ -35,7 +35,15 @@ input, textarea, button {
   border-radius: var(--radius-sm);
 }
 
-/* Scrollbar */
+/* Responsive calendar/list toggle */
+.hhs-calendar-view { display: block; }
+.hhs-list-view { display: none; }
+
+@media (max-width: 860px) {
+  .hhs-calendar-view { display: none; }
+  .hhs-list-view { display: block; }
+}
+
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 3px; }

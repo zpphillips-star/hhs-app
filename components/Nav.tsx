@@ -20,9 +20,9 @@ export default function Nav({ user }: Props) {
   }
 
   const links = [
-    { href: '/', label: 'Home' },
-    { href: '/beers', label: 'Beer Calendar' },
-    { href: '/leaderboard', label: 'Rankings' },
+    { href: '/beers', label: 'The Beer' },
+    { href: '/wall', label: 'The Wall' },
+    { href: '/leaderboard', label: 'The Rankings' },
   ]
 
   return (

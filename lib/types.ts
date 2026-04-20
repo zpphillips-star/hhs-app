@@ -7,7 +7,6 @@ export type Beer = {
   abv: number | null
   description: string | null
   image_url: string | null
-  ai_notes: string | null
   created_at: string
 }
 

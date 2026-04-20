@@ -211,9 +211,8 @@ const PREVIEW_BEER = {
   brewery: 'Elysian Brewing',
   style: 'IPA',
   abv: 8.2,
-  description: 'A hazy, hop-forward IPA from Seattle\'s Elysian Brewing.',
+  description: "A tropical supernova of mango, tangerine, and fresh-cut pine resin with a smooth malt backbone that keeps the bitterness in orbit. Bold at 8.2% ABV — drink it cold, drink it like you've earned it.",
   image_url: null,
-  ai_notes: "Pours a radiant deep amber with a pillowy off-white head. The nose launches you straight into the cosmos — a tropical supernova of mango, tangerine, and fresh-cut pine resin. On the palate, a wave of citrus peel crashes first, followed by a smooth, almost creamy malt backbone that keeps the bitterness from spiraling out of orbit. The finish is long, resinous, and lightly warming at 8.2% ABV. A beer that earns its name: bold enough to feel interstellar, balanced enough to keep you grounded. Drink it fresh, drink it cold, drink it like you've earned it.",
   created_at: new Date().toISOString(),
 } as Beer
 
@@ -245,7 +244,8 @@ export default function BeersPage() {
   const [modalBeer,    setModalBeer]    = useState<Beer | null>(null)
   const [modalRating,  setModalRating]  = useState<Rating | null>(null)
 
-  const fileRef = useRef<HTMLInputElement>(null)
+  const fileRef   = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -303,10 +303,10 @@ export default function BeersPage() {
 
   // ── Rate today's beer ───────────────────────────────────────────────────────
   const handleRate = async (stars: number) => {
-    if (!user || !todayBeer || userRating || todayBeer.id === 'preview-space-dust') return
+    if (!user || !todayBeer || todayBeer.id === 'preview-space-dust') return
     const { data } = await supabase
       .from('ratings')
-      .insert({ user_id: user.id, beer_id: todayBeer.id, stars })
+      .upsert({ user_id: user.id, beer_id: todayBeer.id, stars }, { onConflict: 'user_id,beer_id' })
       .select().maybeSingle()
     setUserRating(data)
     const { data: ratings } = await supabase.from('ratings').select('stars').eq('beer_id', todayBeer.id)
@@ -328,7 +328,8 @@ export default function BeersPage() {
   const clearPhoto = () => {
     setPostPhoto(null)
     setPhotoPreview(null)
-    if (fileRef.current) fileRef.current.value = ''
+    if (fileRef.current)   fileRef.current.value = ''
+    if (cameraRef.current) cameraRef.current.value = ''
   }
 
   // ── Submit post ─────────────────────────────────────────────────────────────
@@ -345,12 +346,18 @@ export default function BeersPage() {
         photoUrl = publicUrl
       }
     }
-    await supabase.from('posts').insert({
+    const { error: postError } = await supabase.from('posts').insert({
       user_id: user.id,
       beer_id: todayBeer.id,
       content: postContent.trim(),
       photo_url: photoUrl,
     })
+    if (postError) {
+      console.error('Post insert error:', postError)
+      alert('Failed to post: ' + postError.message)
+      setSubmitting(false)
+      return
+    }
     setPostContent('')
     clearPhoto()
     await loadPosts(todayBeer.id)
@@ -417,6 +424,25 @@ export default function BeersPage() {
             ══════════════════════════════════════════════════════════════ */}
             {isOctober && todayBeer ? (
               <section style={{ marginBottom: '3.5rem' }}>
+
+                {/* TODAY'S BEER label */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  marginBottom: '1rem',
+                }}>
+                  <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(255,140,0,0.35))' }} />
+                  <span style={{
+                    fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '0.6rem',
+                    letterSpacing: '0.4em',
+                    textTransform: 'uppercase',
+                    color: 'var(--gold)',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    🍺 Today&apos;s Beer
+                  </span>
+                  <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
+                </div>
 
                 {/* Day badge */}
                 <div style={{
@@ -486,6 +512,27 @@ export default function BeersPage() {
                   </div>
                 </div>
 
+                {/* ── TASTING NOTES ─────────────────────────────────────── */}
+                <div style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  padding: '1.25rem 1.5rem',
+                  marginBottom: '1rem',
+                }}>
+                  <div style={{
+                    color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '0.58rem', letterSpacing: '0.28em',
+                    textTransform: 'uppercase', marginBottom: '0.75rem',
+                  }}>
+                    Tasting Notes
+                  </div>
+                  <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.85, fontStyle: 'italic', margin: 0 }}>
+                    {todayBeer.description ||
+                      "Tasting notes coming soon — the society's chronicler is still studying the brew..."}
+                  </p>
+                </div>
+
                 {/* ── RATING ────────────────────────────────────────────── */}
                 <div style={{
                   background: 'var(--bg-card)',
@@ -528,17 +575,12 @@ export default function BeersPage() {
                       fontSize: '0.58rem', letterSpacing: '0.28em',
                       textTransform: 'uppercase', marginBottom: '0.4rem',
                     }}>
-                      {userRating ? 'Your Rating' : 'Rate This Beer'}
+                      Your Rating
                     </div>
                     {todayBeer.id === 'preview-space-dust' ? (
                       <StarRating onSubmit={async () => {}} />
                     ) : userRating ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ color: 'var(--gold)', fontSize: '1.4rem', letterSpacing: '0.08em' }}>
-                          {'★'.repeat(userRating.stars)}{'☆'.repeat(5 - userRating.stars)}
-                        </span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{userRating.stars} / 5</span>
-                      </div>
+                      <StarRating initialStars={userRating.stars} onSubmit={async () => {}} />
                     ) : user ? (
                       <StarRating onSubmit={async (stars) => { await handleRate(stars) }} />
                     ) : (
@@ -549,30 +591,8 @@ export default function BeersPage() {
                   </div>
                 </div>
 
-                {/* ── TASTING NOTES ─────────────────────────────────────── */}
-                <div style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '12px',
-                  padding: '1.25rem 1.5rem',
-                  marginBottom: '2rem',
-                }}>
-                  <div style={{
-                    color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
-                    fontSize: '0.58rem', letterSpacing: '0.28em',
-                    textTransform: 'uppercase', marginBottom: '0.75rem',
-                  }}>
-                    Tasting Notes
-                  </div>
-                  <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.85, fontStyle: 'italic', margin: 0 }}>
-                    {todayBeer.ai_notes ||
-                      "Tasting notes coming soon — the society's chronicler is still studying the brew..."}
-                  </p>
-                </div>
-
                 {/* Post box */}
-                {user && (
-                  <div style={{
+                <div style={{
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border)',
                     borderRadius: '12px',
@@ -587,20 +607,23 @@ export default function BeersPage() {
                     </div>
                     <textarea
                       value={postContent}
-                      onChange={e => setPostContent(e.target.value)}
-                      placeholder="What do you think of today's brew?"
+                      onChange={e => user && setPostContent(e.target.value)}
+                      placeholder={user ? "What do you think of today's brew?" : "Sign in to post to the wall"}
                       rows={3}
+                      disabled={!user}
                       style={{
                         width: '100%',
                         background: 'var(--bg)',
                         border: '1px solid var(--border)',
-                        color: 'var(--text)',
+                        color: user ? 'var(--text)' : 'var(--text-muted)',
                         padding: '0.75rem',
                         borderRadius: '8px',
                         fontSize: '0.95rem',
                         resize: 'vertical',
                         marginBottom: '0.75rem',
                         fontFamily: "'Modern Antiqua', serif",
+                        opacity: user ? 1 : 0.5,
+                        cursor: user ? 'text' : 'not-allowed',
                       }}
                     />
 
@@ -645,6 +668,23 @@ export default function BeersPage() {
                       <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoSelect} style={{ display: 'none' }} />
 
                       <button
+                        onClick={() => cameraRef.current?.click()}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid var(--border)',
+                          color: 'var(--text-muted)',
+                          padding: '0.45rem 1rem',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          fontFamily: "'Modern Antiqua', serif",
+                        }}
+                      >
+                        📸 Camera
+                      </button>
+                      <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} style={{ display: 'none' }} />
+
+                      <button
                         onClick={handleSubmitPost}
                         disabled={submitting || !postContent.trim()}
                         style={{
@@ -664,7 +704,13 @@ export default function BeersPage() {
                       </button>
                     </div>
                   </div>
-                )}
+
+                  {/* Sign-in prompt for non-members */}
+                  {!user && (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0, textAlign: 'center', padding: '0.5rem 0' }}>
+                      <a href="/auth" style={{ color: 'var(--gold)' }}>Sign in</a> to post to the wall
+                    </p>
+                  )}
               </section>
 
             ) : isOctober && !todayBeer ? (
@@ -939,9 +985,9 @@ export default function BeersPage() {
                     {modalBeer.style}{modalBeer.style && modalBeer.abv ? ' · ' : ''}{modalBeer.abv ? `${modalBeer.abv}% ABV` : ''}
                   </p>
                 )}
-                {modalBeer.ai_notes && (
+                {modalBeer.description && (
                   <p style={{ color: 'var(--text)', fontSize: '0.9rem', lineHeight: 1.75, fontStyle: 'italic', borderTop: '1px solid var(--border)', paddingTop: '1rem', marginBottom: '1rem' }}>
-                    {modalBeer.ai_notes}
+                    {modalBeer.description}
                   </p>
                 )}
 

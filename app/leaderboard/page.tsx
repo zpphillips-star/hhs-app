@@ -4,44 +4,103 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 
-type MemberStat = { username: string; count: number; avg: number }
-type BeerStat = { name: string; brewery: string; day_number: number; avg: number; count: number }
+type MemberStat = { username: string; display_name: string | null; score: number; ratings: number; posts: number; comments: number; reactions: number }
+type BeerStat   = { name: string; brewery: string; day_number: number; avg: number; count: number }
+
+const MEDALS = ['🥇', '🥈', '🥉']
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+      <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(255,140,0,0.35))' }} />
+      <span style={{
+        fontFamily: "'Modern Antiqua', serif",
+        fontSize: '0.6rem',
+        letterSpacing: '0.4em',
+        textTransform: 'uppercase',
+        color: 'var(--gold)',
+        whiteSpace: 'nowrap',
+      }}>{label}</span>
+      <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
+    </div>
+  )
+}
 
 export default function LeaderboardPage() {
-  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
-  const [members, setMembers] = useState<MemberStat[]>([])
+  const [user,     setUser]     = useState<{ id: string; email?: string } | null>(null)
+  const [members,  setMembers]  = useState<MemberStat[]>([])
   const [topBeers, setTopBeers] = useState<BeerStat[]>([])
-  const [tab, setTab] = useState<'members' | 'beers'>('members')
-  const [loading, setLoading] = useState(true)
+  const [tab,      setTab]      = useState<'members' | 'beers'>('beers')
+  const [loading,  setLoading]  = useState(true)
+
+  // Timeliness bonus: interacting on the day a beer is featured earns +1 pt
+  // Beer day_number maps to its calendar day (e.g. day_number=19 → Oct 19)
+  const isSameDay = (createdAt: string, dayNumber: number | null | undefined) => {
+    if (!dayNumber) return false
+    return new Date(createdAt).getDate() === dayNumber
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
 
     const fetchData = async () => {
-      const { data: ratings } = await supabase
-        .from('ratings')
-        .select('stars, user_id, beer_id, profiles(username), beers(name, brewery, day_number)')
+      // Fetch all four interaction types in parallel, including timestamps + beer day_number for timeliness
+      const [
+        { data: ratings },
+        { data: posts },
+        { data: comments },
+        { data: reactions },
+      ] = await Promise.all([
+        supabase.from('ratings').select('user_id, beer_id, stars, created_at, profiles(username, display_name), beers(name, brewery, day_number)'),
+        supabase.from('posts').select('user_id, beer_id, created_at, profiles(username, display_name), beers(day_number)'),
+        supabase.from('post_comments').select('user_id, created_at, profiles(username, display_name), posts(beer_id, beers(day_number))'),
+        supabase.from('post_reactions').select('user_id, created_at, profiles(username, display_name), posts(beer_id, beers(day_number))'),
+      ])
 
-      if (!ratings) { setLoading(false); return }
+      // Build member map — track raw counts + weighted score directly
+      const memberMap: Record<string, { username: string; display_name: string | null; ratings: number; posts: number; comments: number; reactions: number; score: number }> = {}
 
-      // Member stats
-      const memberMap: Record<string, { count: number; total: number; username: string }> = {}
-      for (const r of ratings) {
-        const uid = r.user_id
-        const username = (r.profiles as { username?: string } | null)?.username || 'Unknown'
-        if (!memberMap[uid]) memberMap[uid] = { count: 0, total: 0, username }
-        memberMap[uid].count++
-        memberMap[uid].total += r.stars
+      const ensureUser = (uid: string, p: { username?: string; display_name?: string | null } | null) => {
+        if (!memberMap[uid]) memberMap[uid] = { username: p?.username || 'Unknown', display_name: p?.display_name || null, ratings: 0, posts: 0, comments: 0, reactions: 0, score: 0 }
       }
+
+      for (const r of ratings || []) {
+        const p = r.profiles as { username?: string; display_name?: string | null } | null
+        const beer = r.beers as { day_number?: number } | null
+        ensureUser(r.user_id, p)
+        memberMap[r.user_id].ratings++
+        memberMap[r.user_id].score += 2 + (isSameDay(r.created_at, beer?.day_number) ? 1 : 0)
+      }
+      for (const r of posts || []) {
+        const p = r.profiles as { username?: string; display_name?: string | null } | null
+        const beer = r.beers as { day_number?: number } | null
+        ensureUser(r.user_id, p)
+        memberMap[r.user_id].posts++
+        memberMap[r.user_id].score += 3 + (isSameDay(r.created_at, beer?.day_number) ? 1 : 0)
+      }
+      for (const r of comments || []) {
+        const p = r.profiles as { username?: string; display_name?: string | null } | null
+        const post = r.posts as { beers?: { day_number?: number } } | null
+        ensureUser(r.user_id, p)
+        memberMap[r.user_id].comments++
+        memberMap[r.user_id].score += 2 + (isSameDay(r.created_at, post?.beers?.day_number) ? 1 : 0)
+      }
+      for (const r of reactions || []) {
+        const p = r.profiles as { username?: string; display_name?: string | null } | null
+        const post = r.posts as { beers?: { day_number?: number } } | null
+        ensureUser(r.user_id, p)
+        memberMap[r.user_id].reactions++
+        memberMap[r.user_id].score += 1 + (isSameDay(r.created_at, post?.beers?.day_number) ? 1 : 0)
+      }
+
       setMembers(
         Object.values(memberMap)
-          .map(m => ({ username: m.username, count: m.count, avg: Math.round(m.total / m.count * 10) / 10 }))
-          .sort((a, b) => b.count - a.count || b.avg - a.avg)
+          .sort((a, b) => b.score - a.score)
       )
 
-      // Beer stats
+      // Beer stats (unchanged — by avg rating)
       const beerMap: Record<string, { total: number; count: number; name: string; brewery: string; day_number: number }> = {}
-      for (const r of ratings) {
+      for (const r of ratings || []) {
         const bid = r.beer_id
         const beer = r.beers as { name?: string; brewery?: string; day_number?: number } | null
         if (!beer?.name) continue
@@ -61,62 +120,185 @@ export default function LeaderboardPage() {
     fetchData()
   }, [])
 
-  const medals = ['🥇', '🥈', '🥉']
-
   return (
-    <div className="min-h-screen bg-[#0d0b0f]">
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       <Nav user={user} />
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
-        <h1 className="text-2xl font-bold text-orange-400 mb-6 text-center">🏆 Leaderboard</h1>
 
-        <div className="flex bg-[#1a1520] rounded-lg p-1 mb-6">
-          {(['members', 'beers'] as const).map(t => (
+      <main style={{ maxWidth: '700px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
+
+        {/* Header */}
+        <SectionDivider label="🏆 Rankings" />
+        <h1 style={{
+          fontFamily: "'Modern Antiqua', serif",
+          color: 'var(--text)',
+          fontSize: 'clamp(1.5rem, 4vw, 2.25rem)',
+          textAlign: 'center',
+          marginBottom: '0.5rem',
+          lineHeight: 1.1,
+        }}>
+          The Society Standings
+        </h1>
+        <p style={{
+          textAlign: 'center',
+          color: 'var(--text-muted)',
+          fontFamily: "'Modern Antiqua', serif",
+          fontSize: '0.85rem',
+          marginBottom: '2rem',
+        }}>
+          Who&apos;s drinking. What&apos;s winning.
+        </p>
+
+        {/* Tabs */}
+        <div style={{
+          display: 'flex',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: '10px',
+          padding: '4px',
+          marginBottom: '1.75rem',
+          gap: '4px',
+        }}>
+          {(['beers', 'members'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
-                tab === t ? 'bg-orange-500 text-black' : 'text-gray-400 hover:text-white'
-              }`}
+              style={{
+                flex: 1,
+                padding: '0.5rem 0',
+                borderRadius: '7px',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: "'Modern Antiqua', serif",
+                fontSize: '0.8rem',
+                letterSpacing: '0.1em',
+                transition: 'all 0.15s',
+                background: tab === t ? 'var(--gold)' : 'transparent',
+                color: tab === t ? 'var(--bg)' : 'var(--text-muted)',
+                fontWeight: tab === t ? 700 : 400,
+              }}
             >
               {t === 'members' ? '👻 Members' : '🍺 Top Beers'}
             </button>
           ))}
         </div>
 
+        {/* Content */}
         {loading ? (
-          <div className="text-center text-orange-400 animate-pulse py-12">Loading...</div>
+          <p style={{
+            color: 'var(--gold)',
+            fontFamily: "'Modern Antiqua', serif",
+            textAlign: 'center',
+            padding: '4rem 0',
+          }}>
+            Tallying the votes...
+          </p>
         ) : tab === 'members' ? (
-          <div className="space-y-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             {members.length === 0 ? (
-              <p className="text-center text-gray-600 py-12">No ratings yet. Be the first!</p>
+              <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", padding: '3rem 0' }}>
+                No ratings yet — the first pour awaits.
+              </p>
             ) : members.map((m, i) => (
-              <div key={m.username} className="bg-[#1a1520] border border-purple-900/40 rounded-xl px-4 py-3 flex items-center gap-3">
-                <span className="text-lg w-7 text-center">{medals[i] || <span className="text-gray-600 font-bold text-sm">{i + 1}</span>}</span>
-                <div className="flex-1">
-                  <div className="text-white font-medium">{m.username}</div>
-                  <div className="text-gray-500 text-xs">{m.count} beer{m.count !== 1 ? 's' : ''} rated</div>
+              <div key={m.username} style={{
+                background: i === 0 ? 'rgba(255,140,0,0.07)' : 'var(--bg-card)',
+                border: `1px solid ${i === 0 ? 'rgba(255,140,0,0.3)' : 'var(--border)'}`,
+                borderRadius: '12px',
+                padding: '0.9rem 1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+              }}>
+                {/* Rank */}
+                <span style={{ fontSize: '1.25rem', minWidth: '1.75rem', textAlign: 'center' }}>
+                  {MEDALS[i] || (
+                    <span style={{ color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontWeight: 700, fontSize: '0.875rem' }}>
+                      {i + 1}
+                    </span>
+                  )}
+                </span>
+
+                {/* Name + stats */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    color: i === 0 ? 'var(--gold)' : 'var(--text)',
+                    fontFamily: "'Modern Antiqua', serif",
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {m.display_name || m.username}
+                  </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: "'Modern Antiqua', serif" }}>
+                    {m.ratings} rated · {m.posts} posts · {m.reactions} reactions
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-orange-400 text-sm">{'★'.repeat(Math.round(m.avg))}{'☆'.repeat(5 - Math.round(m.avg))}</div>
-                  <div className="text-gray-600 text-xs">avg {m.avg}</div>
+
+                {/* Score */}
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontWeight: 700, fontSize: '1.1rem', lineHeight: 1 }}>
+                    {m.score}
+                  </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontFamily: "'Modern Antiqua', serif", marginTop: '2px' }}>
+                    pts
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="space-y-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             {topBeers.length === 0 ? (
-              <p className="text-center text-gray-600 py-12">No beers rated yet.</p>
+              <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", padding: '3rem 0' }}>
+                No beers rated yet.
+              </p>
             ) : topBeers.map((b, i) => (
-              <div key={b.name + b.day_number} className="bg-[#1a1520] border border-purple-900/40 rounded-xl px-4 py-3 flex items-center gap-3">
-                <span className="text-gray-600 font-bold w-7 text-center text-sm">{i + 1}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-white font-medium truncate">{b.name}</div>
-                  <div className="text-orange-400 text-xs">{b.brewery} · Day {b.day_number}</div>
+              <div key={b.name + b.day_number} style={{
+                background: i === 0 ? 'rgba(255,140,0,0.07)' : 'var(--bg-card)',
+                border: `1px solid ${i === 0 ? 'rgba(255,140,0,0.3)' : 'var(--border)'}`,
+                borderRadius: '12px',
+                padding: '0.9rem 1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+              }}>
+                {/* Rank */}
+                <span style={{ fontSize: '1.25rem', minWidth: '1.75rem', textAlign: 'center' }}>
+                  {MEDALS[i] || (
+                    <span style={{ color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontWeight: 700, fontSize: '0.875rem' }}>
+                      {i + 1}
+                    </span>
+                  )}
+                </span>
+
+                {/* Beer info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    color: i === 0 ? 'var(--gold)' : 'var(--text)',
+                    fontFamily: "'Modern Antiqua', serif",
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {b.name}
+                  </div>
+                  <div style={{ color: 'var(--gold)', fontSize: '0.75rem', fontFamily: "'Modern Antiqua', serif", opacity: 0.75 }}>
+                    {b.brewery}{b.day_number ? ` · Day ${b.day_number}` : ''}
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <div className="text-orange-400 text-sm">{'★'.repeat(Math.round(b.avg))}{'☆'.repeat(5 - Math.round(b.avg))}</div>
-                  <div className="text-gray-600 text-xs">{b.avg}/5 · {b.count} ratings</div>
+
+                {/* Rating */}
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: 'var(--gold)', fontSize: '1rem', lineHeight: 1 }}>
+                    {'★'.repeat(Math.round(b.avg))}
+                    <span style={{ opacity: 0.25 }}>{'★'.repeat(5 - Math.round(b.avg))}</span>
+                  </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontFamily: "'Modern Antiqua', serif", marginTop: '2px' }}>
+                    {b.avg}/5 · {b.count} {b.count === 1 ? 'rating' : 'ratings'}
+                  </div>
                 </div>
               </div>
             ))}

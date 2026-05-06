@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import type { Beer, Rating, Post, PostReaction, PostComment } from '@/lib/types'
 import Nav from '@/components/Nav'
 import StarRating from '@/components/StarRating'
+import SetupGuide from '@/components/SetupGuide'
 
 // ── Reaction config ───────────────────────────────────────────────────────────
 
@@ -961,6 +962,8 @@ export default function BeersPage() {
           </div>
         </div>
       )}
+
+      {user && <SetupGuide userId={user.id} />}
     </div>
   )
 }

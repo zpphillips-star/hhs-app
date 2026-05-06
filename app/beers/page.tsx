@@ -839,7 +839,7 @@ export default function BeersPage() {
                           )}
                         </div>
 
-                        {beer ? (
+                        {beer && (isPast || isToday) ? (
                           <>
                             <div style={{
                               color: 'var(--text)', fontSize: '0.8rem', fontWeight: 600,
@@ -897,7 +897,7 @@ export default function BeersPage() {
                         }}>
                           {day}
                         </div>
-                        {beer ? (
+                        {beer && (isPast || isToday) ? (
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{
                               color: 'var(--text)', fontWeight: 600,

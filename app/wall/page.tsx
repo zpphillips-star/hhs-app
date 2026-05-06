@@ -369,12 +369,12 @@ export default function WallPage() {
           fontFamily: "'Modern Antiqua', serif",
           fontSize: '1.6rem', color: 'var(--text)',
           marginBottom: '1rem', lineHeight: 1.3,
-        }}>What happens here stays here.</h2>
+        }}>This space belongs to the Society.</h2>
         <p style={{
           color: 'var(--text-muted)', fontSize: '0.9rem',
           lineHeight: 1.7, marginBottom: '2.5rem',
         }}>
-          The Society Wall is not for everyone. If you know, you know.
+          What&apos;s shared here stays among members. You&apos;ll need to be one to enter.
         </p>
         <a href="/auth" style={{
           display: 'inline-block',

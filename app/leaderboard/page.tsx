@@ -214,12 +214,12 @@ export default function LeaderboardPage() {
               <p style={{
                 color: 'var(--text)', fontFamily: "'Modern Antiqua', serif",
                 fontSize: '1.1rem', marginBottom: '0.75rem', lineHeight: 1.4,
-              }}>Some things aren&apos;t meant for everyone.</p>
+              }}>The standings are not public record.</p>
               <p style={{
                 color: 'var(--text-muted)', fontSize: '0.85rem',
                 lineHeight: 1.7, marginBottom: '2rem',
               }}>
-                The standings live behind closed doors. Members only.
+                Membership has its privileges. Sign in to see where you rank among the Society.
               </p>
               <a href="/auth" style={{
                 display: 'inline-block',

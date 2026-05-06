@@ -350,7 +350,7 @@ export default function BeersPage() {
 
   // ── Submit post ─────────────────────────────────────────────────────────────
   const handleSubmitPost = async () => {
-    if (!user || !todayBeer || !postContent.trim() || submitting || todayBeer.id === 'preview-space-dust') return
+    if (!user || !todayBeer || (!postContent.trim() && !postPhoto) || submitting || todayBeer.id === 'preview-space-dust') return
     setSubmitting(true)
     let photoUrl: string | null = null
     if (postPhoto) {
@@ -656,14 +656,14 @@ export default function BeersPage() {
                       </div>
                       <button
                         onClick={handleSubmitPost}
-                        disabled={submitting || !postContent.trim()}
+                        disabled={submitting || (!postContent.trim() && !postPhoto)}
                         style={{
-                          background: postContent.trim() ? 'var(--gold)' : 'transparent',
-                          border: postContent.trim() ? 'none' : '1px solid var(--border)',
-                          color: postContent.trim() ? 'var(--bg)' : 'var(--text-muted)',
+                          background: (postContent.trim() || postPhoto) ? 'var(--gold)' : 'transparent',
+                          border: (postContent.trim() || postPhoto) ? 'none' : '1px solid var(--border)',
+                          color: (postContent.trim() || postPhoto) ? 'var(--bg)' : 'var(--text-muted)',
                           padding: '0.45rem 1.25rem',
                           borderRadius: '8px',
-                          cursor: postContent.trim() ? 'pointer' : 'default',
+                          cursor: (postContent.trim() || postPhoto) ? 'pointer' : 'default',
                           fontFamily: "'Modern Antiqua', serif",
                           fontSize: '0.8rem',
                           fontWeight: 700,

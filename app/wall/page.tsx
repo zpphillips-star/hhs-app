@@ -489,7 +489,7 @@ export default function WallPage() {
   }
 
   const handleWallPost = async () => {
-    if (!user || !wallPostText.trim() || wallPosting) return
+    if (!user || (!wallPostText.trim() && !wallPhoto) || wallPosting) return
     setWallPosting(true)
     let photoUrl: string | null = null
     if (wallPhoto) {
@@ -607,14 +607,14 @@ export default function WallPage() {
               </div>
               <button
                 onClick={handleWallPost}
-                disabled={wallPosting || !wallPostText.trim()}
+                disabled={wallPosting || (!wallPostText.trim() && !wallPhoto)}
                 style={{
-                  background: wallPostText.trim() ? 'var(--gold)' : 'transparent',
-                  border: wallPostText.trim() ? 'none' : '1px solid var(--border)',
-                  color: wallPostText.trim() ? 'var(--bg)' : 'var(--text-muted)',
+                  background: (wallPostText.trim() || wallPhoto) ? 'var(--gold)' : 'transparent',
+                  border: (wallPostText.trim() || wallPhoto) ? 'none' : '1px solid var(--border)',
+                  color: (wallPostText.trim() || wallPhoto) ? 'var(--bg)' : 'var(--text-muted)',
                   padding: '0.45rem 1.25rem',
                   borderRadius: '8px',
-                  cursor: wallPostText.trim() ? 'pointer' : 'default',
+                  cursor: (wallPostText.trim() || wallPhoto) ? 'pointer' : 'default',
                   fontFamily: "'Modern Antiqua', serif",
                   fontSize: '0.8rem',
                   fontWeight: 700,

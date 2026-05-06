@@ -549,20 +549,11 @@ export default function WallPage() {
           color: 'var(--text)',
           fontSize: 'clamp(1.5rem, 4vw, 2.25rem)',
           textAlign: 'center',
-          marginBottom: '0.5rem',
+          marginBottom: '2.5rem',
           lineHeight: 1.1,
         }}>
-          Every Pour. Every Opinion.
+          The Society Wall
         </h1>
-        <p style={{
-          textAlign: 'center',
-          color: 'var(--text-muted)',
-          fontFamily: "'Modern Antiqua', serif",
-          fontSize: '0.85rem',
-          marginBottom: '2.5rem',
-        }}>
-          The full record of the Hallowed Hop Society
-        </p>
 
         {/* Quick post box */}
         {user && (

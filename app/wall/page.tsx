@@ -52,6 +52,7 @@ function PostCard({
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const displayName = post.profiles?.display_name || post.profiles?.username || 'Member'
   const reactions = post.post_reactions || []
@@ -109,7 +110,7 @@ function PostCard({
         <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>· {ts}</span>
         {user && post.user_id === user.id && (
           <button
-            onClick={() => { if (confirm('Delete this post?')) onDelete(post.id) }}
+            onClick={() => setConfirmingDelete(true)}
             style={{
               marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text-muted)', fontSize: '0.75rem', padding: '0 2px', opacity: 0.6,
@@ -238,6 +239,60 @@ function PostCard({
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {confirmingDelete && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: '14px',
+            padding: '2rem 1.75rem',
+            maxWidth: '320px',
+            width: '90%',
+            textAlign: 'center',
+          }}>
+            <p style={{
+              fontFamily: "'Modern Antiqua', serif",
+              fontSize: '0.65rem',
+              letterSpacing: '0.3em',
+              textTransform: 'uppercase',
+              color: 'var(--gold)',
+              marginBottom: '0.75rem',
+            }}>Delete Post</p>
+            <p style={{
+              color: 'var(--text)',
+              fontSize: '0.9rem',
+              lineHeight: 1.6,
+              marginBottom: '1.5rem',
+            }}>Are you sure? This cannot be undone.</p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                style={{
+                  flex: 1, padding: '0.6rem', borderRadius: '8px',
+                  background: 'transparent', border: '1px solid var(--border)',
+                  color: 'var(--text-muted)', cursor: 'pointer',
+                  fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem', letterSpacing: '0.1em',
+                }}
+              >Cancel</button>
+              <button
+                onClick={() => { setConfirmingDelete(false); onDelete(post.id) }}
+                style={{
+                  flex: 1, padding: '0.6rem', borderRadius: '8px',
+                  background: 'rgba(180,40,40,0.15)', border: '1px solid rgba(180,40,40,0.4)',
+                  color: '#e05555', cursor: 'pointer',
+                  fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem', letterSpacing: '0.1em',
+                }}
+              >Delete</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

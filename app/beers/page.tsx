@@ -639,7 +639,22 @@ export default function BeersPage() {
                         boxSizing: 'border-box',
                       }}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                    {/* Photo preview */}
+                    {photoPreview && (
+                      <div style={{ position: 'relative', marginTop: '0.5rem', display: 'inline-block' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={photoPreview} alt="preview" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', objectFit: 'cover' }} />
+                        <button onClick={clearPhoto} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.7rem' }}>✕</button>
+                      </div>
+                    )}
+                    {/* Hidden file inputs */}
+                    <input ref={fileRef}   type="file"   accept="image/*"          onChange={handlePhotoSelect} style={{ display: 'none' }} />
+                    <input ref={cameraRef} type="file"   accept="image/*" capture="environment" onChange={handlePhotoSelect} style={{ display: 'none' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={() => fileRef.current?.click()} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: '8px', padding: '0.35rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', fontFamily: "'Modern Antiqua', serif" }}>📎 Photo</button>
+                        <button onClick={() => cameraRef.current?.click()} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: '8px', padding: '0.35rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', fontFamily: "'Modern Antiqua', serif" }}>📷 Camera</button>
+                      </div>
                       <button
                         onClick={handleSubmitPost}
                         disabled={submitting || !postContent.trim()}

@@ -438,13 +438,41 @@ export default function WallPage() {
 
   const [wallPostText, setWallPostText] = useState('')
   const [wallPosting, setWallPosting] = useState(false)
+  const [wallPhoto, setWallPhoto] = useState<File | null>(null)
+  const [wallPhotoPreview, setWallPhotoPreview] = useState<string | null>(null)
+  const wallFileRef = useRef<HTMLInputElement>(null)
+  const wallCameraRef = useRef<HTMLInputElement>(null)
+
+  const handleWallPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setWallPhoto(file)
+    setWallPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const clearWallPhoto = () => {
+    setWallPhoto(null)
+    setWallPhotoPreview(null)
+    if (wallFileRef.current) wallFileRef.current.value = ''
+    if (wallCameraRef.current) wallCameraRef.current.value = ''
+  }
 
   const handleWallPost = async () => {
     if (!user || !wallPostText.trim() || wallPosting) return
     setWallPosting(true)
+    let photoUrl: string | null = null
+    if (wallPhoto) {
+      const ext = wallPhoto.name.split('.').pop()
+      const path = `${user.id}/${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('post-photos').upload(path, wallPhoto)
+      if (!error) {
+        const { data: { publicUrl } } = supabase.storage.from('post-photos').getPublicUrl(path)
+        photoUrl = publicUrl
+      }
+    }
     const { data, error } = await supabase
       .from('posts')
-      .insert({ user_id: user.id, content: wallPostText.trim(), beer_id: null })
+      .insert({ user_id: user.id, content: wallPostText.trim(), beer_id: null, photo_url: photoUrl })
       .select('*, post_reactions(*), post_comments(*), beers(name, brewery, day_number, style, abv)')
       .maybeSingle()
     if (error) { alert('Post error: ' + error.message); setWallPosting(false); return }
@@ -456,6 +484,7 @@ export default function WallPage() {
       setPosts(prev => [merged, ...prev])
     }
     setWallPostText('')
+    clearWallPhoto()
     setWallPosting(false)
   }
 
@@ -532,7 +561,20 @@ export default function WallPage() {
                 boxSizing: 'border-box',
               }}
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            {wallPhotoPreview && (
+              <div style={{ position: 'relative', marginTop: '0.5rem', display: 'inline-block' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={wallPhotoPreview} alt="preview" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', objectFit: 'cover' }} />
+                <button onClick={clearWallPhoto} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.7rem' }}>✕</button>
+              </div>
+            )}
+            <input ref={wallFileRef}   type="file" accept="image/*"                    onChange={handleWallPhotoSelect} style={{ display: 'none' }} />
+            <input ref={wallCameraRef} type="file" accept="image/*" capture="environment" onChange={handleWallPhotoSelect} style={{ display: 'none' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => wallFileRef.current?.click()} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: '8px', padding: '0.35rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', fontFamily: "'Modern Antiqua', serif" }}>📎 Photo</button>
+                <button onClick={() => wallCameraRef.current?.click()} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: '8px', padding: '0.35rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', fontFamily: "'Modern Antiqua', serif" }}>📷 Camera</button>
+              </div>
               <button
                 onClick={handleWallPost}
                 disabled={wallPosting || !wallPostText.trim()}

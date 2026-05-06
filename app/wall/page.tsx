@@ -189,7 +189,7 @@ function PostCard({
                 transition: 'all 0.15s',
               }}
             >
-              <span>{r.emoji}</span>
+              <span style={{ filter: active ? 'sepia(0.6) saturate(1.8) brightness(0.95)' : 'grayscale(0.85) brightness(0.75) opacity(0.7)' }}>{r.emoji}</span>
               {count > 0 && <span>{count}</span>}
             </button>
           )

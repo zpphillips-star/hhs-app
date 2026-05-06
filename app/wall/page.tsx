@@ -248,6 +248,19 @@ export default function WallPage() {
     return () => subscription.unsubscribe()
   }, [])
 
+  const mergeProfiles = (
+    postsData: WallPost[],
+    profileMap: Record<string, { username: string; display_name: string | null }>
+  ): WallPost[] =>
+    postsData.map(post => ({
+      ...post,
+      profiles: profileMap[post.user_id] || { username: 'Member', display_name: null },
+      post_comments: (post.post_comments || []).map(c => ({
+        ...c,
+        profiles: profileMap[c.user_id] || { username: 'Member', display_name: null },
+      })),
+    }))
+
   const fetchPage = useCallback(async (pageIndex: number, replace = false) => {
     if (pageIndex === 0) setLoading(true)
     else setLoadingMore(true)
@@ -255,21 +268,21 @@ export default function WallPage() {
     const from = pageIndex * PAGE_SIZE
     const to   = from + PAGE_SIZE - 1
 
-    const { data, error: fetchError } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        profiles!left(username, display_name),
-        post_reactions(*),
-        post_comments(*, profiles!left(username, display_name)),
-        beers(name, brewery, day_number, style, abv)
-      `)
-      .order('created_at', { ascending: false })
-      .range(from, to)
+    const [{ data, error: fetchError }, { data: profilesData }] = await Promise.all([
+      supabase
+        .from('posts')
+        .select('*, post_reactions(*), post_comments(*), beers(name, brewery, day_number, style, abv)')
+        .order('created_at', { ascending: false })
+        .range(from, to),
+      supabase.from('profiles').select('id, username, display_name'),
+    ])
 
     if (fetchError) console.error('Wall fetch error:', fetchError)
 
-    const incoming = (data as WallPost[]) || []
+    const profileMap: Record<string, { username: string; display_name: string | null }> = {}
+    for (const p of profilesData || []) profileMap[p.id] = p
+
+    const incoming = mergeProfiles((data as WallPost[]) || [], profileMap)
     if (replace) {
       setPosts(incoming)
     } else {
@@ -301,19 +314,19 @@ export default function WallPage() {
   }, [hasMore, loadingMore, loading, fetchPage])
 
   const reloadPost = async (postId: string) => {
-    const { data } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        profiles!left(username, display_name),
-        post_reactions(*),
-        post_comments(*, profiles!left(username, display_name)),
-        beers(name, brewery, day_number, style, abv)
-      `)
-      .eq('id', postId)
-      .maybeSingle()
+    const [{ data }, { data: profilesData }] = await Promise.all([
+      supabase
+        .from('posts')
+        .select('*, post_reactions(*), post_comments(*), beers(name, brewery, day_number, style, abv)')
+        .eq('id', postId)
+        .maybeSingle(),
+      supabase.from('profiles').select('id, username, display_name'),
+    ])
     if (data) {
-      setPosts(prev => prev.map(p => p.id === postId ? data as WallPost : p))
+      const profileMap: Record<string, { username: string; display_name: string | null }> = {}
+      for (const p of profilesData || []) profileMap[p.id] = p
+      const merged = mergeProfiles([data as WallPost], profileMap)[0]
+      setPosts(prev => prev.map(p => p.id === postId ? merged : p))
     }
   }
 

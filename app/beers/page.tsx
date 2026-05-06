@@ -596,7 +596,7 @@ export default function BeersPage() {
                     {todayBeer.id === 'preview-space-dust' ? (
                       <StarRating onSubmit={async () => {}} />
                     ) : userRating ? (
-                      <StarRating initialStars={userRating.stars} onSubmit={async () => {}} />
+                      <StarRating initialStars={userRating.stars} onSubmit={async (stars) => { await handleRate(stars) }} />
                     ) : user ? (
                       <StarRating onSubmit={async (stars) => { await handleRate(stars) }} />
                     ) : (

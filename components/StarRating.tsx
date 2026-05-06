@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 type Props = {
   initialStars?: number
@@ -21,6 +21,14 @@ export default function StarRating({ initialStars, onSubmit }: Props) {
   const [hover, setHover] = useState(0)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState(initialStars || 0)
+
+  // Sync when initialStars loads async (e.g. after DB fetch on page load)
+  useEffect(() => {
+    if (initialStars) {
+      setStars(initialStars)
+      setLastSaved(initialStars)
+    }
+  }, [initialStars])
 
   const handleClick = async (n: number) => {
     if (saving) return

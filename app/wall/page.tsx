@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import Link from 'next/link'
@@ -332,7 +331,6 @@ function PostCard({
 }
 
 export default function WallPage() {
-  const router = useRouter()
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
   const [posts, setPosts] = useState<WallPost[]>([])
@@ -347,16 +345,50 @@ export default function WallPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
       setAuthChecked(true)
-      if (!user) router.replace('/auth')
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
-      setUser(s?.user ?? null)
-      if (!s?.user) router.replace('/auth')
-    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => setUser(s?.user ?? null))
     return () => subscription.unsubscribe()
-  }, [router])
+  }, [])
 
   if (!authChecked) return null
+
+  // 🔒 Secret society gate for unauthenticated visitors
+  if (!user) return (
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+      <Nav user={null} />
+      <main style={{ maxWidth: '500px', margin: '0 auto', padding: '6rem 2rem', textAlign: 'center' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>🍂</div>
+        <p style={{
+          fontFamily: "'Modern Antiqua', serif",
+          fontSize: '0.6rem', letterSpacing: '0.5em',
+          textTransform: 'uppercase', color: 'var(--gold)',
+          marginBottom: '1.5rem',
+        }}>The Hallowed Hop Society</p>
+        <h2 style={{
+          fontFamily: "'Modern Antiqua', serif",
+          fontSize: '1.6rem', color: 'var(--text)',
+          marginBottom: '1rem', lineHeight: 1.3,
+        }}>This wall is for members only.</h2>
+        <p style={{
+          color: 'var(--text-muted)', fontSize: '0.9rem',
+          lineHeight: 1.7, marginBottom: '2.5rem',
+        }}>
+          What happens at the Hallowed Hop Society stays at the Hallowed Hop Society.
+          If you&apos;ve been initiated, sign in to join the conversation.
+        </p>
+        <a href="/auth" style={{
+          display: 'inline-block',
+          padding: '0.8rem 2.5rem',
+          background: 'var(--gold)', color: 'var(--bg)',
+          borderRadius: '10px',
+          fontFamily: "'Modern Antiqua', serif",
+          fontWeight: 700, fontSize: '0.9rem',
+          letterSpacing: '0.1em', textDecoration: 'none',
+        }}>Enter the Society</a>
+        <div style={{ marginTop: '3rem', width: '4rem', height: '1px', background: 'rgba(255,140,0,0.3)', margin: '3rem auto 0' }} />
+      </main>
+    </div>
+  )
 
   const mergeProfiles = (
     postsData: WallPost[],

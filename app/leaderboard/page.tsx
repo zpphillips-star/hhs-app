@@ -166,7 +166,7 @@ export default function LeaderboardPage() {
           marginBottom: '1.75rem',
           gap: '4px',
         }}>
-          {(['beers', 'members'] as const).filter(t => t === 'beers' || !!user).map(t => (
+          {(['beers', 'members'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -203,9 +203,32 @@ export default function LeaderboardPage() {
         ) : tab === 'members' ? (
           !user ? (
             <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
-              <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '1rem', marginBottom: '1rem' }}>Members only</p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Sign in to see the rankings.</p>
-              <a href="/auth" style={{ padding: '0.7rem 2rem', background: 'var(--gold)', color: 'var(--bg)', borderRadius: '10px', fontFamily: "'Modern Antiqua', serif", fontWeight: 700, textDecoration: 'none', fontSize: '0.875rem' }}>Sign In</a>
+              <div style={{ fontSize: '2.5rem', marginBottom: '1.25rem' }}>💀</div>
+              <p style={{
+                fontFamily: "'Modern Antiqua', serif",
+                fontSize: '0.6rem', letterSpacing: '0.5em',
+                textTransform: 'uppercase', color: 'var(--gold)',
+                marginBottom: '1rem',
+              }}>Members Only</p>
+              <p style={{
+                color: 'var(--text)', fontFamily: "'Modern Antiqua', serif",
+                fontSize: '1.1rem', marginBottom: '0.75rem', lineHeight: 1.4,
+              }}>The rankings are reserved for the initiated.</p>
+              <p style={{
+                color: 'var(--text-muted)', fontSize: '0.85rem',
+                lineHeight: 1.7, marginBottom: '2rem',
+              }}>
+                Only sworn members of the Hallowed Hop Society may witness who stands atop the leaderboard.
+              </p>
+              <a href="/auth" style={{
+                display: 'inline-block',
+                padding: '0.75rem 2rem',
+                background: 'var(--gold)', color: 'var(--bg)',
+                borderRadius: '10px',
+                fontFamily: "'Modern Antiqua', serif",
+                fontWeight: 700, fontSize: '0.875rem',
+                letterSpacing: '0.1em', textDecoration: 'none',
+              }}>Enter the Society</a>
             </div>
           ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>

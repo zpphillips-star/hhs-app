@@ -165,7 +165,6 @@ function PostCard({
           )}
         </>
       )}
-      )}
 
       {/* Reactions */}
       <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>

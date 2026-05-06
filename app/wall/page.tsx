@@ -41,12 +41,14 @@ function PostCard({
   user,
   onReact,
   onComment,
+  onDelete,
 }: {
   post: WallPost
   user: { id: string } | null
   onReact: (postId: string, reaction: ReactionKey) => Promise<void>
   onComment: (postId: string, content: string) => Promise<void>
-}) {
+  onDelete: (postId: string) => Promise<void>
+}){
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -105,6 +107,16 @@ function PostCard({
           {displayName}
         </span>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>· {ts}</span>
+        {user && post.user_id === user.id && (
+          <button
+            onClick={() => { if (confirm('Delete this post?')) onDelete(post.id) }}
+            style={{
+              marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-muted)', fontSize: '0.75rem', padding: '0 2px', opacity: 0.6,
+            }}
+            title="Delete post"
+          >✕</button>
+        )}
       </div>
 
       {/* Content */}
@@ -362,6 +374,13 @@ export default function WallPage() {
     await reloadPost(postId)
   }
 
+  const handleDelete = async (postId: string) => {
+    if (!user) return
+    const { error } = await supabase.from('posts').delete().eq('id', postId).eq('user_id', user.id)
+    if (error) { alert('Delete error: ' + error.message); return }
+    setPosts(prev => prev.filter(p => p.id !== postId))
+  }
+
   const todayStr   = new Date().toDateString()
   const todayPosts = posts.filter(p => new Date(p.created_at).toDateString() === todayStr)
   const olderPosts = posts.filter(p => new Date(p.created_at).toDateString() !== todayStr)
@@ -446,7 +465,7 @@ export default function WallPage() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {todayPosts.map(p => (
-                    <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} />
+                    <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} />
                   ))}
                 </div>
               </section>
@@ -473,11 +492,7 @@ export default function WallPage() {
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {olderPosts.map(p => (
-                    <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} />
-                  ))}
-                </div>
-              </section>
-            )}
+                    <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} />            )}
           </>
         )}
 

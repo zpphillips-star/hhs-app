@@ -607,126 +607,19 @@ export default function BeersPage() {
                   </div>
                 </div>
 
-                {/* Post box */}
-                <div style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '12px',
-                    padding: '1.25rem',
+                {/* Link to The Wall */}
+                <div style={{ textAlign: 'center', paddingBottom: '0.5rem' }}>
+                  <a href="/wall" style={{
+                    color: 'var(--gold)',
+                    fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '0.8rem',
+                    letterSpacing: '0.15em',
+                    textDecoration: 'none',
                   }}>
-                    <div style={{
-                      color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
-                      fontSize: '0.62rem', letterSpacing: '0.28em',
-                      textTransform: 'uppercase', marginBottom: '0.65rem',
-                    }}>
-                      Share Your Take
-                    </div>
-                    <textarea
-                      value={postContent}
-                      onChange={e => user && setPostContent(e.target.value)}
-                      placeholder={user ? "What do you think of today's brew?" : "Sign in to post to the wall"}
-                      rows={3}
-                      disabled={!user}
-                      style={{
-                        width: '100%',
-                        background: 'var(--bg)',
-                        border: '1px solid var(--border)',
-                        color: user ? 'var(--text)' : 'var(--text-muted)',
-                        padding: '0.75rem',
-                        borderRadius: '8px',
-                        fontSize: '0.95rem',
-                        resize: 'vertical',
-                        marginBottom: '0.75rem',
-                        fontFamily: "'Modern Antiqua', serif",
-                        opacity: user ? 1 : 0.5,
-                        cursor: user ? 'text' : 'not-allowed',
-                      }}
-                    />
+                    → Go to The Wall
+                  </a>
+                </div>
 
-                    {photoPreview && (
-                      <div style={{ marginBottom: '0.75rem', position: 'relative', display: 'inline-block' }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={photoPreview}
-                          alt="preview"
-                          style={{ maxWidth: '200px', maxHeight: '160px', borderRadius: '8px', border: '1px solid var(--border)', objectFit: 'cover' }}
-                        />
-                        <button
-                          onClick={clearPhoto}
-                          style={{
-                            position: 'absolute', top: '4px', right: '4px',
-                            background: 'rgba(0,0,0,0.7)', color: 'white',
-                            border: 'none', borderRadius: '50%',
-                            width: '20px', height: '20px',
-                            cursor: 'pointer', fontSize: '11px',
-                            lineHeight: '20px', textAlign: 'center', padding: 0,
-                          }}
-                        >✕</button>
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                      <button
-                        onClick={() => fileRef.current?.click()}
-                        style={{
-                          background: 'transparent',
-                          border: '1px solid var(--border)',
-                          color: 'var(--text-muted)',
-                          padding: '0.45rem 1rem',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          fontSize: '0.85rem',
-                          fontFamily: "'Modern Antiqua', serif",
-                        }}
-                      >
-                        📷 Photo
-                      </button>
-                      <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoSelect} style={{ display: 'none' }} />
-
-                      <button
-                        onClick={() => cameraRef.current?.click()}
-                        style={{
-                          background: 'transparent',
-                          border: '1px solid var(--border)',
-                          color: 'var(--text-muted)',
-                          padding: '0.45rem 1rem',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          fontSize: '0.85rem',
-                          fontFamily: "'Modern Antiqua', serif",
-                        }}
-                      >
-                        📸 Camera
-                      </button>
-                      <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} style={{ display: 'none' }} />
-
-                      <button
-                        onClick={handleSubmitPost}
-                        disabled={submitting || !postContent.trim()}
-                        style={{
-                          background: postContent.trim() ? 'var(--gold)' : 'var(--bg-card)',
-                          color: postContent.trim() ? 'var(--bg)' : 'var(--text-muted)',
-                          border: 'none',
-                          padding: '0.45rem 1.5rem',
-                          borderRadius: '8px',
-                          cursor: postContent.trim() ? 'pointer' : 'default',
-                          fontFamily: "'Modern Antiqua', serif",
-                          fontSize: '0.85rem',
-                          fontWeight: 700,
-                          marginLeft: 'auto',
-                        }}
-                      >
-                        {submitting ? 'Posting...' : 'Post'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Sign-in prompt for non-members */}
-                  {!user && (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0, textAlign: 'center', padding: '0.5rem 0' }}>
-                      <a href="/auth" style={{ color: 'var(--gold)' }}>Sign in</a> to post to the wall
-                    </p>
-                  )}
               </section>
 
             ) : isOctober && !todayBeer ? (
@@ -741,36 +634,6 @@ export default function BeersPage() {
                   The Ritual Awaits
                 </h2>
                 <p style={{ color: 'var(--text-muted)' }}>The sacred calendar awakens on October 1st.</p>
-              </section>
-            )}
-
-            {/* ══════════════════════════════════════════════════════════════
-                THE WALL
-            ══════════════════════════════════════════════════════════════ */}
-            {isOctober && posts.length > 0 && (
-              <section style={{ marginBottom: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                <div style={{
-                  color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif",
-                  fontSize: '0.65rem', letterSpacing: '0.3em',
-                  textTransform: 'uppercase', marginBottom: '1.25rem',
-                }}>
-                  The Wall
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {posts.map(post => (
-                    <PostCard
-                      key={post.id}
-                      post={post}
-                      user={user}
-                      onReact={handleReact}
-                      onComment={async (postId, content) => {
-                        if (!user) return
-                        await supabase.from('post_comments').insert({ post_id: postId, user_id: user.id, content })
-                        if (todayBeer) await loadPosts(todayBeer.id)
-                      }}
-                    />
-                  ))}
-                </div>
               </section>
             )}
 

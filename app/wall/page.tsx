@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import Link from 'next/link'
@@ -331,7 +332,9 @@ function PostCard({
 }
 
 export default function WallPage() {
+  const router = useRouter()
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
   const [posts, setPosts] = useState<WallPost[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -341,10 +344,19 @@ export default function WallPage() {
   const observerRef = useRef<IntersectionObserver | null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => setUser(s?.user ?? null))
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+      setAuthChecked(true)
+      if (!user) router.replace('/auth')
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
+      setUser(s?.user ?? null)
+      if (!s?.user) router.replace('/auth')
+    })
     return () => subscription.unsubscribe()
-  }, [])
+  }, [router])
+
+  if (!authChecked) return null
 
   const mergeProfiles = (
     postsData: WallPost[],

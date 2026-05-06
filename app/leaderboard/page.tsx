@@ -166,7 +166,7 @@ export default function LeaderboardPage() {
           marginBottom: '1.75rem',
           gap: '4px',
         }}>
-          {(['beers', 'members'] as const).map(t => (
+          {(['beers', 'members'] as const).filter(t => t === 'beers' || !!user).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -201,6 +201,13 @@ export default function LeaderboardPage() {
             Tallying the votes...
           </p>
         ) : tab === 'members' ? (
+          !user ? (
+            <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+              <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '1rem', marginBottom: '1rem' }}>Members only</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Sign in to see the rankings.</p>
+              <a href="/auth" style={{ padding: '0.7rem 2rem', background: 'var(--gold)', color: 'var(--bg)', borderRadius: '10px', fontFamily: "'Modern Antiqua', serif", fontWeight: 700, textDecoration: 'none', fontSize: '0.875rem' }}>Sign In</a>
+            </div>
+          ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             {members.length === 0 ? (
               <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", padding: '3rem 0' }}>
@@ -255,6 +262,7 @@ export default function LeaderboardPage() {
               </div>
             ))}
           </div>
+          )
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             {topBeers.length === 0 ? (

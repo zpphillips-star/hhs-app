@@ -492,7 +492,11 @@ export default function WallPage() {
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {olderPosts.map(p => (
-                    <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} />            )}
+                    <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} />
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
 

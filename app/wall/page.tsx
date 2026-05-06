@@ -53,6 +53,7 @@ function PostCard({
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   const displayName = post.profiles?.display_name || post.profiles?.username || 'Member'
   const reactions = post.post_reactions || []
@@ -127,12 +128,43 @@ function PostCard({
 
       {/* Photo */}
       {post.photo_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={post.photo_url}
-          alt="post photo"
-          style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'cover', marginTop: '0.75rem' }}
-        />
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.photo_url}
+            alt="post photo"
+            onClick={() => setLightboxOpen(true)}
+            style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'cover', marginTop: '0.75rem', cursor: 'zoom-in' }}
+          />
+          {lightboxOpen && (
+            <div
+              onClick={() => setLightboxOpen(false)}
+              style={{
+                position: 'fixed', inset: 0, zIndex: 2000,
+                background: 'rgba(0,0,0,0.92)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'zoom-out',
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.photo_url}
+                alt="post photo full"
+                style={{ maxWidth: '95vw', maxHeight: '90vh', borderRadius: '8px', objectFit: 'contain' }}
+              />
+              <button
+                onClick={() => setLightboxOpen(false)}
+                style={{
+                  position: 'fixed', top: '1rem', right: '1rem',
+                  background: 'rgba(255,255,255,0.1)', border: 'none',
+                  color: '#fff', borderRadius: '50%', width: '36px', height: '36px',
+                  cursor: 'pointer', fontSize: '1rem',
+                }}
+              >✕</button>
+            </div>
+          )}
+        </>
+      )}
       )}
 
       {/* Reactions */}

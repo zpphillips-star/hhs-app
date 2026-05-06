@@ -408,9 +408,9 @@ export default function BeersPage() {
   const closeModal = () => { setSelectedDay(null); setModalBeer(null); setModalRating(null) }
 
   const handleModalRate = async (stars: number) => {
-    if (!user || !modalBeer || modalRating) return
+    if (!user || !modalBeer) return
     const { data } = await supabase.from('ratings')
-      .insert({ user_id: user.id, beer_id: modalBeer.id, stars })
+      .upsert({ user_id: user.id, beer_id: modalBeer.id, stars }, { onConflict: 'user_id,beer_id' })
       .select().maybeSingle()
     setModalRating(data)
   }
@@ -876,24 +876,12 @@ export default function BeersPage() {
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                       <a href="/auth" style={{ color: 'var(--gold)' }}>Sign in</a> to rate this beer.
                     </p>
-                  ) : modalRating ? (
-                    <div>
-                      <div style={{ color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.62rem', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                        Your Rating
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ color: 'var(--gold)', fontSize: '1.5rem' }}>
-                          {'★'.repeat(modalRating.stars)}{'☆'.repeat(5 - modalRating.stars)}
-                        </span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{modalRating.stars} / 5</span>
-                      </div>
-                    </div>
                   ) : (
                     <div>
                       <div style={{ color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.62rem', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                        Rate This Beer
+                        {modalRating ? 'Your Rating' : 'Rate This Beer'}
                       </div>
-                      <StarRating onSubmit={async (stars) => { await handleModalRate(stars) }} />
+                      <StarRating initialStars={modalRating?.stars} onSubmit={async (stars) => { await handleModalRate(stars) }} />
                     </div>
                   )}
                 </div>

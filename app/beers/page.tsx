@@ -743,7 +743,7 @@ export default function BeersPage() {
                 {/* Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
                   {calendarCells.map((day, idx) => {
-                    if (!day) return <div key={`e-${idx}`} style={{ minHeight: '100px' }} />
+                    if (!day) return <div key={`e-${idx}`} style={{ height: '110px' }} />
                     const beer       = beerMap[day]
                     const isToday    = day === todayDay
                     const isPast     = todayDay ? day < todayDay : false
@@ -759,7 +759,8 @@ export default function BeersPage() {
                           border: `1px solid ${isToday ? 'var(--gold)' : 'var(--border)'}`,
                           borderRadius: '10px',
                           padding: '0.6rem',
-                          minHeight: '100px',
+                          height: '110px',
+                          overflow: 'hidden',
                           display: 'flex',
                           flexDirection: 'column',
                           boxShadow: isToday ? '0 0 0 1px var(--gold)' : 'none',

@@ -44,51 +44,59 @@ export default function LeaderboardPage() {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
 
     const fetchData = async () => {
-      // Fetch all four interaction types in parallel, including timestamps + beer day_number for timeliness
+      // Fetch all four interaction types + profiles in parallel
+      // Note: profiles joined separately because user_id FKs point to auth.users, not profiles
       const [
         { data: ratings },
         { data: posts },
         { data: comments },
         { data: reactions },
+        { data: profiles },
       ] = await Promise.all([
-        supabase.from('ratings').select('user_id, beer_id, stars, created_at, profiles(username, display_name), beers(name, brewery, day_number)'),
-        supabase.from('posts').select('user_id, beer_id, created_at, profiles(username, display_name), beers(day_number)'),
-        supabase.from('post_comments').select('user_id, created_at, profiles(username, display_name), posts(beer_id, beers(day_number))'),
-        supabase.from('post_reactions').select('user_id, created_at, profiles(username, display_name), posts(beer_id, beers(day_number))'),
+        supabase.from('ratings').select('user_id, beer_id, stars, created_at, beers(name, brewery, day_number)'),
+        supabase.from('posts').select('user_id, beer_id, created_at, beers(day_number)'),
+        supabase.from('post_comments').select('user_id, created_at, posts(beer_id, beers(day_number))'),
+        supabase.from('post_reactions').select('user_id, created_at, posts(beer_id, beers(day_number))'),
+        supabase.from('profiles').select('id, username, display_name'),
       ])
+
+      // Build a profile lookup map by user id
+      const profileMap: Record<string, { username: string; display_name: string | null }> = {}
+      for (const p of profiles || []) {
+        profileMap[p.id] = { username: p.username, display_name: p.display_name }
+      }
 
       // Build member map — track raw counts + weighted score directly
       const memberMap: Record<string, { username: string; display_name: string | null; ratings: number; posts: number; comments: number; reactions: number; score: number }> = {}
 
-      const ensureUser = (uid: string, p: { username?: string; display_name?: string | null } | null) => {
-        if (!memberMap[uid]) memberMap[uid] = { username: p?.username || 'Unknown', display_name: p?.display_name || null, ratings: 0, posts: 0, comments: 0, reactions: 0, score: 0 }
+      const ensureUser = (uid: string) => {
+        if (!memberMap[uid]) {
+          const p = profileMap[uid]
+          memberMap[uid] = { username: p?.username || 'Unknown', display_name: p?.display_name || null, ratings: 0, posts: 0, comments: 0, reactions: 0, score: 0 }
+        }
       }
 
       for (const r of ratings || []) {
-        const p = r.profiles as { username?: string; display_name?: string | null } | null
         const beer = r.beers as { day_number?: number } | null
-        ensureUser(r.user_id, p)
+        ensureUser(r.user_id)
         memberMap[r.user_id].ratings++
         memberMap[r.user_id].score += 2 + (isSameDay(r.created_at, beer?.day_number) ? 1 : 0)
       }
       for (const r of posts || []) {
-        const p = r.profiles as { username?: string; display_name?: string | null } | null
         const beer = r.beers as { day_number?: number } | null
-        ensureUser(r.user_id, p)
+        ensureUser(r.user_id)
         memberMap[r.user_id].posts++
         memberMap[r.user_id].score += 3 + (isSameDay(r.created_at, beer?.day_number) ? 1 : 0)
       }
       for (const r of comments || []) {
-        const p = r.profiles as { username?: string; display_name?: string | null } | null
         const post = r.posts as { beers?: { day_number?: number } } | null
-        ensureUser(r.user_id, p)
+        ensureUser(r.user_id)
         memberMap[r.user_id].comments++
         memberMap[r.user_id].score += 2 + (isSameDay(r.created_at, post?.beers?.day_number) ? 1 : 0)
       }
       for (const r of reactions || []) {
-        const p = r.profiles as { username?: string; display_name?: string | null } | null
         const post = r.posts as { beers?: { day_number?: number } } | null
-        ensureUser(r.user_id, p)
+        ensureUser(r.user_id)
         memberMap[r.user_id].reactions++
         memberMap[r.user_id].score += 1 + (isSameDay(r.created_at, post?.beers?.day_number) ? 1 : 0)
       }

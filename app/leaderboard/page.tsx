@@ -214,12 +214,12 @@ export default function LeaderboardPage() {
               <p style={{
                 color: 'var(--text)', fontFamily: "'Modern Antiqua', serif",
                 fontSize: '1.1rem', marginBottom: '0.75rem', lineHeight: 1.4,
-              }}>The rankings are sealed from outsiders.</p>
+              }}>The standings are Society business.</p>
               <p style={{
                 color: 'var(--text-muted)', fontSize: '0.85rem',
                 lineHeight: 1.7, marginBottom: '2rem',
               }}>
-                The ravens carry no word for the uninitiated. Only sworn members of the Hallowed Hop Society may witness who reigns atop the leaderboard.
+                Who leads the pack is known only to members. Sign in to see where you stand.
               </p>
               <a href="/auth" style={{
                 display: 'inline-block',

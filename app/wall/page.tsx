@@ -369,13 +369,13 @@ export default function WallPage() {
           fontFamily: "'Modern Antiqua', serif",
           fontSize: '1.6rem', color: 'var(--text)',
           marginBottom: '1rem', lineHeight: 1.3,
-        }}>The wall speaks only to members.</h2>
+        }}>This is a members only space.</h2>
         <p style={{
           color: 'var(--text-muted)', fontSize: '0.9rem',
           lineHeight: 1.7, marginBottom: '2.5rem',
         }}>
-          The ravens carry no messages for the uninitiated.
-          If you&apos;ve been welcomed into the Hallowed Hop Society, sign in to take your place.
+          The Society Wall is reserved for those who&apos;ve earned their place at the table.
+          Sign in to join the conversation.
         </p>
         <a href="/auth" style={{
           display: 'inline-block',

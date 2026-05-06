@@ -332,17 +332,26 @@ export default function WallPage() {
 
   const handleReact = async (postId: string, reaction: ReactionKey) => {
     if (!user) return
-    const { error } = await supabase.from('post_reactions').insert({ post_id: postId, user_id: user.id, reaction })
-    if (error) {
-      if (error.code === '23505') {
-        // Already reacted — toggle off
-        const { error: delError } = await supabase.from('post_reactions').delete()
-          .eq('post_id', postId).eq('user_id', user.id).eq('reaction', reaction)
-        if (delError) { alert('Delete error: ' + delError.message); return }
+    // Find if user already has a reaction on this post
+    const post = posts.find(p => p.id === postId)
+    const existing = post?.post_reactions.find(r => r.user_id === user.id)
+
+    if (existing) {
+      if (existing.reaction === reaction) {
+        // Same reaction — toggle off
+        const { error } = await supabase.from('post_reactions').delete()
+          .eq('post_id', postId).eq('user_id', user.id)
+        if (error) { alert('Remove error: ' + error.message); return }
       } else {
-        alert('React error: ' + error.message)
-        return
+        // Different reaction — swap it
+        const { error } = await supabase.from('post_reactions').update({ reaction })
+          .eq('post_id', postId).eq('user_id', user.id)
+        if (error) { alert('Update error: ' + error.message); return }
       }
+    } else {
+      // No reaction yet — insert
+      const { error } = await supabase.from('post_reactions').insert({ post_id: postId, user_id: user.id, reaction })
+      if (error) { alert('React error: ' + error.message); return }
     }
     await reloadPost(postId)
   }

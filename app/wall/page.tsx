@@ -369,13 +369,12 @@ export default function WallPage() {
           fontFamily: "'Modern Antiqua', serif",
           fontSize: '1.6rem', color: 'var(--text)',
           marginBottom: '1rem', lineHeight: 1.3,
-        }}>This is a members only space.</h2>
+        }}>What happens here stays here.</h2>
         <p style={{
           color: 'var(--text-muted)', fontSize: '0.9rem',
           lineHeight: 1.7, marginBottom: '2.5rem',
         }}>
-          The Society Wall is reserved for those who&apos;ve earned their place at the table.
-          Sign in to join the conversation.
+          The Society Wall is not for everyone. If you know, you know.
         </p>
         <a href="/auth" style={{
           display: 'inline-block',

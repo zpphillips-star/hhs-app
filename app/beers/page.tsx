@@ -293,12 +293,28 @@ export default function BeersPage() {
 
   // ── Load wall posts ─────────────────────────────────────────────────────────
   const loadPosts = async (beerId: string) => {
-    const { data } = await supabase
-      .from('posts')
-      .select('*, profiles(username, display_name), post_reactions(*), post_comments(*, profiles(username, display_name))')
-      .eq('beer_id', beerId)
-      .order('created_at', { ascending: false })
-    setPosts(data || [])
+    // Fetch posts and profiles separately (no direct FK from posts.user_id to profiles)
+    const [{ data: postsData }, { data: profilesData }] = await Promise.all([
+      supabase
+        .from('posts')
+        .select('*, post_reactions(*), post_comments(*)')
+        .eq('beer_id', beerId)
+        .order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id, username, display_name'),
+    ])
+    // Build profile lookup
+    const profileMap: Record<string, { username: string; display_name: string | null }> = {}
+    for (const p of profilesData || []) profileMap[p.id] = p
+    // Attach profiles to posts and comments
+    const merged = (postsData || []).map(post => ({
+      ...post,
+      profiles: profileMap[post.user_id] || { username: 'Unknown', display_name: null },
+      post_comments: (post.post_comments || []).map((c: { user_id: string }) => ({
+        ...c,
+        profiles: profileMap[c.user_id] || { username: 'Unknown', display_name: null },
+      })),
+    }))
+    setPosts(merged)
   }
 
   // ── Rate today's beer ───────────────────────────────────────────────────────

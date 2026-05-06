@@ -203,7 +203,7 @@ export default function LeaderboardPage() {
         ) : tab === 'members' ? (
           !user ? (
             <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '1.25rem' }}>💀</div>
+              <div style={{ fontSize: '2.5rem', marginBottom: '1.25rem' }}>🐦‍⬛</div>
               <p style={{
                 fontFamily: "'Modern Antiqua', serif",
                 fontSize: '0.6rem', letterSpacing: '0.5em',
@@ -213,12 +213,12 @@ export default function LeaderboardPage() {
               <p style={{
                 color: 'var(--text)', fontFamily: "'Modern Antiqua', serif",
                 fontSize: '1.1rem', marginBottom: '0.75rem', lineHeight: 1.4,
-              }}>The rankings are reserved for the initiated.</p>
+              }}>The rankings are sealed from outsiders.</p>
               <p style={{
                 color: 'var(--text-muted)', fontSize: '0.85rem',
                 lineHeight: 1.7, marginBottom: '2rem',
               }}>
-                Only sworn members of the Hallowed Hop Society may witness who stands atop the leaderboard.
+                The ravens carry no word for the uninitiated. Only sworn members of the Hallowed Hop Society may witness who reigns atop the leaderboard.
               </p>
               <a href="/auth" style={{
                 display: 'inline-block',

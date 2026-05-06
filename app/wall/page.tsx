@@ -357,24 +357,24 @@ export default function WallPage() {
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       <Nav user={null} />
       <main style={{ maxWidth: '500px', margin: '0 auto', padding: '6rem 2rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>🍂</div>
+        <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>🐦‍⬛</div>
         <p style={{
           fontFamily: "'Modern Antiqua', serif",
           fontSize: '0.6rem', letterSpacing: '0.5em',
           textTransform: 'uppercase', color: 'var(--gold)',
           marginBottom: '1.5rem',
-        }}>The Hallowed Hop Society</p>
+        }}>Members Only</p>
         <h2 style={{
           fontFamily: "'Modern Antiqua', serif",
           fontSize: '1.6rem', color: 'var(--text)',
           marginBottom: '1rem', lineHeight: 1.3,
-        }}>This wall is for members only.</h2>
+        }}>The wall speaks only to members.</h2>
         <p style={{
           color: 'var(--text-muted)', fontSize: '0.9rem',
           lineHeight: 1.7, marginBottom: '2.5rem',
         }}>
-          What happens at the Hallowed Hop Society stays at the Hallowed Hop Society.
-          If you&apos;ve been initiated, sign in to join the conversation.
+          The ravens carry no messages for the uninitiated.
+          If you&apos;ve been welcomed into the Hallowed Hop Society, sign in to take your place.
         </p>
         <a href="/auth" style={{
           display: 'inline-block',
@@ -385,7 +385,7 @@ export default function WallPage() {
           fontWeight: 700, fontSize: '0.9rem',
           letterSpacing: '0.1em', textDecoration: 'none',
         }}>Enter the Society</a>
-        <div style={{ marginTop: '3rem', width: '4rem', height: '1px', background: 'rgba(255,140,0,0.3)', margin: '3rem auto 0' }} />
+        <div style={{ width: '4rem', height: '1px', background: 'rgba(255,140,0,0.3)', margin: '3rem auto 0' }} />
       </main>
     </div>
   )

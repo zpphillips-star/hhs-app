@@ -607,6 +607,59 @@ export default function BeersPage() {
                   </div>
                 </div>
 
+                {/* Post to the Wall */}
+                {user && todayBeer.id !== 'preview-space-dust' && (
+                  <div style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '1rem 1.25rem',
+                    marginBottom: '1rem',
+                  }}>
+                    <div style={{
+                      color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                      fontSize: '0.58rem', letterSpacing: '0.28em',
+                      textTransform: 'uppercase', marginBottom: '0.6rem',
+                    }}>Post to the Wall</div>
+                    <textarea
+                      value={postContent}
+                      onChange={e => setPostContent(e.target.value)}
+                      placeholder="Share your thoughts on today's beer..."
+                      rows={3}
+                      style={{
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        resize: 'none',
+                        color: 'var(--text)',
+                        fontFamily: "'Modern Antiqua', serif",
+                        fontSize: '0.9rem',
+                        lineHeight: 1.6,
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                      <button
+                        onClick={handleSubmitPost}
+                        disabled={submitting || !postContent.trim()}
+                        style={{
+                          background: postContent.trim() ? 'var(--gold)' : 'transparent',
+                          border: postContent.trim() ? 'none' : '1px solid var(--border)',
+                          color: postContent.trim() ? 'var(--bg)' : 'var(--text-muted)',
+                          padding: '0.45rem 1.25rem',
+                          borderRadius: '8px',
+                          cursor: postContent.trim() ? 'pointer' : 'default',
+                          fontFamily: "'Modern Antiqua', serif",
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          letterSpacing: '0.08em',
+                        }}
+                      >{submitting ? 'Posting...' : 'Post'}</button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Link to The Wall */}
                 <div style={{ textAlign: 'center', paddingBottom: '0.5rem' }}>
                   <a href="/wall" style={{

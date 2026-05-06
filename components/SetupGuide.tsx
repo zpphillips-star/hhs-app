@@ -1,26 +1,37 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 
 type Step = 'install' | 'notify' | 'done'
 
 function isIOS() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent)
 }
-function isAndroid() {
-  return /android/i.test(navigator.userAgent)
-}
 function isPWA() {
   return window.matchMedia('(display-mode: standalone)').matches ||
     ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let deferredInstallPrompt: any = null
 
 export default function SetupGuide({ userId }: { userId: string }) {
   const [step, setStep] = useState<Step | null>(null)
   const [notifStatus, setNotifStatus] = useState<NotificationPermission | null>(null)
   const [subscribing, setSubscribing] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [canPromptInstall, setCanPromptInstall] = useState(false)
+
+  // Capture the browser's native install prompt (Android / Chrome)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault()
+      deferredInstallPrompt = e
+      setCanPromptInstall(true)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
 
   useEffect(() => {
     if (dismissed) return
@@ -33,11 +44,22 @@ export default function SetupGuide({ userId }: { userId: string }) {
     } else if (notifPerm !== 'granted') {
       setStep('notify')
     } else {
-      // Already set up — subscribe silently in background
       subscribeIfNeeded(userId)
       setStep('done')
     }
   }, [userId, dismissed])
+
+  const triggerInstallPrompt = async () => {
+    if (!deferredInstallPrompt) return
+    deferredInstallPrompt.prompt()
+    const { outcome } = await deferredInstallPrompt.userChoice
+    deferredInstallPrompt = null
+    setCanPromptInstall(false)
+    if (outcome === 'accepted') {
+      // Give the browser a moment to switch to standalone mode
+      setTimeout(() => setStep('notify'), 1500)
+    }
+  }
 
   const subscribeIfNeeded = async (uid: string) => {
     try {
@@ -97,34 +119,46 @@ export default function SetupGuide({ userId }: { userId: string }) {
             To receive daily beer notifications, <strong style={{ color: 'var(--gold)' }}>add this app to your Home Screen</strong> first.
           </p>
 
-          {isIOS() && (
+          {/* Android / Chrome — one-tap install button */}
+          {canPromptInstall && (
+            <button
+              onClick={triggerInstallPrompt}
+              style={{
+                width: '100%', padding: '0.85rem',
+                background: 'var(--gold)', border: 'none', borderRadius: '10px',
+                color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif",
+                fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.1em',
+                cursor: 'pointer', marginBottom: '0.75rem',
+              }}
+            >📲 Add to Home Screen</button>
+          )}
+
+          {/* iOS — can't be automated, show clear steps */}
+          {!canPromptInstall && isIOS() && (
             <div style={{ background: 'rgba(255,140,0,0.07)', border: '1px solid rgba(255,140,0,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
-              <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>iPhone / iPad</p>
-              <ol style={{ color: 'var(--text)', fontSize: '0.875rem', lineHeight: 1.8, paddingLeft: '1.25rem', margin: 0 }}>
-                <li>Tap the <strong>Share</strong> button (□↑) in Safari</li>
-                <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
-                <li>Tap <strong>Add</strong></li>
-                <li>Open the app from your Home Screen</li>
-              </ol>
+              <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>iPhone / iPad — 3 quick steps</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {[
+                  { icon: '⬆️', text: 'Tap the Share button at the bottom of Safari' },
+                  { icon: '➕', text: 'Tap "Add to Home Screen"' },
+                  { icon: '✅', text: 'Tap Add — then open the app from your Home Screen' },
+                ].map(({ icon, text }) => (
+                  <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <span style={{ fontSize: '1.25rem', lineHeight: 1, flexShrink: 0 }}>{icon}</span>
+                    <span style={{ color: 'var(--text)', fontSize: '0.875rem', lineHeight: 1.5 }}>{text}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {isAndroid() && (
+          {/* Desktop or other — generic message */}
+          {!canPromptInstall && !isIOS() && (
             <div style={{ background: 'rgba(255,140,0,0.07)', border: '1px solid rgba(255,140,0,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
-              <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Android</p>
-              <ol style={{ color: 'var(--text)', fontSize: '0.875rem', lineHeight: 1.8, paddingLeft: '1.25rem', margin: 0 }}>
-                <li>Tap the <strong>⋮ menu</strong> in Chrome</li>
-                <li>Tap <strong>"Add to Home screen"</strong></li>
-                <li>Tap <strong>Add</strong></li>
-                <li>Open the app from your Home Screen</li>
-              </ol>
+              <p style={{ color: 'var(--text)', fontSize: '0.875rem', lineHeight: 1.6, margin: 0 }}>
+                Open <strong style={{ color: 'var(--gold)' }}>hallowedhopsociety.com</strong> on your phone, then use your browser menu to <strong>Add to Home Screen</strong>.
+              </p>
             </div>
-          )}
-
-          {!isIOS() && !isAndroid() && (
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              Open this site in your mobile browser and add it to your Home Screen to enable notifications.
-            </p>
           )}
 
           <button

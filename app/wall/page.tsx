@@ -620,7 +620,7 @@ export default function WallPage() {
                   fontWeight: 700,
                   letterSpacing: '0.08em',
                 }}
-              >{wallPosting ? 'Posting...' : 'Post to the Wall'}</button>
+              >{wallPosting ? 'Posting...' : 'Post'}</button>
             </div>
           </div>
         )}

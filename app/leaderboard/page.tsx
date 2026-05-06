@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/Nav'
+import RavenIcon from '@/components/RavenIcon'
 
 type MemberStat = { username: string; display_name: string | null; score: number; ratings: number; posts: number; comments: number; reactions: number }
 type BeerStat   = { name: string; brewery: string; day_number: number; avg: number; count: number }
@@ -203,7 +204,7 @@ export default function LeaderboardPage() {
         ) : tab === 'members' ? (
           !user ? (
             <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '1.25rem' }}>🐦‍⬛</div>
+              <div style={{ marginBottom: '1.25rem' }}><RavenIcon size={90} /></div>
               <p style={{
                 fontFamily: "'Modern Antiqua', serif",
                 fontSize: '0.6rem', letterSpacing: '0.5em',

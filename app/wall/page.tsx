@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/Nav'
+import RavenIcon from '@/components/RavenIcon'
 import Link from 'next/link'
 
 const PAGE_SIZE = 15
@@ -357,7 +358,7 @@ export default function WallPage() {
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       <Nav user={null} />
       <main style={{ maxWidth: '500px', margin: '0 auto', padding: '6rem 2rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>🐦‍⬛</div>
+        <div style={{ marginBottom: '1.5rem' }}><RavenIcon size={110} /></div>
         <p style={{
           fontFamily: "'Modern Antiqua', serif",
           fontSize: '0.6rem', letterSpacing: '0.5em',

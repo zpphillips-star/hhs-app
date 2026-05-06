@@ -436,6 +436,29 @@ export default function WallPage() {
     setPosts(prev => prev.filter(p => p.id !== postId))
   }
 
+  const [wallPostText, setWallPostText] = useState('')
+  const [wallPosting, setWallPosting] = useState(false)
+
+  const handleWallPost = async () => {
+    if (!user || !wallPostText.trim() || wallPosting) return
+    setWallPosting(true)
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({ user_id: user.id, content: wallPostText.trim(), beer_id: null })
+      .select('*, post_reactions(*), post_comments(*), beers(name, brewery, day_number, style, abv)')
+      .maybeSingle()
+    if (error) { alert('Post error: ' + error.message); setWallPosting(false); return }
+    if (data) {
+      const { data: profilesData } = await supabase.from('profiles').select('id, username, display_name')
+      const profileMap: Record<string, { username: string; display_name: string | null }> = {}
+      for (const p of profilesData || []) profileMap[p.id] = p
+      const merged = mergeProfiles([data as WallPost], profileMap)[0]
+      setPosts(prev => [merged, ...prev])
+    }
+    setWallPostText('')
+    setWallPosting(false)
+  }
+
   const todayStr   = new Date().toDateString()
   const todayPosts = posts.filter(p => new Date(p.created_at).toDateString() === todayStr)
   const olderPosts = posts.filter(p => new Date(p.created_at).toDateString() !== todayStr)
@@ -481,6 +504,54 @@ export default function WallPage() {
         }}>
           The full record of the Hallowed Hop Society
         </p>
+
+        {/* Quick post box */}
+        {user && (
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '1rem 1.25rem',
+            marginBottom: '2rem',
+          }}>
+            <textarea
+              value={wallPostText}
+              onChange={e => setWallPostText(e.target.value)}
+              placeholder="Share your thoughts with the Society..."
+              rows={3}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                resize: 'none',
+                color: 'var(--text)',
+                fontFamily: "'Modern Antiqua', serif",
+                fontSize: '0.9rem',
+                lineHeight: 1.6,
+                boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+              <button
+                onClick={handleWallPost}
+                disabled={wallPosting || !wallPostText.trim()}
+                style={{
+                  background: wallPostText.trim() ? 'var(--gold)' : 'transparent',
+                  border: wallPostText.trim() ? 'none' : '1px solid var(--border)',
+                  color: wallPostText.trim() ? 'var(--bg)' : 'var(--text-muted)',
+                  padding: '0.45rem 1.25rem',
+                  borderRadius: '8px',
+                  cursor: wallPostText.trim() ? 'pointer' : 'default',
+                  fontFamily: "'Modern Antiqua', serif",
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                }}
+              >{wallPosting ? 'Posting...' : 'Post to the Wall'}</button>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", textAlign: 'center', padding: '4rem 0', animation: 'pulse 1s infinite' }}>

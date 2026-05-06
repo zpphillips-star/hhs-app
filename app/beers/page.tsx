@@ -455,7 +455,7 @@ export default function BeersPage() {
                     color: 'var(--gold)',
                     whiteSpace: 'nowrap',
                   }}>
-                    🍺 Today&apos;s Beer
+                    Today&apos;s Beer
                   </span>
                   <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
                 </div>

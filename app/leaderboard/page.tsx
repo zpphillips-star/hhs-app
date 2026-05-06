@@ -136,7 +136,7 @@ export default function LeaderboardPage() {
       <main style={{ maxWidth: '700px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 
         {/* Header */}
-        <SectionDivider label="🏆 Rankings" />
+        <SectionDivider label="Rankings" />
         <h1 style={{
           fontFamily: "'Modern Antiqua', serif",
           color: 'var(--text)',
@@ -186,7 +186,7 @@ export default function LeaderboardPage() {
                 fontWeight: tab === t ? 700 : 400,
               }}
             >
-              {t === 'members' ? '👻 Members' : '🍺 Top Beers'}
+              {t === 'members' ? 'Members' : 'Top Beers'}
             </button>
           ))}
         </div>

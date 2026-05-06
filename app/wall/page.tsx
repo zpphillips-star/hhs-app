@@ -584,7 +584,7 @@ export default function WallPage() {
             color: 'var(--gold)',
             whiteSpace: 'nowrap',
           }}>
-            🍂 The Society Wall
+            The Society Wall
           </span>
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
         </div>

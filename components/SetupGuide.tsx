@@ -110,7 +110,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
 
       {/* Decorative header */}
       <p style={{ fontFamily: "'Modern Antiqua', serif", fontSize: '0.6rem', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '0.75rem' }}>
-        {step === 'install' ? '⚙️ Setup Required' : '🔔 Enable Notifications'}
+        {step === 'install' ? 'Setup Required' : 'Enable Notifications'}
       </p>
 
       {step === 'install' && (
@@ -130,7 +130,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
                 fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.1em',
                 cursor: 'pointer', marginBottom: '0.75rem',
               }}
-            >📲 Add to Home Screen</button>
+            >Add to Home Screen</button>
           )}
 
           {/* iOS — can't be automated, show clear steps */}
@@ -139,9 +139,9 @@ export default function SetupGuide({ userId }: { userId: string }) {
               <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>iPhone / iPad — 3 quick steps</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {[
-                  { icon: '⬆️', text: 'Tap the Share button at the bottom of Safari' },
-                  { icon: '➕', text: 'Tap "Add to Home Screen"' },
-                  { icon: '✅', text: 'Tap Add — then open the app from your Home Screen' },
+                  { icon: '1.', text: 'Tap the Share button at the bottom of Safari' },
+                  { icon: '2.', text: 'Tap "Add to Home Screen"' },
+                  { icon: '3.', text: 'Tap Add — then open the app from your Home Screen' },
                 ].map(({ icon, text }) => (
                   <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
                     <span style={{ fontSize: '1.25rem', lineHeight: 1, flexShrink: 0 }}>{icon}</span>
@@ -183,7 +183,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
               fontSize: '0.9rem', fontWeight: 700, letterSpacing: '0.1em',
               cursor: 'pointer', marginBottom: '0.75rem',
             }}
-          >{subscribing ? 'Enabling...' : '🔔 Enable Notifications'}</button>
+          >{subscribing ? 'Enabling...' : 'Enable Notifications'}</button>
           <button
             onClick={() => setDismissed(true)}
             style={{ width: '100%', padding: '0.6rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem', cursor: 'pointer' }}

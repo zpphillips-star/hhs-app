@@ -465,10 +465,9 @@ export default function WallPage() {
       const ext = wallPhoto.name.split('.').pop()
       const path = `${user.id}/${Date.now()}.${ext}`
       const { error } = await supabase.storage.from('post-photos').upload(path, wallPhoto)
-      if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('post-photos').getPublicUrl(path)
-        photoUrl = publicUrl
-      }
+      if (error) { alert('Photo upload error: ' + error.message); setWallPosting(false); return }
+      const { data: { publicUrl } } = supabase.storage.from('post-photos').getPublicUrl(path)
+      photoUrl = publicUrl
     }
     const { data, error } = await supabase
       .from('posts')

@@ -357,10 +357,9 @@ export default function BeersPage() {
       const ext = postPhoto.name.split('.').pop()
       const path = `${user.id}/${Date.now()}.${ext}`
       const { error } = await supabase.storage.from('post-photos').upload(path, postPhoto)
-      if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('post-photos').getPublicUrl(path)
-        photoUrl = publicUrl
-      }
+      if (error) { alert('Photo upload error: ' + error.message); setSubmitting(false); return }
+      const { data: { publicUrl } } = supabase.storage.from('post-photos').getPublicUrl(path)
+      photoUrl = publicUrl
     }
     const { error: postError } = await supabase.from('posts').insert({
       user_id: user.id,

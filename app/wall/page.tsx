@@ -544,17 +544,6 @@ export default function WallPage() {
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
         </div>
 
-        <h1 style={{
-          fontFamily: "'Modern Antiqua', serif",
-          color: 'var(--text)',
-          fontSize: 'clamp(1.5rem, 4vw, 2.25rem)',
-          textAlign: 'center',
-          marginBottom: '2.5rem',
-          lineHeight: 1.1,
-        }}>
-          The Society Wall
-        </h1>
-
         {/* Quick post box */}
         {user && (
           <div style={{

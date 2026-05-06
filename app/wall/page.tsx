@@ -389,7 +389,7 @@ export default function WallPage() {
           fontSize: '0.85rem',
           marginBottom: '2.5rem',
         }}>
-          The full record of the Hallow&apos;d Hop Society
+          The full record of the Hallowed Hop Society
         </p>
 
         {loading ? (

@@ -204,7 +204,7 @@ export default function LeaderboardPage() {
         ) : tab === 'members' ? (
           !user ? (
             <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
-              <div style={{ marginBottom: '1.25rem' }}><RavenIcon size={90} /></div>
+              <div style={{ marginBottom: '1.25rem' }}><RavenIcon size={130} /></div>
               <p style={{
                 fontFamily: "'Modern Antiqua', serif",
                 fontSize: '0.6rem', letterSpacing: '0.5em',

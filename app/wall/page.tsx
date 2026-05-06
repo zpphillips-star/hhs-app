@@ -358,7 +358,7 @@ export default function WallPage() {
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       <Nav user={null} />
       <main style={{ maxWidth: '500px', margin: '0 auto', padding: '6rem 2rem', textAlign: 'center' }}>
-        <div style={{ marginBottom: '1.5rem' }}><RavenIcon size={110} /></div>
+        <div style={{ marginBottom: '1.5rem' }}><RavenIcon size={150} /></div>
         <p style={{
           fontFamily: "'Modern Antiqua', serif",
           fontSize: '0.6rem', letterSpacing: '0.5em',

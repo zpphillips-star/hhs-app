@@ -333,9 +333,16 @@ export default function WallPage() {
   const handleReact = async (postId: string, reaction: ReactionKey) => {
     if (!user) return
     const { error } = await supabase.from('post_reactions').insert({ post_id: postId, user_id: user.id, reaction })
-    if (error?.code === '23505') {
-      await supabase.from('post_reactions').delete()
-        .eq('post_id', postId).eq('user_id', user.id).eq('reaction', reaction)
+    if (error) {
+      if (error.code === '23505') {
+        // Already reacted — toggle off
+        const { error: delError } = await supabase.from('post_reactions').delete()
+          .eq('post_id', postId).eq('user_id', user.id).eq('reaction', reaction)
+        if (delError) { alert('Delete error: ' + delError.message); return }
+      } else {
+        alert('React error: ' + error.message)
+        return
+      }
     }
     await reloadPost(postId)
   }

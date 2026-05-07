@@ -564,31 +564,12 @@ export default function WallPage() {
     setWallPosting(false)
   }
 
-  const todayStr   = new Date().toDateString()
-  const todayPosts = posts.filter(p => new Date(p.created_at).toDateString() === todayStr)
-  const olderPosts = posts.filter(p => new Date(p.created_at).toDateString() !== todayStr)
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       <Nav user={user} />
 
       <main style={{ maxWidth: '700px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
-
-        {/* Page header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(255,140,0,0.35))' }} />
-          <span style={{
-            fontFamily: "'Modern Antiqua', serif",
-            fontSize: '0.6rem',
-            letterSpacing: '0.4em',
-            textTransform: 'uppercase',
-            color: 'var(--gold)',
-            whiteSpace: 'nowrap',
-          }}>
-            The Society Wall
-          </span>
-          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
-        </div>
 
         {/* Quick post box */}
         {user && (
@@ -651,6 +632,22 @@ export default function WallPage() {
           </div>
         )}
 
+        {/* The Society Wall divider — sits between compose box and feed */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(255,140,0,0.35))' }} />
+          <span style={{
+            fontFamily: "'Modern Antiqua', serif",
+            fontSize: '0.6rem',
+            letterSpacing: '0.4em',
+            textTransform: 'uppercase',
+            color: 'var(--gold)',
+            whiteSpace: 'nowrap',
+          }}>
+            The Society Wall
+          </span>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
+        </div>
+
         {loading ? (
           <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", textAlign: 'center', padding: '4rem 0', animation: 'pulse 1s infinite' }}>
             Consulting the archives...
@@ -669,59 +666,11 @@ export default function WallPage() {
             </Link>
           </div>
         ) : (
-          <>
-            {/* Today's posts */}
-            {todayPosts.length > 0 && (
-              <section style={{ marginBottom: '2.5rem' }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem',
-                }}>
-                  <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-                  <span style={{
-                    fontFamily: "'Modern Antiqua', serif",
-                    fontSize: '0.6rem',
-                    letterSpacing: '0.3em',
-                    textTransform: 'uppercase',
-                    color: 'var(--gold)',
-                    whiteSpace: 'nowrap',
-                  }}>Today</span>
-                  <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {todayPosts.map(p => (
-                    <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Older posts */}
-            {olderPosts.length > 0 && (
-              <section>
-                {todayPosts.length > 0 && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem',
-                  }}>
-                    <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-                    <span style={{
-                      fontFamily: "'Modern Antiqua', serif",
-                      fontSize: '0.6rem',
-                      letterSpacing: '0.3em',
-                      textTransform: 'uppercase',
-                      color: 'var(--text-muted)',
-                      whiteSpace: 'nowrap',
-                    }}>Earlier</span>
-                    <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-                  </div>
-                )}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {olderPosts.map(p => (
-                    <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} />
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {posts.map(p => (
+              <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} />
+            ))}
+          </div>
         )}
 
         {/* Back link */}

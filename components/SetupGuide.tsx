@@ -29,7 +29,7 @@ function detectInAppBrowser(): InAppType {
 // Detect the actual browser the user is currently in
 function detectCurrentBrowser(): BrowserName {
   const ua = navigator.userAgent
-  if (/Edg\//.test(ua)) return 'edge'
+  if (/Edg\/|EdgA\//.test(ua)) return 'edge'
   if ((navigator as { brave?: { isBrave?: unknown } }).brave) return 'brave'
   if (/SamsungBrowser/.test(ua)) return 'samsung'
   if (/OPR\/|Opera/.test(ua)) return 'opera'

@@ -43,12 +43,14 @@ function PostCard({
   onReact,
   onComment,
   onDelete,
+  onBeerClick,
 }: {
   post: WallPost
   user: { id: string } | null
   onReact: (postId: string, reaction: ReactionKey) => Promise<void>
   onComment: (postId: string, content: string) => Promise<void>
   onDelete: (postId: string) => Promise<void>
+  onBeerClick?: (beerId: string, label: string) => void
 }){
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
@@ -87,21 +89,28 @@ function PostCard({
     }}>
       {/* Beer tag */}
       {post.beers && (
-        <div style={{
-          display: 'inline-block',
-          background: 'rgba(255,140,0,0.1)',
-          border: '1px solid rgba(255,140,0,0.25)',
-          borderRadius: '6px',
-          padding: '2px 8px',
-          marginBottom: '0.6rem',
-          fontFamily: "'Modern Antiqua', serif",
-          fontSize: '0.68rem',
-          letterSpacing: '0.12em',
-          color: 'var(--gold)',
-        }}>
+        <button
+          onClick={() => onBeerClick?.(post.beer_id, `${post.beers!.name}${post.beers!.day_number ? ` · Day ${post.beers!.day_number}` : ''}`)}
+          style={{
+            display: 'inline-block',
+            background: 'rgba(255,140,0,0.1)',
+            border: '1px solid rgba(255,140,0,0.25)',
+            borderRadius: '6px',
+            padding: '2px 8px',
+            marginBottom: '0.6rem',
+            fontFamily: "'Modern Antiqua', serif",
+            fontSize: '0.68rem',
+            letterSpacing: '0.12em',
+            color: 'var(--gold)',
+            cursor: onBeerClick ? 'pointer' : 'default',
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => { if (onBeerClick) (e.target as HTMLElement).style.background = 'rgba(255,140,0,0.2)' }}
+          onMouseLeave={e => { if (onBeerClick) (e.target as HTMLElement).style.background = 'rgba(255,140,0,0.1)' }}
+        >
           🍺 {post.beers.name}
           {post.beers.day_number ? ` · Day ${post.beers.day_number}` : ''}
-        </div>
+        </button>
       )}
 
       {/* Header */}
@@ -362,6 +371,8 @@ export default function WallPage() {
   const [wallPhotoPreview, setWallPhotoPreview] = useState<string | null>(null)
   const wallFileRef = useRef<HTMLInputElement>(null)
   const wallCameraRef = useRef<HTMLInputElement>(null)
+  const [filterBeerId, setFilterBeerId] = useState<string | null>(null)
+  const [filterBeerLabel, setFilterBeerLabel] = useState<string>('')
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -372,19 +383,23 @@ export default function WallPage() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const fetchPage = useCallback(async (pageIndex: number, replace = false) => {
+  const fetchPage = useCallback(async (pageIndex: number, replace = false, beerId?: string | null) => {
     if (pageIndex === 0) setLoading(true)
     else setLoadingMore(true)
 
     const from = pageIndex * PAGE_SIZE
     const to   = from + PAGE_SIZE - 1
 
+    let query = supabase
+      .from('posts')
+      .select('*, post_reactions(*), post_comments(*), beers(name, brewery, day_number, style, abv)')
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    if (beerId) query = query.eq('beer_id', beerId)
+
     const [{ data, error: fetchError }, { data: profilesData }] = await Promise.all([
-      supabase
-        .from('posts')
-        .select('*, post_reactions(*), post_comments(*), beers(name, brewery, day_number, style, abv)')
-        .order('created_at', { ascending: false })
-        .range(from, to),
+      query,
       supabase.from('profiles').select('id, username, display_name'),
     ])
 
@@ -414,7 +429,7 @@ export default function WallPage() {
       if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
         setPage(prev => {
           const next = prev + 1
-          fetchPage(next)
+          fetchPage(next, false, filterBeerId)
           return next
         })
       }
@@ -518,6 +533,24 @@ export default function WallPage() {
     const { error } = await supabase.from('posts').delete().eq('id', postId).eq('user_id', user.id)
     if (error) { alert('Delete error: ' + error.message); return }
     setPosts(prev => prev.filter(p => p.id !== postId))
+  }
+
+  const handleBeerFilter = (beerId: string, label: string) => {
+    setFilterBeerId(beerId)
+    setFilterBeerLabel(label)
+    setPage(0)
+    setPosts([])
+    setHasMore(true)
+    fetchPage(0, true, beerId)
+  }
+
+  const clearBeerFilter = () => {
+    setFilterBeerId(null)
+    setFilterBeerLabel('')
+    setPage(0)
+    setPosts([])
+    setHasMore(true)
+    fetchPage(0, true, null)
   }
 
   const handleWallPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -648,6 +681,28 @@ export default function WallPage() {
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
         </div>
 
+        {/* Active beer filter banner */}
+        {filterBeerId && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'rgba(255,140,0,0.08)',
+            border: '1px solid rgba(255,140,0,0.3)',
+            borderRadius: '8px',
+            padding: '0.5rem 0.75rem',
+            marginBottom: '1rem',
+          }}>
+            <span style={{ fontFamily: "'Modern Antiqua', serif", fontSize: '0.78rem', color: 'var(--gold)', letterSpacing: '0.05em' }}>
+              🍺 {filterBeerLabel}
+            </span>
+            <button
+              onClick={clearBeerFilter}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
+            >
+              ✕ all posts
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", textAlign: 'center', padding: '4rem 0', animation: 'pulse 1s infinite' }}>
             Consulting the archives...
@@ -668,7 +723,7 @@ export default function WallPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {posts.map(p => (
-              <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} />
+              <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} onBeerClick={handleBeerFilter} />
             ))}
           </div>
         )}

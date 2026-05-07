@@ -14,6 +14,15 @@ type MemberRequest = {
   created_at: string
 }
 
+type NotificationLog = {
+  id: string
+  title: string
+  body: string
+  total_sent: number
+  sent_at: string
+  opens: number
+}
+
 export default function AdminPage() {
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [beers, setBeers] = useState<Beer[]>([])
@@ -32,11 +41,13 @@ export default function AdminPage() {
   const [broadcastBody, setBroadcastBody] = useState('')
   const [broadcasting, setBroadcasting] = useState(false)
   const [broadcastResult, setBroadcastResult] = useState('')
+  const [notifHistory, setNotifHistory] = useState<NotificationLog[]>([])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
     fetchBeers()
     fetchRequests()
+    fetchNotifHistory()
   }, [])
 
   const fetchBeers = async () => {
@@ -50,6 +61,28 @@ export default function AdminPage() {
       .select('*')
       .order('created_at', { ascending: false })
     setRequests(data || [])
+  }
+
+  const fetchNotifHistory = async () => {
+    const { data: logs } = await supabase
+      .from('notification_log')
+      .select('id, title, body, total_sent, sent_at')
+      .order('sent_at', { ascending: false })
+      .limit(20)
+
+    if (!logs) return
+
+    // Fetch open counts for each notification
+    const { data: opens } = await supabase
+      .from('notification_opens')
+      .select('notification_id')
+
+    const openCounts: Record<string, number> = {}
+    for (const o of (opens || [])) {
+      openCounts[o.notification_id] = (openCounts[o.notification_id] || 0) + 1
+    }
+
+    setNotifHistory(logs.map(l => ({ ...l, opens: openCounts[l.id] || 0 })))
   }
 
   const handleReview = async (requestId: string, action: 'approve' | 'reject') => {
@@ -91,7 +124,12 @@ export default function AdminPage() {
       })
       const data = await res.json()
       if (!res.ok) setBroadcastResult(`Error: ${data.error}`)
-      else setBroadcastResult(`✅ Sent to ${data.sent} member${data.sent !== 1 ? 's' : ''}`)
+      else {
+        setBroadcastResult(`✅ Sent to ${data.sent} member${data.sent !== 1 ? 's' : ''}`)
+        setBroadcastTitle('')
+        setBroadcastBody('')
+        fetchNotifHistory()
+      }
     } catch {
       setBroadcastResult('Something went wrong.')
     }
@@ -366,6 +404,33 @@ export default function AdminPage() {
               </button>
             </form>
           </div>
+
+          {/* Notification History */}
+          {notifHistory.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Sent History</h3>
+              <div className="space-y-2">
+                {notifHistory.map(n => (
+                  <div key={n.id} className="bg-[#0d0b0f] border border-purple-900/40 rounded-xl px-4 py-3 flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{n.title}</p>
+                      <p className="text-gray-400 text-xs truncate mt-0.5">{n.body}</p>
+                      <p className="text-gray-600 text-xs mt-1">
+                        {new Date(n.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-orange-400 text-sm font-bold">{n.opens} opened</p>
+                      <p className="text-gray-500 text-xs">{n.total_sent} sent</p>
+                      {n.total_sent > 0 && (
+                        <p className="text-gray-600 text-xs">{Math.round((n.opens / n.total_sent) * 100)}%</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

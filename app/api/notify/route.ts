@@ -14,10 +14,18 @@ const supabase = createClient(
 )
 
 async function broadcast(title: string, body: string, url = '/') {
-  const { data: subs } = await supabase.from('push_subscriptions').select('subscription')
-  if (!subs || subs.length === 0) return { sent: 0, failed: [] }
+  const { data: subs } = await supabase.from('push_subscriptions').select('subscription, user_id')
+  if (!subs || subs.length === 0) return { sent: 0, failed: [], notificationId: null }
 
-  const payload = JSON.stringify({ title, body, url })
+  // Log the broadcast first so we have an ID to embed in each payload
+  const { data: logEntry } = await supabase
+    .from('notification_log')
+    .insert({ title, body, url, total_sent: 0 })
+    .select('id')
+    .single()
+
+  const notificationId = logEntry?.id ?? null
+
   let sent = 0
   const failed: string[] = []
 
@@ -25,6 +33,8 @@ async function broadcast(title: string, body: string, url = '/') {
     subs.map(async (row) => {
       try {
         const sub = JSON.parse(row.subscription)
+        // Each subscriber gets their own userId embedded so click tracking knows who opened it
+        const payload = JSON.stringify({ title, body, url, notificationId, userId: row.user_id })
         await webpush.sendNotification(sub, payload)
         sent++
       } catch (err: unknown) {
@@ -33,7 +43,15 @@ async function broadcast(title: string, body: string, url = '/') {
     })
   )
 
-  return { sent, failed }
+  // Update the log with actual sent count
+  if (notificationId) {
+    await supabase
+      .from('notification_log')
+      .update({ total_sent: sent })
+      .eq('id', notificationId)
+  }
+
+  return { sent, failed, notificationId }
 }
 
 // GET — scheduled daily beer notification (cron)

@@ -166,8 +166,8 @@ export default function WelcomePage() {
                 </>
               ) : (
                 <>
-                  <p style={infoStep}><span style={dot}>1</span> Tap the <strong style={{ color: 'var(--gold)' }}>⋮ menu</strong> in the top-right corner</p>
-                  <p style={infoStep}><span style={dot}>2</span> Tap <strong style={{ color: 'var(--gold)' }}>&quot;Open in Chrome&quot;</strong></p>
+                  <p style={infoStep}><span style={dot}>1</span> Look for the <strong style={{ color: 'var(--gold)' }}>&quot;Open in default browser&quot;</strong> button — usually at the top or bottom of your screen</p>
+                  <p style={infoStep}><span style={dot}>2</span> Tap it to open this page in Chrome</p>
                   <p style={infoStep}><span style={dot}>3</span> Come back to this page and continue setup</p>
                 </>
               )}

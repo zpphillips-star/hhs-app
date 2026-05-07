@@ -28,6 +28,17 @@ type NotifDetail = {
   notOpened: { id: string; name: string }[]
 }
 
+type Member = {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  username: string
+  status: string
+  created_at: string
+  has_notifications: boolean
+  has_pwa: boolean
+}
+
 export default function AdminPage() {
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [beers, setBeers] = useState<Beer[]>([])
@@ -49,13 +60,35 @@ export default function AdminPage() {
   const [notifHistory, setNotifHistory] = useState<NotificationLog[]>([])
   const [expandedNotif, setExpandedNotif] = useState<string | null>(null)
   const [notifDetail, setNotifDetail] = useState<Record<string, NotifDetail>>({})
+  const [members, setMembers] = useState<Member[]>([])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
     fetchBeers()
     fetchRequests()
     fetchNotifHistory()
+    fetchMembers()
   }, [])
+
+  const fetchMembers = async () => {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, username, status, created_at, has_pwa')
+      .eq('status', 'approved')
+      .order('created_at', { ascending: true })
+
+    const { data: subs } = await supabase
+      .from('push_subscriptions')
+      .select('user_id')
+
+    const subSet = new Set((subs || []).map(s => s.user_id))
+
+    setMembers((profiles || []).map(p => ({
+      ...p,
+      has_notifications: subSet.has(p.id),
+      has_pwa: p.has_pwa || false,
+    })))
+  }
 
   const fetchBeers = async () => {
     const { data } = await supabase.from('beers').select('*').order('day_number')
@@ -234,6 +267,57 @@ export default function AdminPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-orange-400">⚙️ Admin — Manage Beers</h1>
           <span className="text-sm text-gray-500">{beers.length}/31 entered</span>
+        </div>
+
+        {/* Members Roster */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Members</h2>
+            <span className="text-sm text-gray-500">{members.length} approved</span>
+          </div>
+          {members.length === 0 ? (
+            <p className="text-gray-600 text-sm text-center py-8">No approved members yet.</p>
+          ) : (
+            <div className="bg-[#1a1520] border border-purple-900/40 rounded-2xl overflow-hidden">
+              {/* Header row */}
+              <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-2 border-b border-purple-900/30">
+                <span className="text-xs text-gray-500 uppercase tracking-wider">Member</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">🔔 Notifs</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">📱 PWA</span>
+              </div>
+              {members.map((m, i) => (
+                <div
+                  key={m.id}
+                  className={`grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-3 items-center ${i < members.length - 1 ? 'border-b border-purple-900/20' : ''}`}
+                >
+                  <div>
+                    <p className="text-white text-sm font-medium">
+                      {m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : m.username}
+                    </p>
+                    <p className="text-gray-500 text-xs">@{m.username}</p>
+                  </div>
+                  <div className="text-center w-12">
+                    {m.has_notifications
+                      ? <span className="text-green-400 text-base">✓</span>
+                      : <span className="text-gray-600 text-base">—</span>
+                    }
+                  </div>
+                  <div className="text-center w-12">
+                    {m.has_pwa
+                      ? <span className="text-green-400 text-base">✓</span>
+                      : <span className="text-gray-600 text-base">—</span>
+                    }
+                  </div>
+                </div>
+              ))}
+              {/* Summary row */}
+              <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-2 border-t border-purple-900/30 bg-[#0d0b0f]/50">
+                <span className="text-xs text-gray-500">{members.length} total</span>
+                <span className="text-xs text-orange-400 text-center w-12">{members.filter(m => m.has_notifications).length}/{members.length}</span>
+                <span className="text-xs text-orange-400 text-center w-12">{members.filter(m => m.has_pwa).length}/{members.length}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Membership Requests */}

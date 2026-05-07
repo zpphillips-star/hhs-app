@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 type Step = 'install' | 'notify' | 'done'
 
@@ -39,6 +40,11 @@ export default function SetupGuide({ userId }: { userId: string }) {
     const notifPerm = 'Notification' in window ? Notification.permission : 'denied'
     setNotifStatus(notifPerm)
 
+    if (installed) {
+      // Mark PWA install in profile (fire and forget)
+      supabase.from('profiles').update({ has_pwa: true }).eq('id', userId).then(() => {})
+    }
+
     if (!installed) {
       setStep('install')
     } else if (notifPerm !== 'granted') {
@@ -56,6 +62,8 @@ export default function SetupGuide({ userId }: { userId: string }) {
     deferredInstallPrompt = null
     setCanPromptInstall(false)
     if (outcome === 'accepted') {
+      // Mark PWA install in profile
+      supabase.from('profiles').update({ has_pwa: true }).eq('id', userId).then(() => {})
       // Give the browser a moment to switch to standalone mode
       setTimeout(() => setStep('notify'), 1500)
     }

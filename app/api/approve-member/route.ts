@@ -82,31 +82,39 @@ export async function POST(req: NextRequest) {
     }
 
     if (!userId) {
-      // Step 2: Create the user directly (no invite email from Supabase — we send our own)
-      // createUser is more reliable than inviteUserByEmail which has known Supabase issues
-      // with recently-deleted accounts and certain trigger states.
-      const { data: createdUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-        email: memberReq.email,
-        email_confirm: true,
-        user_metadata: {
-          first_name: memberReq.first_name,
-          last_name: memberReq.last_name,
-        },
-      })
+      // Step 2: Check if user already exists in auth (ghost/soft-deleted state) before creating
+      const { data: userList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      const existingAuthUser = userList?.users?.find(u => u.email === memberReq.email)
 
-      if (createErr) {
-        // User may already exist (soft-deleted or previously created) — find them
-        console.error('createUser failed:', createErr.message)
-        const { data: userList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
-        const existing = userList?.users?.find(u => u.email === memberReq.email)
-        if (!existing) {
+      if (existingAuthUser) {
+        // User exists in auth — reuse their ID, just update metadata
+        console.log('Auth user already exists, reusing:', existingAuthUser.id)
+        userId = existingAuthUser.id
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            first_name: memberReq.first_name,
+            last_name: memberReq.last_name,
+          },
+          email_confirm: true,
+        })
+      } else {
+        // Fresh create
+        const { data: createdUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+          email: memberReq.email,
+          email_confirm: true,
+          user_metadata: {
+            first_name: memberReq.first_name,
+            last_name: memberReq.last_name,
+          },
+        })
+
+        if (createErr || !createdUser?.user?.id) {
+          console.error('createUser failed:', createErr?.message)
           return NextResponse.json({
-            error: `Could not create account: ${createErr.message}`
+            error: `Could not create account: ${createErr?.message ?? 'unknown error'}`
           }, { status: 500 })
         }
-        userId = existing.id
-      } else {
-        userId = createdUser?.user?.id
+        userId = createdUser.user.id
       }
     }
 

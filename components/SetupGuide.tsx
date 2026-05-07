@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-type Step = 'install' | 'notify' | 'done'
+type Step = 'browser' | 'install' | 'notify' | 'done'
 
 function isIOS() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent)
@@ -38,12 +38,22 @@ export default function SetupGuide({ userId }: { userId: string }) {
     if (dismissed) return
     // If user completed the welcome flow, don't re-prompt
     if (localStorage.getItem('hhs_setup_done') === '1') return
+
+    // Always show the browser step first — skipped only if user already clicked through
+    if (localStorage.getItem('hhs_browser_step_done') !== '1') {
+      setStep('browser')
+      return
+    }
+
+    proceedToSetup()
+  }, [userId, dismissed])
+
+  const proceedToSetup = () => {
     const installed = isPWA()
     const notifPerm = 'Notification' in window ? Notification.permission : 'denied'
     setNotifStatus(notifPerm)
 
     if (installed) {
-      // Mark PWA install in profile (fire and forget)
       supabase.from('profiles').update({ has_pwa: true }).eq('id', userId).then(() => {})
     }
 
@@ -55,7 +65,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
       subscribeIfNeeded(userId)
       setStep('done')
     }
-  }, [userId, dismissed])
+  }
 
   const triggerInstallPrompt = async () => {
     if (!deferredInstallPrompt) return
@@ -120,8 +130,34 @@ export default function SetupGuide({ userId }: { userId: string }) {
 
       {/* Decorative header */}
       <p style={{ fontFamily: "'Modern Antiqua', serif", fontSize: '0.6rem', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '0.75rem' }}>
-        {step === 'install' ? 'Setup Required' : 'Enable Notifications'}
+        {step === 'browser' ? 'One Quick Step' : step === 'install' ? 'Setup Required' : 'Enable Notifications'}
       </p>
+
+      {step === 'browser' && (
+        <>
+          <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+            For the best experience, open this page in your <strong style={{ color: 'var(--gold)' }}>default browser</strong> before continuing setup.
+          </p>
+          <a
+            href={typeof window !== 'undefined' ? window.location.href : '#'}
+            style={{
+              display: 'block', width: '100%', padding: '0.85rem',
+              background: 'var(--gold)', border: 'none', borderRadius: '10px',
+              color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif",
+              fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.1em',
+              cursor: 'pointer', marginBottom: '0.75rem',
+              textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box',
+            }}
+          >Open in Browser</a>
+          <button
+            onClick={() => {
+              localStorage.setItem('hhs_browser_step_done', '1')
+              proceedToSetup()
+            }}
+            style={{ width: '100%', padding: '0.6rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem', cursor: 'pointer' }}
+          >Already in my browser — Continue</button>
+        </>
+      )}
 
       {step === 'install' && (
         <>

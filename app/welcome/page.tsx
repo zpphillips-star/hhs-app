@@ -143,10 +143,7 @@ export default function WelcomePage() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1.7, marginBottom: '2.5rem' }}>
               Your membership to the Hallowed Hop Society has been approved. Before you enter, let&apos;s get you set up — it takes 2 minutes.
             </p>
-            <button onClick={() => {
-              if (isInAppBrowser()) setStep('browser')
-              else setStep(isPWA() ? 'notify' : 'install')
-            }} style={btnPrimary}>
+            <button onClick={() => setStep('browser')} style={btnPrimary}>
               Get Started →
             </button>
           </div>

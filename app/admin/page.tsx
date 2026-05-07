@@ -569,7 +569,7 @@ export default function AdminPage() {
               >
                 {broadcasting ? 'Sending...' : broadcastTiers.length === 1
                   ? `Send to ${broadcastTiers[0] === 'hallowed' ? 'The Hallowed' : 'Odd Balls'}`
-                  : 'Send to All Members'}
+                  : 'Send Notification to Selected Members'}
               </button>
             </form>
           </div>

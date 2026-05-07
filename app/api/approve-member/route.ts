@@ -82,31 +82,31 @@ export async function POST(req: NextRequest) {
     }
 
     if (!userId) {
-      // Step 2: Create the user (triggers handle_new_user → inserts profile)
-      const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-        memberReq.email,
-        {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
-          data: {
-            first_name: memberReq.first_name,
-            last_name: memberReq.last_name,
-          },
-        }
-      )
+      // Step 2: Create the user directly (no invite email from Supabase — we send our own)
+      // createUser is more reliable than inviteUserByEmail which has known Supabase issues
+      // with recently-deleted accounts and certain trigger states.
+      const { data: createdUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email: memberReq.email,
+        email_confirm: true,
+        user_metadata: {
+          first_name: memberReq.first_name,
+          last_name: memberReq.last_name,
+        },
+      })
 
-      if (inviteErr) {
-        // Still failing — user may exist under a different profile state
-        console.error('inviteUserByEmail failed:', inviteErr.message)
+      if (createErr) {
+        // User may already exist (soft-deleted or previously created) — find them
+        console.error('createUser failed:', createErr.message)
         const { data: userList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
         const existing = userList?.users?.find(u => u.email === memberReq.email)
         if (!existing) {
           return NextResponse.json({
-            error: `Could not create account: ${inviteErr.message}. Please run supabase/fix-trigger-conflict.sql in Supabase.`
+            error: `Could not create account: ${createErr.message}`
           }, { status: 500 })
         }
         userId = existing.id
       } else {
-        userId = inviteData?.user?.id
+        userId = createdUser?.user?.id
       }
     }
 

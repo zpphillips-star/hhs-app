@@ -165,11 +165,11 @@ export async function POST(req: NextRequest) {
       html: `
         <div style="font-family: Georgia, serif; background: #0d0b0f; color: #e8dcc8; padding: 32px; max-width: 480px; margin: 0 auto; border: 1px solid #2a1f3d; border-radius: 8px;">
           <p style="font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(217,124,43,0.65); margin: 0 0 20px 0;">Hallowed Hop Society</p>
-          <h2 style="color: #c8973a; font-size: 1.2rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px;">You're In.</h2>
-          <p style="line-height: 1.7;">Welcome to the Hallowed Hop Society, ${memberReq.first_name}. Your membership has been approved.</p>
-          <p style="line-height: 1.7;">Tap the button below to choose your Society name and complete your account setup.</p>
-          <a href="${setupLink}" style="display: inline-block; margin: 20px 0; padding: 12px 28px; background: #c8973a; color: #0d0b0f; font-family: Georgia, serif; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.05em;">Enter the Society →</a>
-          <p style="line-height: 1.7; color: #9c8a6e; font-size: 0.9rem;">This link expires in 24 hours. If you didn't request this, ignore this email.</p>
+          <h2 style="color: #d97c2b; font-size: 1.2rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px;">You're In.</h2>
+          <p style="line-height: 1.8; color: #e8dcc8;">Welcome to the Hallowed Hop Society, ${memberReq.first_name}. Your membership has been approved.</p>
+          <p style="line-height: 1.8; color: #e8dcc8;">Tap the button below to choose your Society name and complete your account setup.</p>
+          <a href="${setupLink}" style="display: inline-block; margin: 20px 0; padding: 12px 28px; background: #d97c2b; color: #0d0b0f; font-family: Georgia, serif; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.05em;">Enter the Society →</a>
+          <p style="margin-top: 24px; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(217,124,43,0.6);">This link expires in 24 hours.</p>
         </div>
       `,
     })

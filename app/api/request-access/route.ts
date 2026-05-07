@@ -28,16 +28,23 @@ export async function POST(req: NextRequest) {
       if (existing.status === 'approved') {
         return NextResponse.json({ error: 'This email is already an approved member. Sign in above.' }, { status: 409 })
       }
-      return NextResponse.json({ error: 'A request from this email is already pending review.' }, { status: 409 })
-    }
+      if (existing.status === 'pending') {
+        return NextResponse.json({ error: 'A request from this email is already pending review.' }, { status: 409 })
+      }
+      // Previously rejected — allow them to re-request (update to pending)
+      await supabaseAdmin
+        .from('member_requests')
+        .update({ first_name, last_name, status: 'pending', reviewed_at: null, created_at: new Date().toISOString() })
+        .eq('id', existing.id)
+    } else {
+      // Fresh request — insert
+      const { error: insertError } = await supabaseAdmin
+        .from('member_requests')
+        .insert({ first_name, last_name, email: email.toLowerCase() })
 
-    // Insert the request
-    const { error: insertError } = await supabaseAdmin
-      .from('member_requests')
-      .insert({ first_name, last_name, email: email.toLowerCase() })
-
-    if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+      if (insertError) {
+        return NextResponse.json({ error: insertError.message }, { status: 500 })
+      }
     }
 
     // Notify Zach

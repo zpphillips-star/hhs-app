@@ -34,6 +34,22 @@ export async function POST(req: NextRequest) {
         .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
         .eq('id', request_id)
 
+      // Send rejection email
+      await resend.emails.send({
+        from: 'HHS <notifications@hallowedhopsociety.com>',
+        to: memberReq.email,
+        subject: 'Your Hallowed Hop Society petition',
+        html: `
+          <div style="font-family: Georgia, serif; background: #191726; color: #d9d8d2; padding: 32px; max-width: 480px; margin: 0 auto; border: 1px solid rgba(217,124,43,0.2); border-radius: 8px;">
+            <h2 style="color: #d97c2b; font-size: 1rem; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 16px;">The Society Has Spoken</h2>
+            <p style="line-height: 1.8; color: #d9d8d2;">Thank you for your interest in the Hallowed Hop Society, ${memberReq.first_name}.</p>
+            <p style="line-height: 1.8; color: #d9d8d2;">After careful deliberation, the Society has decided not to extend membership this season. The circle is small, and the selection is never easy.</p>
+            <p style="line-height: 1.8; color: #d9d8d2; font-style: italic;">You're welcome to petition again next year.</p>
+            <p style="margin-top: 24px; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(217,124,43,0.6);">Until then — may your pints be cold.</p>
+          </div>
+        `,
+      })
+
       return NextResponse.json({ success: true, action: 'rejected' })
     }
 

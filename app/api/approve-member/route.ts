@@ -37,41 +37,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, action: 'rejected' })
     }
 
-    // Approve: invite the user via Supabase
-    // If the user already exists, send a magic link instead
+    // Approve: create the user account
+    // Using createUser + generateLink instead of inviteUserByEmail to avoid Supabase trigger issues
     let userId: string | undefined
 
-    const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      memberReq.email,
-      {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
-        data: {
+    // Check if user already exists first
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+    const existing = existingUsers?.users?.find(u => u.email === memberReq.email)
+
+    if (existing) {
+      // Already exists — just send them a magic link to sign in
+      userId = existing.id
+      await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: memberReq.email,
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
+        }
+      })
+    } else {
+      // Create the user directly (avoids invite trigger issues)
+      const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email: memberReq.email,
+        email_confirm: true,
+        user_metadata: {
           first_name: memberReq.first_name,
           last_name: memberReq.last_name,
         }
-      }
-    )
+      })
 
-    if (inviteErr) {
-      // User likely already exists — look them up and send a magic link instead
-      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
-      const existing = existingUsers?.users?.find(u => u.email === memberReq.email)
-
-      if (existing) {
-        userId = existing.id
-        // Send magic link so they can sign in
-        await supabaseAdmin.auth.admin.generateLink({
-          type: 'magiclink',
-          email: memberReq.email,
-          options: {
-            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
-          }
-        })
-      } else {
-        return NextResponse.json({ error: inviteErr.message }, { status: 500 })
+      if (createErr || !newUser?.user) {
+        return NextResponse.json({ error: createErr?.message || 'Failed to create user' }, { status: 500 })
       }
-    } else {
-      userId = inviteData.user?.id
+
+      userId = newUser.user.id
+
+      // Generate a password setup link (acts like an invite)
+      await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email: memberReq.email,
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
+        }
+      })
     }
 
     // Mark request as approved
@@ -93,7 +101,17 @@ export async function POST(req: NextRequest) {
         }, { onConflict: 'id' })
     }
 
-    // Send welcome email via Resend (Supabase also sends the invite, this is supplemental)
+    // Send welcome email via Resend with the setup link
+    // Generate a fresh link to embed directly in the email
+    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
+      email: memberReq.email,
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
+      }
+    })
+    const setupLink = linkData?.properties?.action_link || 'https://hallowedhopsociety.com/auth'
+
     await resend.emails.send({
       from: 'HHS <notifications@hallowedhopsociety.com>',
       to: memberReq.email,
@@ -102,8 +120,9 @@ export async function POST(req: NextRequest) {
         <div style="font-family: Georgia, serif; background: #0d0b0f; color: #e8dcc8; padding: 32px; max-width: 480px; margin: 0 auto; border: 1px solid #2a1f3d; border-radius: 8px;">
           <h2 style="color: #c8973a; font-size: 1.2rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px;">You're In.</h2>
           <p style="line-height: 1.7;">Welcome to the Hallowed Hop Society, ${memberReq.first_name}. Your membership has been approved.</p>
-          <p style="line-height: 1.7;">Check your email for a separate message with a link to finish setting up your account — choose your Society name and you'll be ready to go.</p>
-          <p style="line-height: 1.7; color: #9c8a6e; font-size: 0.9rem;">The link expires in 24 hours.</p>
+          <p style="line-height: 1.7;">Tap the button below to choose your Society name and complete your account setup.</p>
+          <a href="${setupLink}" style="display: inline-block; margin: 20px 0; padding: 12px 28px; background: #c8973a; color: #0d0b0f; font-family: Georgia, serif; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.05em;">Enter the Society →</a>
+          <p style="line-height: 1.7; color: #9c8a6e; font-size: 0.9rem;">This link expires in 24 hours. If you didn't request this, ignore this email.</p>
         </div>
       `,
     })

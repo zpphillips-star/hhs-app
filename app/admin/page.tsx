@@ -387,10 +387,10 @@ export default function AdminPage() {
               {/* Header row */}
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2 border-b border-purple-900/30">
                 <span className="text-xs text-gray-500 uppercase tracking-wider">Member</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">🔔</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">📱</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">Tier</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">Venmo</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider text-center w-8">Notifs</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider text-center w-8">PWA</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider text-center w-20">Tier</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider text-center w-14">Venmo</span>
               </div>
               {members.map((m, i) => (
                 <div
@@ -403,10 +403,10 @@ export default function AdminPage() {
                     </p>
                     <p className="text-gray-500 text-xs">@{m.username}</p>
                   </div>
-                  <div className="text-center w-8">
+                  <div className="text-center w-8" title="Push notifications enabled">
                     {m.has_notifications ? <span className="text-green-400">✓</span> : <span className="text-gray-600">—</span>}
                   </div>
-                  <div className="text-center w-8">
+                  <div className="text-center w-8" title="App installed on home screen">
                     {m.has_pwa ? <span className="text-green-400">✓</span> : <span className="text-gray-600">—</span>}
                   </div>
                   <div className="text-center w-20">

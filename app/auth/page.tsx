@@ -76,7 +76,9 @@ export default function AuthPage() {
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
       <div style={{ width: '100%', maxWidth: '400px' }}>
         <div className="text-center mb-10">
-          <Image src="/hhs_no_circles_300dpi.webp" alt="HHS" width={100} height={100} className="mx-auto mb-4 opacity-90" />
+          <a href="/">
+            <Image src="/hhs_no_circles_300dpi.webp" alt="HHS" width={100} height={100} className="mx-auto mb-4 opacity-90" style={{ cursor: 'pointer' }} />
+          </a>
           <h1 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.5rem', fontWeight: 700, letterSpacing: '0.1em' }}>
             Hallowed Hop Society
           </h1>
@@ -204,6 +206,11 @@ export default function AuthPage() {
               )}
             </>
           )}
+        </div>
+        <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
+          <a href="/" style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: "'Modern Antiqua', serif", letterSpacing: '0.1em', textDecoration: 'none', opacity: 0.5 }}>
+            ← back to hallowedhopsociety.com
+          </a>
         </div>
       </div>
     </div>

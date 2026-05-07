@@ -75,7 +75,7 @@ export default function CompleteProfilePage() {
       }, { onConflict: 'id' })
     }
 
-    router.push('/')
+    router.push('/welcome')
   }
 
   const inputStyle = {

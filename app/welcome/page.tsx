@@ -10,9 +10,13 @@ type Step = 'welcome' | 'browser' | 'install' | 'install-ios-steps' | 'notify' |
 function isInAppBrowser() {
   if (typeof navigator === 'undefined') return false
   const ua = navigator.userAgent
-  // Gmail, Outlook, Facebook, Instagram, Twitter, Snapchat, etc.
-  return /GSA\/|FBAN|FBAV|Instagram|LinkedInApp|Snapchat|Twitter\/|Line\/|KAKAOTALK|musical_ly/.test(ua) ||
-    typeof navigator.serviceWorker === 'undefined'
+  // UA-detectable in-app browsers: Facebook, Instagram, Twitter, Snapchat, etc.
+  if (/GSA\/|FBAN|FBAV|Instagram|LinkedInApp|Snapchat|Twitter\/|Line\/|KAKAOTALK|musical_ly/.test(ua)) return true
+  // Gmail/Outlook on Android use Chrome Custom Tabs — identical UA to Chrome, but referrer is android-app://
+  if (typeof document !== 'undefined' && /android-app:\/\//i.test(document.referrer)) return true
+  // iOS Gmail opens links in GSA (Google Search App) — already caught above via GSA\/, but also:
+  if (typeof navigator.serviceWorker === 'undefined') return true
+  return false
 }
 function isPWA() {
   if (typeof window === 'undefined') return false

@@ -124,7 +124,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
       {step === 'install' && (
         <>
           <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-            To receive daily beer notifications, <strong style={{ color: 'var(--gold)' }}>add this app to your Home Screen</strong> first.
+            To receive beer notifications, <strong style={{ color: 'var(--gold)' }}>add this app to your Home Screen</strong> first.
           </p>
 
           {/* Android / Chrome — one-tap install button */}
@@ -179,7 +179,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
       {step === 'notify' && (
         <>
           <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-            Get a notification every day at <strong style={{ color: 'var(--gold)' }}>3 PM</strong> when the beer of the day is revealed.
+            Get notified each time a new beer is revealed.
           </p>
           <button
             onClick={requestNotifications}

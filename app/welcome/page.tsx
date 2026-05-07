@@ -141,7 +141,7 @@ export default function WelcomePage() {
             <StepIndicator current={1} total={2} />
             <h2 style={heading}>Add to your Home Screen</h2>
             <p style={body}>
-              This gives you the full app experience — tap the icon to open HHS anytime, and you&apos;ll receive daily notifications when the beer of the day is revealed.
+              This gives you the full app experience — tap the icon to open HHS anytime, and you&apos;ll get notified each time a new beer is revealed.
             </p>
 
             {canNativeInstall ? (
@@ -281,7 +281,7 @@ export default function WelcomePage() {
             <h2 style={heading}>Welcome to the Society.</h2>
             <p style={body}>
               {notifPermission === 'granted'
-                ? "You're all set up to receive your daily beer notifications."
+                ? "You're all set up to receive your beer notifications."
                 : "You're in. You can enable notifications anytime from the app."}
             </p>
             <button onClick={finish} style={btnPrimary}>

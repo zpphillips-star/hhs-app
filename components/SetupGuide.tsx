@@ -36,6 +36,8 @@ export default function SetupGuide({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (dismissed) return
+    // If user completed the welcome flow, don't re-prompt
+    if (localStorage.getItem('hhs_setup_done') === '1') return
     const installed = isPWA()
     const notifPerm = 'Notification' in window ? Notification.permission : 'denied'
     setNotifStatus(notifPerm)

@@ -5,8 +5,15 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 
-type Step = 'welcome' | 'install' | 'install-ios-steps' | 'notify' | 'done'
+type Step = 'welcome' | 'browser' | 'install' | 'install-ios-steps' | 'notify' | 'done'
 
+function isInAppBrowser() {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  // Gmail, Outlook, Facebook, Instagram, Twitter, Snapchat, etc.
+  return /GSA\/|FBAN|FBAV|Instagram|LinkedInApp|Snapchat|Twitter\/|Line\/|KAKAOTALK|musical_ly/.test(ua) ||
+    typeof navigator.serviceWorker === 'undefined'
+}
 function isPWA() {
   if (typeof window === 'undefined') return false
   return (
@@ -102,7 +109,10 @@ export default function WelcomePage() {
     setStep('notify')
   }
 
-  const finish = () => router.push('/')
+  const finish = () => {
+    localStorage.setItem('hhs_setup_done', '1')
+    router.push('/')
+  }
 
   return (
     <div style={{
@@ -129,8 +139,41 @@ export default function WelcomePage() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1.7, marginBottom: '2.5rem' }}>
               Your membership to the Hallowed Hop Society has been approved. Before you enter, let&apos;s get you set up — it takes 2 minutes.
             </p>
-            <button onClick={() => setStep(isPWA() ? 'notify' : 'install')} style={btnPrimary}>
+            <button onClick={() => {
+              if (isInAppBrowser()) setStep('browser')
+              else setStep(isPWA() ? 'notify' : 'install')
+            }} style={btnPrimary}>
               Get Started →
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP: OPEN IN BROWSER ── */}
+        {step === 'browser' && (
+          <div style={{ textAlign: 'center' }}>
+            <StepIndicator current={1} total={3} />
+            <h2 style={heading}>Open in Your Browser</h2>
+            <p style={body}>
+              To receive notifications, this page needs to be open in{' '}
+              <strong style={{ color: 'var(--gold)' }}>{isIOS() ? 'Safari' : 'Chrome'}</strong> — not inside your email or messaging app.
+            </p>
+            <div style={infoBox}>
+              {isIOS() ? (
+                <>
+                  <p style={infoStep}><span style={dot}>1</span> Tap the <strong style={{ color: 'var(--gold)' }}>⋯</strong> or open button at the bottom of your screen</p>
+                  <p style={infoStep}><span style={dot}>2</span> Tap <strong style={{ color: 'var(--gold)' }}>&quot;Open in Safari&quot;</strong></p>
+                  <p style={infoStep}><span style={dot}>3</span> Come back to this page and continue setup</p>
+                </>
+              ) : (
+                <>
+                  <p style={infoStep}><span style={dot}>1</span> Tap the <strong style={{ color: 'var(--gold)' }}>⋮ menu</strong> in the top-right corner</p>
+                  <p style={infoStep}><span style={dot}>2</span> Tap <strong style={{ color: 'var(--gold)' }}>&quot;Open in Chrome&quot;</strong></p>
+                  <p style={infoStep}><span style={dot}>3</span> Come back to this page and continue setup</p>
+                </>
+              )}
+            </div>
+            <button onClick={() => setStep('install')} style={{ ...btnPrimary, marginTop: '1.25rem' }}>
+              I&apos;m in my browser →
             </button>
           </div>
         )}
@@ -147,7 +190,7 @@ export default function WelcomePage() {
             {canNativeInstall ? (
               <>
                 <button onClick={handleAndroidInstall} style={{ ...btnPrimary, marginBottom: '0.75rem' }}>
-                  📱 Add to Home Screen
+                  Add to Home Screen
                 </button>
                 <button onClick={() => setStep('notify')} style={btnSecondary}>
                   Skip for now
@@ -246,10 +289,9 @@ export default function WelcomePage() {
         {step === 'notify' && (
           <div style={{ textAlign: 'center' }}>
             <StepIndicator current={2} total={2} />
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔔</div>
             <h2 style={heading}>Enable Notifications</h2>
             <p style={body}>
-              Each time your next beer is ready, you&apos;ll get a notification — just for you, based on your membership. Your phone will ask for permission — tap <strong style={{ color: 'var(--gold)' }}>Allow</strong>.
+              Each time your next beer is ready, you&apos;ll get a notification — just for you, based on your membership. Tap the button below, then tap <strong style={{ color: 'var(--gold)' }}>Allow</strong> when your phone asks.
             </p>
 
             {notifPermission === 'denied' && (
@@ -262,7 +304,7 @@ export default function WelcomePage() {
 
             {notifPermission !== 'denied' && (
               <button onClick={subscribeNotifications} disabled={subscribing} style={{ ...btnPrimary, marginBottom: '0.75rem' }}>
-                {subscribing ? 'Enabling...' : '🔔 Enable Notifications'}
+                {subscribing ? 'Enabling...' : 'Enable Notifications'}
               </button>
             )}
             <button onClick={() => setStep('done')} style={btnSecondary}>

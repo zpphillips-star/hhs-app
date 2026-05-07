@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,22 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'notificationId required' }, { status: 400 })
     }
 
-    // Try to get the authenticated user from session if userId not provided
-    let resolvedUserId = userId || null
-    if (!resolvedUserId) {
-      try {
-        const cookieStore = await cookies()
-        const sessionSupabase = createServerClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          { cookies: { getAll: () => cookieStore.getAll() } }
-        )
-        const { data: { user } } = await sessionSupabase.auth.getUser()
-        resolvedUserId = user?.id || null
-      } catch {
-        // Service worker context — no session cookie available, that's fine
-      }
-    }
+    const resolvedUserId = userId || null
 
     // Upsert to avoid duplicates (one open per user per notification)
     await adminSupabase

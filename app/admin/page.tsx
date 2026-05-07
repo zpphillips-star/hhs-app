@@ -5,6 +5,15 @@ import { supabase } from '@/lib/supabase'
 import type { Beer } from '@/lib/types'
 import Nav from '@/components/Nav'
 
+type MemberRequest = {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+}
+
 export default function AdminPage() {
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [beers, setBeers] = useState<Beer[]>([])
@@ -16,15 +25,51 @@ export default function AdminPage() {
   const [description, setDescription] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [requests, setRequests] = useState<MemberRequest[]>([])
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
+  const [reviewMsg, setReviewMsg] = useState<Record<string, string>>({})
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
     fetchBeers()
+    fetchRequests()
   }, [])
 
   const fetchBeers = async () => {
     const { data } = await supabase.from('beers').select('*').order('day_number')
     setBeers(data || [])
+  }
+
+  const fetchRequests = async () => {
+    const { data } = await supabase
+      .from('member_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setRequests(data || [])
+  }
+
+  const handleReview = async (requestId: string, action: 'approve' | 'reject') => {
+    setReviewingId(requestId)
+    try {
+      const res = await fetch('/api/approve-member', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ''}`,
+        },
+        body: JSON.stringify({ request_id: requestId, action }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setReviewMsg(prev => ({ ...prev, [requestId]: `Error: ${data.error}` }))
+      } else {
+        setReviewMsg(prev => ({ ...prev, [requestId]: action === 'approve' ? '✅ Approved — invite sent' : '✗ Rejected' }))
+        fetchRequests()
+      }
+    } catch {
+      setReviewMsg(prev => ({ ...prev, [requestId]: 'Something went wrong.' }))
+    }
+    setReviewingId(null)
   }
 
   const loadBeerForEdit = (beer: Beer) => {
@@ -194,6 +239,65 @@ export default function AdminPage() {
             ))}
           </div>
         )}
+
+        {/* Membership Requests */}
+        <div className="mt-12">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Membership Requests</h2>
+            <span className="text-sm text-gray-500">
+              {requests.filter(r => r.status === 'pending').length} pending
+            </span>
+          </div>
+
+          {requests.length === 0 ? (
+            <p className="text-gray-600 text-sm text-center py-8">No membership requests yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {requests.map(req => (
+                <div key={req.id} className="bg-[#1a1520] border border-purple-900/40 rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white text-sm font-medium">
+                        {req.first_name} {req.last_name}
+                      </div>
+                      <div className="text-gray-500 text-xs">{req.email}</div>
+                      <div className="text-gray-600 text-xs mt-0.5">
+                        {new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      {req.status === 'pending' ? (
+                        <>
+                          <button
+                            onClick={() => handleReview(req.id, 'approve')}
+                            disabled={reviewingId === req.id}
+                            className="text-xs bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            {reviewingId === req.id ? '...' : 'Approve'}
+                          </button>
+                          <button
+                            onClick={() => handleReview(req.id, 'reject')}
+                            disabled={reviewingId === req.id}
+                            className="text-xs bg-red-500/10 hover:bg-red-500/30 text-red-500 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : (
+                        <span className={`text-xs font-medium ${req.status === 'approved' ? 'text-green-500' : 'text-gray-500'}`}>
+                          {req.status === 'approved' ? 'Approved' : 'Rejected'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {reviewMsg[req.id] && (
+                    <p className="text-xs mt-2 text-gray-400">{reviewMsg[req.id]}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   )

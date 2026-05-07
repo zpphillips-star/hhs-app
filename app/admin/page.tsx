@@ -318,24 +318,24 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0b0f]">
+    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <Nav user={user} />
       <main className="container mx-auto px-4 py-8 max-w-2xl">
         {/* Page header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Hallowed Hop Society</p>
+            <p className="text-xs uppercase tracking-[0.2em] mb-1" style={{ color: 'var(--text-muted)' }}>Hallowed Hop Society</p>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--gold)' }}>Admin</h1>
           </div>
-          <span className="text-sm text-gray-600">{beers.length}/31 beers</span>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{beers.length}/31 beers</span>
         </div>
 
         {/* Notification setup banner for admin */}
         {myNotifStatus !== 'granted' && (
-          <div className="mb-6 px-4 py-3 rounded-xl border border-yellow-600/40 bg-yellow-500/10 flex items-center justify-between gap-4">
+          <div className="mb-6 px-4 py-3 rounded-xl flex items-center justify-between gap-4" style={{ border: '1px solid rgba(217,124,43,0.3)', background: 'rgba(217,124,43,0.08)' }}>
             <div>
-              <p className="text-yellow-400 text-sm font-semibold">🔔 You haven&apos;t enabled notifications</p>
-              <p className="text-gray-400 text-xs mt-0.5">
+              <p className="text-sm font-semibold" style={{ color: 'var(--gold)' }}>🔔 You haven&apos;t enabled notifications</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 {myNotifStatus === 'denied'
                   ? 'Blocked in browser — go to Settings → Safari/Chrome → Notifications → allow hallowedhopsociety.com'
                   : 'Enable them so you receive test notifications too'}
@@ -345,7 +345,8 @@ export default function AdminPage() {
               <button
                 onClick={enableMyNotifications}
                 disabled={enablingNotif}
-                className="shrink-0 text-xs font-bold px-4 py-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-400 transition-colors"
+                className="shrink-0 text-xs font-bold px-4 py-2 rounded-lg transition-colors"
+                style={{ background: 'rgba(217,124,43,0.15)', color: 'var(--gold)' }}
               >
                 {enablingNotif ? '...' : 'Enable'}
               </button>
@@ -356,15 +357,18 @@ export default function AdminPage() {
         {/* Members Roster */}
         <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400">Members</h2>
-            <span className="text-xs text-gray-600">{members.length} approved</span>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>Members</h2>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{members.length} approved</span>
           </div>
 
           {/* Tier Selection Control */}
-          <div className={`mb-4 px-4 py-3 rounded-xl border flex items-center justify-between ${tierSelectionOpen ? 'bg-orange-500/10 border-orange-500/40' : 'bg-[#1a1520] border-purple-900/40'}`}>
+          <div className="mb-4 px-4 py-3 rounded-xl flex items-center justify-between" style={{
+            border: tierSelectionOpen ? '1px solid rgba(217,124,43,0.4)' : '1px solid var(--border)',
+            background: tierSelectionOpen ? 'rgba(217,124,43,0.08)' : 'var(--bg-card)',
+          }}>
             <div>
-              <p className="text-white text-sm font-medium">Tier Selection</p>
-              <p className="text-gray-500 text-xs">
+              <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Tier Selection</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 {tierSelectionOpen
                   ? 'Open — members will see the tier picker when they open the app'
                   : 'Closed — members see nothing until you open this'}
@@ -373,65 +377,64 @@ export default function AdminPage() {
             <button
               onClick={toggleTierSelection}
               disabled={togglingTier}
-              className={`text-xs font-bold px-4 py-2 rounded-lg transition-colors ${tierSelectionOpen
-                ? 'bg-orange-500/20 hover:bg-orange-500/40 text-orange-400'
-                : 'bg-purple-900/40 hover:bg-purple-900/60 text-purple-300'
-              }`}
+              className="text-xs font-bold px-4 py-2 rounded-lg transition-colors"
+              style={{ background: 'rgba(217,124,43,0.15)', color: 'var(--gold)' }}
             >
               {togglingTier ? '...' : tierSelectionOpen ? 'Close' : 'Open'}
             </button>
           </div>
 
           {members.length === 0 ? (
-            <p className="text-gray-600 text-sm text-center py-8">No approved members yet.</p>
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No approved members yet.</p>
           ) : (
-            <div className="bg-[#1a1520] border border-purple-900/40 rounded-2xl overflow-hidden">
+            <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               {/* Header row */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2 border-b border-purple-900/30">
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Member</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider text-center w-8">Notifs</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider text-center w-8">PWA</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider text-center w-20">Tier</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider text-center w-14">Venmo</span>
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Member</span>
+                <span className="text-xs uppercase tracking-wider text-center w-8" style={{ color: 'var(--text-muted)' }}>Notifs</span>
+                <span className="text-xs uppercase tracking-wider text-center w-8" style={{ color: 'var(--text-muted)' }}>PWA</span>
+                <span className="text-xs uppercase tracking-wider text-center w-20" style={{ color: 'var(--text-muted)' }}>Tier</span>
+                <span className="text-xs uppercase tracking-wider text-center w-14" style={{ color: 'var(--text-muted)' }}>Venmo</span>
               </div>
               {members.map((m, i) => (
                 <div
                   key={m.id}
-                  className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-3 items-center ${i < members.length - 1 ? 'border-b border-purple-900/20' : ''}`}
+                  className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-3 items-center"
+                  style={i < members.length - 1 ? { borderBottom: '1px solid rgba(217,124,43,0.08)' } : {}}
                 >
                   <div>
-                    <p className="text-white text-sm font-medium">
+                    <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                       {m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : m.username}
                     </p>
-                    <p className="text-gray-500 text-xs">@{m.username}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>@{m.username}</p>
                   </div>
                   <div className="text-center w-8" title="Push notifications enabled">
-                    {m.has_notifications ? <span className="text-green-400">✓</span> : <span className="text-gray-600">—</span>}
+                    {m.has_notifications ? <span className="text-green-400">✓</span> : <span style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>}
                   </div>
                   <div className="text-center w-8" title="App installed on home screen">
-                    {m.has_pwa ? <span className="text-green-400">✓</span> : <span className="text-gray-600">—</span>}
+                    {m.has_pwa ? <span className="text-green-400">✓</span> : <span style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>}
                   </div>
                   <div className="text-center w-20">
                     {m.tier
-                      ? <span className={`text-xs font-semibold px-2 py-0.5 rounded ${m.tier === 'hallowed' ? 'bg-orange-500/20 text-orange-400' : 'bg-purple-500/20 text-purple-300'}`}>
+                      ? <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: 'rgba(217,124,43,0.15)', color: 'var(--gold)' }}>
                           {m.tier === 'hallowed' ? 'Hallowed' : 'Odd Balls'}
                         </span>
-                      : <span className="text-gray-600 text-xs">—</span>
+                      : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                     }
                   </div>
                   <div className="text-center w-14">
                     {m.venmo_clicked_at
                       ? <span className="text-green-400 text-xs">✓ sent</span>
                       : m.tier
-                        ? <span className="text-yellow-600 text-xs">pending</span>
-                        : <span className="text-gray-600 text-xs">—</span>
+                        ? <span className="text-xs" style={{ color: 'var(--gold)', opacity: 0.6 }}>pending</span>
+                        : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                     }
                   </div>
                 </div>
               ))}
               {/* Summary row */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2 border-t border-purple-900/30 bg-[#0d0b0f]/50">
-                <span className="text-xs text-gray-500">{members.length} total</span>
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ borderTop: '1px solid var(--border)', background: 'rgba(25,23,38,0.5)' }}>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{members.length} total</span>
                 <span className="text-xs text-center w-8" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_notifications).length}/{members.length}</span>
                 <span className="text-xs text-center w-8" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_pwa).length}/{members.length}</span>
                 <span className="text-xs text-center w-20" style={{ color: 'var(--gold)' }}>{members.filter(m => m.tier).length}/{members.length}</span>
@@ -444,25 +447,25 @@ export default function AdminPage() {
         {/* Membership Requests */}
         <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400">Membership Requests</h2>
-            <span className="text-xs text-gray-600">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>Membership Requests</h2>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {requests.filter(r => r.status === 'pending').length} pending
             </span>
           </div>
 
           {requests.length === 0 ? (
-            <p className="text-gray-600 text-sm text-center py-8">No membership requests yet.</p>
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No membership requests yet.</p>
           ) : (
             <div className="space-y-2">
               {requests.map(req => (
-                <div key={req.id} className="bg-[#1a1520] border border-purple-900/40 rounded-xl px-4 py-3">
+                <div key={req.id} className="rounded-xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="text-white text-sm font-medium">
+                      <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                         {req.first_name} {req.last_name}
                       </div>
-                      <div className="text-gray-500 text-xs">{req.email}</div>
-                      <div className="text-gray-600 text-xs mt-0.5">
+                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{req.email}</div>
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
                         {new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </div>
                     </div>
@@ -472,7 +475,8 @@ export default function AdminPage() {
                           <button
                             onClick={() => handleReview(req.id, 'approve')}
                             disabled={reviewingId === req.id}
-                            className="text-xs bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                            className="text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                            style={{ background: 'rgba(217,124,43,0.15)', color: 'var(--gold)' }}
                           >
                             {reviewingId === req.id ? '...' : 'Approve'}
                           </button>
@@ -485,14 +489,14 @@ export default function AdminPage() {
                           </button>
                         </>
                       ) : (
-                        <span className={`text-xs font-medium ${req.status === 'approved' ? 'text-green-500' : 'text-gray-500'}`}>
+                        <span className={`text-xs font-medium ${req.status === 'approved' ? 'text-green-500' : ''}`} style={req.status !== 'approved' ? { color: 'var(--text-muted)' } : {}}>
                           {req.status === 'approved' ? 'Approved' : 'Rejected'}
                         </span>
                       )}
                     </div>
                   </div>
                   {reviewMsg[req.id] && (
-                    <p className="text-xs mt-2 text-gray-400">{reviewMsg[req.id]}</p>
+                    <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{reviewMsg[req.id]}</p>
                   )}
                 </div>
               ))}
@@ -502,33 +506,35 @@ export default function AdminPage() {
 
         {/* Broadcast Notification */}
         <div className="mb-12">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400 mb-4">Send Notification</h2>
-          <div className="bg-[#1a1520] border border-purple-900/60 rounded-2xl p-6">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.15em] mb-4" style={{ color: 'var(--text-muted)' }}>Send Notification</h2>
+          <div className="rounded-2xl p-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <form onSubmit={handleBroadcast} className="space-y-4">
               <div>
-                <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Title</label>
+                <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Title</label>
                 <input
                   type="text"
                   value={broadcastTitle}
                   onChange={e => setBroadcastTitle(e.target.value)}
                   required
                   placeholder="e.g. Beer order update"
-                  className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
+                  className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Message</label>
+                <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Message</label>
                 <textarea
                   value={broadcastBody}
                   onChange={e => setBroadcastBody(e.target.value)}
                   required
                   rows={3}
                   placeholder="e.g. Your beer box ships Friday. Keep an eye out."
-                  className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 resize-none"
+                  className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">Send To</label>
+                <label className="block text-xs mb-2 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Send To</label>
                 <div className="flex gap-2">
                   {[
                     { id: 'hallowed', label: 'The Hallowed' },
@@ -544,18 +550,18 @@ export default function AdminPage() {
                             ? prev.filter(t => t !== tier.id)
                             : [...prev, tier.id]
                         )}
-                        className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                          active
-                            ? 'bg-orange-500 text-black'
-                            : 'bg-[#0d0b0f] border border-purple-800 text-gray-500'
-                        }`}
+                        className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
+                        style={active
+                          ? { background: 'var(--gold)', color: 'var(--bg)' }
+                          : { background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-muted)' }
+                        }
                       >
                         {tier.label}
                       </button>
                     )
                   })}
                 </div>
-                <p className="text-xs mt-1.5 text-gray-600">
+                <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
                   {broadcastTiers.length === 2 || broadcastTiers.length === 0
                     ? '→ Both selected — sends to all members'
                     : `→ Sends to ${broadcastTiers.map(t => t === 'hallowed' ? 'The Hallowed' : 'Odd Balls').join(' only')}`}
@@ -569,7 +575,8 @@ export default function AdminPage() {
               <button
                 type="submit"
                 disabled={broadcasting}
-                className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold py-2.5 rounded-lg transition-colors text-sm"
+                className="w-full font-bold py-2.5 rounded-lg transition-colors text-sm disabled:opacity-40"
+                style={{ background: 'var(--gold)', color: 'var(--bg)' }}
               >
                 {broadcasting ? 'Sending...' : broadcastTiers.length === 1
                   ? `Send to ${broadcastTiers[0] === 'hallowed' ? 'The Hallowed' : 'Odd Balls'}`
@@ -581,37 +588,38 @@ export default function AdminPage() {
           {/* Notification History */}
           {notifHistory.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-[0.15em] mb-3">Sent History</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--text-muted)' }}>Sent History</h3>
               <div className="space-y-2">
                 {notifHistory.map(n => (
-                  <div key={n.id} className="bg-[#0d0b0f] border border-purple-900/40 rounded-xl overflow-hidden">
+                  <div key={n.id} className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                     {/* Row — tap to expand */}
                     <button
                       onClick={() => toggleNotifDetail(n.id)}
-                      className="w-full px-4 py-3 flex items-start justify-between gap-4 text-left hover:bg-purple-900/10 transition-colors"
+                      className="w-full px-4 py-3 flex items-start justify-between gap-4 text-left transition-colors"
+                      style={{ background: 'transparent' }}
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{n.title}</p>
-                        <p className="text-gray-400 text-xs truncate mt-0.5">{n.body}</p>
-                        <p className="text-gray-600 text-xs mt-1">
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{n.title}</p>
+                        <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{n.body}</p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.5 }}>
                           {new Date(n.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-orange-400 text-sm font-bold">{n.opens} opened</p>
-                        <p className="text-gray-500 text-xs">{n.total_sent} sent</p>
+                        <p className="text-sm font-bold" style={{ color: 'var(--gold)' }}>{n.opens} opened</p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{n.total_sent} sent</p>
                         {n.total_sent > 0 && (
-                          <p className="text-gray-600 text-xs">{Math.round((n.opens / n.total_sent) * 100)}%</p>
+                          <p className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.5 }}>{Math.round((n.opens / n.total_sent) * 100)}%</p>
                         )}
-                        <p className="text-purple-600 text-xs mt-1">{expandedNotif === n.id ? '▲' : '▼'}</p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>{expandedNotif === n.id ? '▲' : '▼'}</p>
                       </div>
                     </button>
 
                     {/* Expanded breakdown */}
                     {expandedNotif === n.id && (
-                      <div className="border-t border-purple-900/30 px-4 py-3 grid grid-cols-2 gap-4">
+                      <div className="px-4 py-3 grid grid-cols-2 gap-4" style={{ borderTop: '1px solid var(--border)' }}>
                         {!notifDetail[n.id] ? (
-                          <p className="col-span-2 text-gray-500 text-xs text-center py-2">Loading...</p>
+                          <p className="col-span-2 text-xs text-center py-2" style={{ color: 'var(--text-muted)' }}>Loading...</p>
                         ) : (
                           <>
                             <div>
@@ -619,11 +627,11 @@ export default function AdminPage() {
                                 Opened ({notifDetail[n.id].opened.length})
                               </p>
                               {notifDetail[n.id].opened.length === 0 ? (
-                                <p className="text-gray-600 text-xs">—</p>
+                                <p className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</p>
                               ) : (
                                 <ul className="space-y-1">
                                   {notifDetail[n.id].opened.map(m => (
-                                    <li key={m.id} className="text-gray-300 text-xs">{m.name}</li>
+                                    <li key={m.id} className="text-xs" style={{ color: 'var(--text)' }}>{m.name}</li>
                                   ))}
                                 </ul>
                               )}
@@ -633,11 +641,11 @@ export default function AdminPage() {
                                 Not Opened ({notifDetail[n.id].notOpened.length})
                               </p>
                               {notifDetail[n.id].notOpened.length === 0 ? (
-                                <p className="text-gray-600 text-xs">Everyone opened it</p>
+                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Everyone opened it</p>
                               ) : (
                                 <ul className="space-y-1">
                                   {notifDetail[n.id].notOpened.map(m => (
-                                    <li key={m.id} className="text-gray-300 text-xs">{m.name}</li>
+                                    <li key={m.id} className="text-xs" style={{ color: 'var(--text)' }}>{m.name}</li>
                                   ))}
                                 </ul>
                               )}
@@ -654,71 +662,77 @@ export default function AdminPage() {
         </div>
 
         {/* Add / Edit form */}
-        <div className="bg-[#1a1520] border border-purple-900/60 rounded-2xl p-6 mb-8">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400 mb-4">Add or Edit Beer</h2>
+        <div className="rounded-2xl p-6 mb-8" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.15em] mb-4" style={{ color: 'var(--text-muted)' }}>Add or Edit Beer</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Day Number *</label>
+                <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Day Number *</label>
                 <input
                   type="number" min={1} max={31}
                   value={dayNumber}
                   onChange={e => setDayNumber(parseInt(e.target.value))}
                   required
-                  className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
+                  className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">ABV %</label>
+                <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>ABV %</label>
                 <input
                   type="number" step="0.1" min="0" max="20"
                   value={abv}
                   onChange={e => setAbv(e.target.value)}
-                  className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
+                  className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
                   placeholder="5.5"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Beer Name *</label>
+              <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Beer Name *</label>
               <input
                 type="text" value={name}
                 onChange={e => setName(e.target.value)}
                 required
-                className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
+                className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
                 placeholder="Pumpkin Spice Stout"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Brewery *</label>
+              <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Brewery *</label>
               <input
                 type="text" value={brewery}
                 onChange={e => setBrewery(e.target.value)}
                 required
-                className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
+                className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
                 placeholder="Haunted Brewing Co."
               />
             </div>
 
             <div>
-              <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Style</label>
+              <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Style</label>
               <input
                 type="text" value={style}
                 onChange={e => setStyle(e.target.value)}
-                className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
+                className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
                 placeholder="Imperial Stout"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Description</label>
+              <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Description</label>
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 rows={3}
-                className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 resize-none"
+                className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
                 placeholder="Dark, rich, and dangerously drinkable..."
               />
             </div>
@@ -730,7 +744,8 @@ export default function AdminPage() {
             <button
               type="submit"
               disabled={saving}
-              className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold py-2.5 rounded-lg transition-colors"
+              className="w-full font-bold py-2.5 rounded-lg transition-colors disabled:opacity-40"
+              style={{ background: 'var(--gold)', color: 'var(--bg)' }}
             >
               {saving ? 'Saving...' : `Save Day ${dayNumber}`}
             </button>
@@ -738,21 +753,22 @@ export default function AdminPage() {
         </div>
 
         {/* Beer list */}
-        <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400 mb-3">Entered Beers</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--text-muted)' }}>Entered Beers</h2>
         {beers.length === 0 ? (
-          <p className="text-gray-600 text-sm text-center py-8">No beers entered yet. Add your first one above.</p>
+          <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No beers entered yet. Add your first one above.</p>
         ) : (
           <div className="space-y-2">
             {beers.map(beer => (
-              <div key={beer.id} className="bg-[#1a1520] border border-purple-900/40 rounded-xl px-4 py-3 flex items-center gap-3">
-                <span className="text-orange-400 font-bold w-7 text-center text-sm shrink-0">{beer.day_number}</span>
+              <div key={beer.id} className="rounded-xl px-4 py-3 flex items-center gap-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <span className="font-bold w-7 text-center text-sm shrink-0" style={{ color: 'var(--gold)' }}>{beer.day_number}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-white text-sm font-medium truncate">{beer.name}</div>
-                  <div className="text-gray-500 text-xs">{beer.brewery}{beer.style ? ` · ${beer.style}` : ''}{beer.abv ? ` · ${beer.abv}%` : ''}</div>
+                  <div className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{beer.name}</div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{beer.brewery}{beer.style ? ` · ${beer.style}` : ''}{beer.abv ? ` · ${beer.abv}%` : ''}</div>
                 </div>
                 <button
                   onClick={() => loadBeerForEdit(beer)}
-                  className="text-xs text-blue-400 hover:text-blue-300 shrink-0"
+                  className="text-xs shrink-0"
+                  style={{ color: 'var(--gold)', opacity: 0.7 }}
                 >
                   Edit
                 </button>

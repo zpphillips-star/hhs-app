@@ -38,48 +38,31 @@ export async function POST(req: NextRequest) {
     }
 
     // Approve: create the user account
-    // Using createUser + generateLink instead of inviteUserByEmail to avoid Supabase trigger issues
     let userId: string | undefined
 
-    // Check if user already exists first
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
-    const existing = existingUsers?.users?.find(u => u.email === memberReq.email)
-
-    if (existing) {
-      // Already exists — just send them a magic link to sign in
-      userId = existing.id
-      await supabaseAdmin.auth.admin.generateLink({
-        type: 'magiclink',
-        email: memberReq.email,
-        options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
-        }
-      })
-    } else {
-      // Create the user directly (avoids invite trigger issues)
-      const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-        email: memberReq.email,
-        email_confirm: true,
-        user_metadata: {
+    // Try inviteUserByEmail first (cleanest path — sends welcome email we control anyway)
+    const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+      memberReq.email,
+      {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
+        data: {
           first_name: memberReq.first_name,
           last_name: memberReq.last_name,
-        }
-      })
-
-      if (createErr || !newUser?.user) {
-        return NextResponse.json({ error: createErr?.message || 'Failed to create user' }, { status: 500 })
+        },
       }
+    )
 
-      userId = newUser.user.id
-
-      // Generate a password setup link (acts like an invite)
-      await supabaseAdmin.auth.admin.generateLink({
-        type: 'recovery',
-        email: memberReq.email,
-        options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
-        }
-      })
+    if (inviteErr) {
+      // User likely already exists — find them and send a magic link instead
+      console.log('inviteUserByEmail failed:', inviteErr.message)
+      const { data: userList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      const existing = userList?.users?.find(u => u.email === memberReq.email)
+      if (!existing) {
+        return NextResponse.json({ error: inviteErr.message }, { status: 500 })
+      }
+      userId = existing.id
+    } else {
+      userId = inviteData?.user?.id
     }
 
     // Mark request as approved
@@ -101,10 +84,10 @@ export async function POST(req: NextRequest) {
         }, { onConflict: 'id' })
     }
 
-    // Send welcome email via Resend with the setup link
-    // Generate a fresh link to embed directly in the email
+    // Send welcome email via Resend
+    // Generate a fresh setup link to embed in the email
     const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
+      type: 'magiclink',
       email: memberReq.email,
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,

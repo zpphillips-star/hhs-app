@@ -321,9 +321,13 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#0d0b0f]">
       <Nav user={user} />
       <main className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-orange-400">⚙️ Admin — Manage Beers</h1>
-          <span className="text-sm text-gray-500">{beers.length}/31 entered</span>
+        {/* Page header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Hallowed Hop Society</p>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--gold)' }}>Admin</h1>
+          </div>
+          <span className="text-sm text-gray-600">{beers.length}/31 beers</span>
         </div>
 
         {/* Notification setup banner for admin */}
@@ -350,10 +354,10 @@ export default function AdminPage() {
         )}
 
         {/* Members Roster */}
-        <div className="mb-8">
+        <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Members</h2>
-            <span className="text-sm text-gray-500">{members.length} approved</span>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400">Members</h2>
+            <span className="text-xs text-gray-600">{members.length} approved</span>
           </div>
 
           {/* Tier Selection Control */}
@@ -428,9 +432,9 @@ export default function AdminPage() {
               {/* Summary row */}
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2 border-t border-purple-900/30 bg-[#0d0b0f]/50">
                 <span className="text-xs text-gray-500">{members.length} total</span>
-                <span className="text-xs text-orange-400 text-center w-8">{members.filter(m => m.has_notifications).length}/{members.length}</span>
-                <span className="text-xs text-orange-400 text-center w-8">{members.filter(m => m.has_pwa).length}/{members.length}</span>
-                <span className="text-xs text-orange-400 text-center w-20">{members.filter(m => m.tier).length}/{members.length}</span>
+                <span className="text-xs text-center w-8" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_notifications).length}/{members.length}</span>
+                <span className="text-xs text-center w-8" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_pwa).length}/{members.length}</span>
+                <span className="text-xs text-center w-20" style={{ color: 'var(--gold)' }}>{members.filter(m => m.tier).length}/{members.length}</span>
                 <span className="text-xs text-green-400 text-center w-14">{members.filter(m => m.venmo_clicked_at).length}/{members.length}</span>
               </div>
             </div>
@@ -438,10 +442,10 @@ export default function AdminPage() {
         </div>
 
         {/* Membership Requests */}
-        <div className="mb-8">
+        <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Membership Requests</h2>
-            <span className="text-sm text-gray-500">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400">Membership Requests</h2>
+            <span className="text-xs text-gray-600">
               {requests.filter(r => r.status === 'pending').length} pending
             </span>
           </div>
@@ -498,7 +502,7 @@ export default function AdminPage() {
 
         {/* Broadcast Notification */}
         <div className="mb-12">
-          <h2 className="text-lg font-semibold text-white mb-4">Send Notification</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400 mb-4">Send Notification</h2>
           <div className="bg-[#1a1520] border border-purple-900/60 rounded-2xl p-6">
             <form onSubmit={handleBroadcast} className="space-y-4">
               <div>
@@ -577,7 +581,7 @@ export default function AdminPage() {
           {/* Notification History */}
           {notifHistory.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Sent History</h3>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-[0.15em] mb-3">Sent History</h3>
               <div className="space-y-2">
                 {notifHistory.map(n => (
                   <div key={n.id} className="bg-[#0d0b0f] border border-purple-900/40 rounded-xl overflow-hidden">
@@ -651,7 +655,7 @@ export default function AdminPage() {
 
         {/* Add / Edit form */}
         <div className="bg-[#1a1520] border border-purple-900/60 rounded-2xl p-6 mb-8">
-          <h2 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Add or Edit Beer</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400 mb-4">Add or Edit Beer</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -734,7 +738,7 @@ export default function AdminPage() {
         </div>
 
         {/* Beer list */}
-        <h2 className="text-lg font-semibold text-white mb-3">Entered Beers</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400 mb-3">Entered Beers</h2>
         {beers.length === 0 ? (
           <p className="text-gray-600 text-sm text-center py-8">No beers entered yet. Add your first one above.</p>
         ) : (

@@ -23,6 +23,11 @@ type NotificationLog = {
   opens: number
 }
 
+type NotifDetail = {
+  opened: { id: string; name: string }[]
+  notOpened: { id: string; name: string }[]
+}
+
 export default function AdminPage() {
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [beers, setBeers] = useState<Beer[]>([])
@@ -42,6 +47,8 @@ export default function AdminPage() {
   const [broadcasting, setBroadcasting] = useState(false)
   const [broadcastResult, setBroadcastResult] = useState('')
   const [notifHistory, setNotifHistory] = useState<NotificationLog[]>([])
+  const [expandedNotif, setExpandedNotif] = useState<string | null>(null)
+  const [notifDetail, setNotifDetail] = useState<Record<string, NotifDetail>>({})
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
@@ -83,6 +90,45 @@ export default function AdminPage() {
     }
 
     setNotifHistory(logs.map(l => ({ ...l, opens: openCounts[l.id] || 0 })))
+  }
+
+  const toggleNotifDetail = async (notifId: string) => {
+    // Collapse if already open
+    if (expandedNotif === notifId) {
+      setExpandedNotif(null)
+      return
+    }
+    setExpandedNotif(notifId)
+
+    // Already loaded? Don't refetch
+    if (notifDetail[notifId]) return
+
+    // All approved members
+    const { data: members } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, username')
+      .eq('status', 'approved')
+
+    // Who opened this notification
+    const { data: opens } = await supabase
+      .from('notification_opens')
+      .select('user_id')
+      .eq('notification_id', notifId)
+
+    const openedIds = new Set((opens || []).map(o => o.user_id).filter(Boolean))
+
+    const allMembers = (members || []).map(m => ({
+      id: m.id,
+      name: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : m.username,
+    }))
+
+    setNotifDetail(prev => ({
+      ...prev,
+      [notifId]: {
+        opened: allMembers.filter(m => openedIds.has(m.id)),
+        notOpened: allMembers.filter(m => !openedIds.has(m.id)),
+      },
+    }))
   }
 
   const handleReview = async (requestId: string, action: 'approve' | 'reject') => {
@@ -411,21 +457,68 @@ export default function AdminPage() {
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Sent History</h3>
               <div className="space-y-2">
                 {notifHistory.map(n => (
-                  <div key={n.id} className="bg-[#0d0b0f] border border-purple-900/40 rounded-xl px-4 py-3 flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{n.title}</p>
-                      <p className="text-gray-400 text-xs truncate mt-0.5">{n.body}</p>
-                      <p className="text-gray-600 text-xs mt-1">
-                        {new Date(n.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-orange-400 text-sm font-bold">{n.opens} opened</p>
-                      <p className="text-gray-500 text-xs">{n.total_sent} sent</p>
-                      {n.total_sent > 0 && (
-                        <p className="text-gray-600 text-xs">{Math.round((n.opens / n.total_sent) * 100)}%</p>
-                      )}
-                    </div>
+                  <div key={n.id} className="bg-[#0d0b0f] border border-purple-900/40 rounded-xl overflow-hidden">
+                    {/* Row — tap to expand */}
+                    <button
+                      onClick={() => toggleNotifDetail(n.id)}
+                      className="w-full px-4 py-3 flex items-start justify-between gap-4 text-left hover:bg-purple-900/10 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-medium truncate">{n.title}</p>
+                        <p className="text-gray-400 text-xs truncate mt-0.5">{n.body}</p>
+                        <p className="text-gray-600 text-xs mt-1">
+                          {new Date(n.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-orange-400 text-sm font-bold">{n.opens} opened</p>
+                        <p className="text-gray-500 text-xs">{n.total_sent} sent</p>
+                        {n.total_sent > 0 && (
+                          <p className="text-gray-600 text-xs">{Math.round((n.opens / n.total_sent) * 100)}%</p>
+                        )}
+                        <p className="text-purple-600 text-xs mt-1">{expandedNotif === n.id ? '▲' : '▼'}</p>
+                      </div>
+                    </button>
+
+                    {/* Expanded breakdown */}
+                    {expandedNotif === n.id && (
+                      <div className="border-t border-purple-900/30 px-4 py-3 grid grid-cols-2 gap-4">
+                        {!notifDetail[n.id] ? (
+                          <p className="col-span-2 text-gray-500 text-xs text-center py-2">Loading...</p>
+                        ) : (
+                          <>
+                            <div>
+                              <p className="text-green-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                                Opened ({notifDetail[n.id].opened.length})
+                              </p>
+                              {notifDetail[n.id].opened.length === 0 ? (
+                                <p className="text-gray-600 text-xs">—</p>
+                              ) : (
+                                <ul className="space-y-1">
+                                  {notifDetail[n.id].opened.map(m => (
+                                    <li key={m.id} className="text-gray-300 text-xs">{m.name}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-red-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                                Not Opened ({notifDetail[n.id].notOpened.length})
+                              </p>
+                              {notifDetail[n.id].notOpened.length === 0 ? (
+                                <p className="text-gray-600 text-xs">Everyone opened it</p>
+                              ) : (
+                                <ul className="space-y-1">
+                                  {notifDetail[n.id].notOpened.map(m => (
+                                    <li key={m.id} className="text-gray-300 text-xs">{m.name}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

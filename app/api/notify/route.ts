@@ -80,11 +80,6 @@ export async function GET(req: NextRequest) {
 
 // POST — on-demand broadcast from admin panel (or ZAP)
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   const { title, body, url } = await req.json()
   if (!title || !body) {
     return NextResponse.json({ error: 'title and body are required' }, { status: 400 })

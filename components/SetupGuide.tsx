@@ -179,7 +179,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
       {step === 'notify' && (
         <>
           <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-            Get notified each time a new beer is revealed.
+            Get notified each time your next beer is revealed.
           </p>
           <button
             onClick={requestNotifications}

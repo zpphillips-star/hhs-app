@@ -141,7 +141,7 @@ export default function WelcomePage() {
             <StepIndicator current={1} total={2} />
             <h2 style={heading}>Add to your Home Screen</h2>
             <p style={body}>
-              This gives you the full app experience — tap the icon to open HHS anytime, and you&apos;ll get notified each time a new beer is revealed.
+              This gives you the full app experience — tap the icon to open HHS anytime, and you&apos;ll get notified each time your next beer is revealed.
             </p>
 
             {canNativeInstall ? (
@@ -249,7 +249,7 @@ export default function WelcomePage() {
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔔</div>
             <h2 style={heading}>Enable Notifications</h2>
             <p style={body}>
-              Every day in October you&apos;ll get a notification when the beer of the day is revealed. Your phone will ask for permission — tap <strong style={{ color: 'var(--gold)' }}>Allow</strong>.
+              Each time your next beer is ready, you&apos;ll get a notification — just for you, based on your membership. Your phone will ask for permission — tap <strong style={{ color: 'var(--gold)' }}>Allow</strong>.
             </p>
 
             {notifPermission === 'denied' && (
@@ -282,7 +282,7 @@ export default function WelcomePage() {
             <p style={body}>
               {notifPermission === 'granted'
                 ? "You're all set up to receive your beer notifications."
-                : "You're in. You can enable notifications anytime from the app."}
+                : "You're in. You can enable notifications anytime — you'll be notified when your beers drop."}
             </p>
             <button onClick={finish} style={btnPrimary}>
               Enter the Society →

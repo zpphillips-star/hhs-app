@@ -40,29 +40,57 @@ export async function POST(req: NextRequest) {
     // Approve: create the user account
     let userId: string | undefined
 
-    // Try inviteUserByEmail first (cleanest path — sends welcome email we control anyway)
-    const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      memberReq.email,
-      {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
-        data: {
-          first_name: memberReq.first_name,
-          last_name: memberReq.last_name,
-        },
-      }
-    )
+    // Step 1: Pre-clean orphaned profiles that would conflict with the trigger.
+    // The handle_new_user trigger inserts username = email-prefix. If a profile
+    // with that username already exists but the auth user is gone, the INSERT
+    // hits the UNIQUE constraint → "Database error creating new user".
+    const emailPrefix = memberReq.email.split('@')[0]
+    const { data: conflictProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, username')
+      .eq('username', emailPrefix)
+      .maybeSingle()
 
-    if (inviteErr) {
-      // User likely already exists — find them and send a magic link instead
-      console.log('inviteUserByEmail failed:', inviteErr.message)
-      const { data: userList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
-      const existing = userList?.users?.find(u => u.email === memberReq.email)
-      if (!existing) {
-        return NextResponse.json({ error: inviteErr.message }, { status: 500 })
+    if (conflictProfile) {
+      // Check if its auth user still exists
+      const { data: authCheck } = await supabaseAdmin.auth.admin.getUserById(conflictProfile.id)
+      if (!authCheck?.user) {
+        // Orphaned — delete it so the trigger can create a fresh one
+        await supabaseAdmin.from('profiles').delete().eq('id', conflictProfile.id)
+        console.log('Cleaned up orphaned profile for username:', emailPrefix)
+      } else if (authCheck.user.email === memberReq.email) {
+        // Auth user already exists with this email — skip creation, use magic link
+        userId = authCheck.user.id
       }
-      userId = existing.id
-    } else {
-      userId = inviteData?.user?.id
+    }
+
+    if (!userId) {
+      // Step 2: Create the user (triggers handle_new_user → inserts profile)
+      const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        memberReq.email,
+        {
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
+          data: {
+            first_name: memberReq.first_name,
+            last_name: memberReq.last_name,
+          },
+        }
+      )
+
+      if (inviteErr) {
+        // Still failing — user may exist under a different profile state
+        console.error('inviteUserByEmail failed:', inviteErr.message)
+        const { data: userList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+        const existing = userList?.users?.find(u => u.email === memberReq.email)
+        if (!existing) {
+          return NextResponse.json({
+            error: `Could not create account: ${inviteErr.message}. Please run supabase/fix-trigger-conflict.sql in Supabase.`
+          }, { status: 500 })
+        }
+        userId = existing.id
+      } else {
+        userId = inviteData?.user?.id
+      }
     }
 
     // Mark request as approved
@@ -71,13 +99,23 @@ export async function POST(req: NextRequest) {
       .update({ status: 'approved', reviewed_at: new Date().toISOString() })
       .eq('id', request_id)
 
-    // Also create/update profile with first/last name and approved status
+    // Update profile with full details (trigger may have created a minimal one)
     if (userId) {
+      // Compute a safe username (check for conflicts with other users first)
+      let finalUsername = emailPrefix
+      const { data: usernameTaken } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('username', emailPrefix)
+        .neq('id', userId)
+        .maybeSingle()
+      if (usernameTaken) finalUsername = `${emailPrefix}_${Date.now().toString().slice(-4)}`
+
       await supabaseAdmin
         .from('profiles')
         .upsert({
           id: userId,
-          username: memberReq.email.split('@')[0], // temp username, they'll update
+          username: finalUsername,
           first_name: memberReq.first_name,
           last_name: memberReq.last_name,
           status: 'approved',

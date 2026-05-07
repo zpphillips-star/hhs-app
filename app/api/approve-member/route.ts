@@ -40,12 +40,18 @@ export async function POST(req: NextRequest) {
         to: memberReq.email,
         subject: 'Your Hallowed Hop Society petition',
         html: `
-          <div style="font-family: Georgia, serif; background: #191726; color: #d9d8d2; padding: 32px; max-width: 480px; margin: 0 auto; border: 1px solid rgba(217,124,43,0.2); border-radius: 8px;">
-            <h2 style="color: #d97c2b; font-size: 1rem; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 16px;">The Society Has Spoken</h2>
-            <p style="line-height: 1.8; color: #d9d8d2;">Thank you for your interest in the Hallowed Hop Society, ${memberReq.first_name}.</p>
-            <p style="line-height: 1.8; color: #d9d8d2;">After careful deliberation, the Society has decided not to extend membership this season. The circle is small, and the selection is never easy.</p>
-            <p style="line-height: 1.8; color: #d9d8d2; font-style: italic;">You're welcome to petition again next year.</p>
-            <p style="margin-top: 24px; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(217,124,43,0.6);">Until then — may your pints be cold.</p>
+          <div style="background:#191726; padding: 48px 16px; min-height: 100vh;">
+            <div style="font-family: Georgia, 'Times New Roman', serif; background: #201d30; color: #d9d8d2; padding: 40px 36px; max-width: 440px; margin: 0 auto; border: 1px solid rgba(217,124,43,0.22); border-radius: 12px;">
+              <p style="font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(217,124,43,0.6); margin: 0 0 24px 0;">Hallowed Hop Society</p>
+              <h2 style="font-size: 1.3rem; font-weight: 700; letter-spacing: 0.06em; color: #d9d8d2; margin: 0 0 28px 0; line-height: 1.3;">The Society<br/>Has Spoken.</h2>
+              <div style="width: 32px; height: 1px; background: rgba(217,124,43,0.4); margin-bottom: 28px;"></div>
+              <p style="line-height: 1.85; color: #d9d8d2; margin: 0 0 16px 0; font-size: 0.95rem;">Thank you for your interest, ${memberReq.first_name}.</p>
+              <p style="line-height: 1.85; color: #7a7468; margin: 0 0 16px 0; font-size: 0.95rem; font-style: italic;">After careful deliberation, the Society has decided not to extend membership this season. The circle is small, and the selection is never easy.</p>
+              <p style="line-height: 1.85; color: #7a7468; margin: 0 0 32px 0; font-size: 0.95rem; font-style: italic;">You're welcome to petition again next year.</p>
+              <div style="border-top: 1px solid rgba(217,124,43,0.12); padding-top: 24px;">
+                <p style="font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(217,124,43,0.5); margin: 0;">Until then — may your pints be cold.</p>
+              </div>
+            </div>
           </div>
         `,
       })
@@ -154,12 +160,18 @@ export async function POST(req: NextRequest) {
       to: memberReq.email,
       subject: 'You\'ve been admitted to the Hallowed Hop Society',
       html: `
-        <div style="font-family: Georgia, serif; background: #0d0b0f; color: #e8dcc8; padding: 32px; max-width: 480px; margin: 0 auto; border: 1px solid #2a1f3d; border-radius: 8px;">
-          <h2 style="color: #c8973a; font-size: 1.2rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px;">You're In.</h2>
-          <p style="line-height: 1.7;">Welcome to the Hallowed Hop Society, ${memberReq.first_name}. Your membership has been approved.</p>
-          <p style="line-height: 1.7;">Tap the button below to choose your Society name and complete your account setup.</p>
-          <a href="${setupLink}" style="display: inline-block; margin: 20px 0; padding: 12px 28px; background: #c8973a; color: #0d0b0f; font-family: Georgia, serif; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.05em;">Enter the Society →</a>
-          <p style="line-height: 1.7; color: #9c8a6e; font-size: 0.9rem;">This link expires in 24 hours. If you didn't request this, ignore this email.</p>
+        <div style="background:#191726; padding: 48px 16px; min-height: 100vh;">
+          <div style="font-family: Georgia, 'Times New Roman', serif; background: #201d30; color: #d9d8d2; padding: 40px 36px; max-width: 440px; margin: 0 auto; border: 1px solid rgba(217,124,43,0.22); border-radius: 12px;">
+            <p style="font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(217,124,43,0.6); margin: 0 0 24px 0;">Hallowed Hop Society</p>
+            <h2 style="font-size: 1.3rem; font-weight: 700; letter-spacing: 0.06em; color: #d9d8d2; margin: 0 0 28px 0; line-height: 1.3;">You're In.</h2>
+            <div style="width: 32px; height: 1px; background: rgba(217,124,43,0.4); margin-bottom: 28px;"></div>
+            <p style="line-height: 1.85; color: #d9d8d2; margin: 0 0 16px 0; font-size: 0.95rem;">Welcome to the Hallowed Hop Society, ${memberReq.first_name}. Your membership has been approved.</p>
+            <p style="line-height: 1.85; color: #7a7468; margin: 0 0 32px 0; font-size: 0.95rem; font-style: italic;">Tap below to choose your Society name and complete your account setup.</p>
+            <a href="${setupLink}" style="display: block; text-align: center; padding: 14px 28px; background: #d97c2b; color: #191726; font-family: Georgia, serif; font-weight: 700; text-decoration: none; border-radius: 8px; letter-spacing: 0.08em; font-size: 0.85rem; text-transform: uppercase;">Enter the Society →</a>
+            <div style="border-top: 1px solid rgba(217,124,43,0.12); padding-top: 24px; margin-top: 32px;">
+              <p style="font-size: 0.7rem; letter-spacing: 0.1em; color: rgba(217,124,43,0.4); margin: 0; font-style: italic;">This link expires in 24 hours. If you didn't request this, ignore this email.</p>
+            </div>
+          </div>
         </div>
       `,
     })

@@ -38,6 +38,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Approve: invite the user via Supabase
+    // If the user already exists, send a magic link instead
+    let userId: string | undefined
+
     const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       memberReq.email,
       {
@@ -50,7 +53,25 @@ export async function POST(req: NextRequest) {
     )
 
     if (inviteErr) {
-      return NextResponse.json({ error: inviteErr.message }, { status: 500 })
+      // User likely already exists — look them up and send a magic link instead
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+      const existing = existingUsers?.users?.find(u => u.email === memberReq.email)
+
+      if (existing) {
+        userId = existing.id
+        // Send magic link so they can sign in
+        await supabaseAdmin.auth.admin.generateLink({
+          type: 'magiclink',
+          email: memberReq.email,
+          options: {
+            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
+          }
+        })
+      } else {
+        return NextResponse.json({ error: inviteErr.message }, { status: 500 })
+      }
+    } else {
+      userId = inviteData.user?.id
     }
 
     // Mark request as approved
@@ -60,7 +81,6 @@ export async function POST(req: NextRequest) {
       .eq('id', request_id)
 
     // Also create/update profile with first/last name and approved status
-    const userId = inviteData.user?.id
     if (userId) {
       await supabaseAdmin
         .from('profiles')

@@ -81,9 +81,6 @@ export default function AuthPage() {
             Hallowed Hop Society
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', fontStyle: 'italic' }}>Members Only</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, fontFamily: "'Modern Antiqua', serif", opacity: 0.6 }}>
-            An invitation-only craft beer society
-          </p>
         </div>
 
         <div style={{ border: '1px solid var(--border)', padding: '2rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
@@ -152,8 +149,7 @@ export default function AuthPage() {
           {mode === 'request' && (
             <>
               {message ? (
-                <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>✦</div>
+                  <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
                   <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '1.1rem', marginBottom: '1rem', letterSpacing: '0.05em' }}>
                     Petition received.
                   </p>

@@ -281,8 +281,8 @@ export default function WelcomePage() {
             <h2 style={heading}>Welcome to the Society.</h2>
             <p style={body}>
               {notifPermission === 'granted'
-                ? "You're set up and ready. We'll notify you every day when the beer drops."
-                : "You're in. You can enable notifications anytime from the app settings."}
+                ? "You're all set up to receive your daily beer notifications."
+                : "You're in. You can enable notifications anytime from the app."}
             </p>
             <button onClick={finish} style={btnPrimary}>
               Enter the Society →

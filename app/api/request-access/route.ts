@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     // Notify Zach
     await resend.emails.send({
       from: 'HHS <notifications@hallowedhopsociety.com>',
-      to: 'zach@hallowedhopsociety.com',
+      to: 'hallowedhopsociety@gmail.com',
       subject: `New membership request — ${first_name} ${last_name}`,
       html: `
         <div style="font-family: Georgia, serif; background: #0d0b0f; color: #e8dcc8; padding: 32px; max-width: 480px; margin: 0 auto; border: 1px solid #2a1f3d; border-radius: 8px;">

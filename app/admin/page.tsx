@@ -68,6 +68,9 @@ export default function AdminPage() {
   const [tierSelectionOpen, setTierSelectionOpen] = useState(false)
   const [togglingTier, setTogglingTier] = useState(false)
 
+  const [myNotifStatus, setMyNotifStatus] = useState<NotificationPermission | null>(null)
+  const [enablingNotif, setEnablingNotif] = useState(false)
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
     fetchBeers()
@@ -75,7 +78,34 @@ export default function AdminPage() {
     fetchNotifHistory()
     fetchMembers()
     fetchTierStatus()
+    if ('Notification' in window) setMyNotifStatus(Notification.permission)
   }, [])
+
+  const enableMyNotifications = async () => {
+    if (!user) return
+    setEnablingNotif(true)
+    try {
+      const perm = await Notification.requestPermission()
+      setMyNotifStatus(perm)
+      if (perm === 'granted') {
+        const reg = await navigator.serviceWorker.ready
+        const existing = await reg.pushManager.getSubscription()
+        const sub = existing || await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
+        })
+        await fetch('/api/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: sub.toJSON(), user_id: user.id }),
+        })
+        fetchMembers() // refresh the table
+      }
+    } catch (e) {
+      console.error(e)
+    }
+    setEnablingNotif(false)
+  }
 
   const fetchTierStatus = async () => {
     const { data } = await supabase.from('app_settings').select('tier_selection_open').eq('id', 1).single()
@@ -297,6 +327,29 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold text-orange-400">⚙️ Admin — Manage Beers</h1>
           <span className="text-sm text-gray-500">{beers.length}/31 entered</span>
         </div>
+
+        {/* Notification setup banner for admin */}
+        {myNotifStatus !== 'granted' && (
+          <div className="mb-6 px-4 py-3 rounded-xl border border-yellow-600/40 bg-yellow-500/10 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-yellow-400 text-sm font-semibold">🔔 You haven&apos;t enabled notifications</p>
+              <p className="text-gray-400 text-xs mt-0.5">
+                {myNotifStatus === 'denied'
+                  ? 'Blocked in browser — go to Settings → Safari/Chrome → Notifications → allow hallowedhopsociety.com'
+                  : 'Enable them so you receive test notifications too'}
+              </p>
+            </div>
+            {myNotifStatus !== 'denied' && (
+              <button
+                onClick={enableMyNotifications}
+                disabled={enablingNotif}
+                className="shrink-0 text-xs font-bold px-4 py-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-400 transition-colors"
+              >
+                {enablingNotif ? '...' : 'Enable'}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Members Roster */}
         <div className="mb-8">
@@ -705,5 +758,12 @@ export default function AdminPage() {
       </main>
     </div>
   )
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)))
 }
 

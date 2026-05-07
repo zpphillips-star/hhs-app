@@ -10,17 +10,6 @@ const supabaseAdmin = createClient(
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(req: NextRequest) {
-  // Require CRON_SECRET (sent from admin UI via env) or skip auth header check for now
-  // In production you'd verify the logged-in user is admin
-  const authHeader = req.headers.get('authorization')
-  const secret = process.env.CRON_SECRET || ''
-  if (secret && authHeader !== `Bearer ${secret}`) {
-    // Also allow if no secret is set (dev mode)
-    if (secret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
-
   try {
     const { request_id, action } = await req.json()
 

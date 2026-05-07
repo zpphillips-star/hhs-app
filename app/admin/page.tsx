@@ -58,7 +58,7 @@ export default function AdminPage() {
   const [reviewMsg, setReviewMsg] = useState<Record<string, string>>({})
   const [broadcastTitle, setBroadcastTitle] = useState('')
   const [broadcastBody, setBroadcastBody] = useState('')
-  const [broadcastDayNumber, setBroadcastDayNumber] = useState<string>('')
+  const [broadcastTiers, setBroadcastTiers] = useState<string[]>(['hallowed', 'oddballs']) // default: everyone
   const [broadcasting, setBroadcasting] = useState(false)
   const [broadcastResult, setBroadcastResult] = useState('')
   const [notifHistory, setNotifHistory] = useState<NotificationLog[]>([])
@@ -246,26 +246,24 @@ export default function AdminPage() {
     setBroadcasting(true)
     setBroadcastResult('')
     try {
-      const dayNum = broadcastDayNumber ? parseInt(broadcastDayNumber) : undefined
+      const sendToAll = broadcastTiers.length === 2 || broadcastTiers.length === 0
       const res = await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: broadcastTitle,
           body: broadcastBody,
-          ...(dayNum !== undefined && { day_number: dayNum }),
+          tiers: sendToAll ? undefined : broadcastTiers,
         }),
       })
       const data = await res.json()
       if (!res.ok) setBroadcastResult(`Error: ${data.error}`)
       else {
-        const tierNote = dayNum !== undefined
-          ? (dayNum % 2 !== 0 ? ' (Hallowed + Odd Balls)' : ' (Hallowed only)')
-          : ' (everyone)'
-        setBroadcastResult(`✅ Sent to ${data.sent} member${data.sent !== 1 ? 's' : ''}${tierNote}`)
+        const who = sendToAll ? 'everyone' : broadcastTiers.map(t => t === 'hallowed' ? 'The Hallowed' : 'Odd Balls').join(' + ')
+        setBroadcastResult(`✅ Sent to ${data.sent} member${data.sent !== 1 ? 's' : ''} (${who})`)
         setBroadcastTitle('')
         setBroadcastBody('')
-        setBroadcastDayNumber('')
+        setBroadcastTiers(['hallowed', 'oddballs'])
         fetchNotifHistory()
       }
     } catch {
@@ -526,28 +524,38 @@ export default function AdminPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">
-                  Day # <span className="normal-case text-gray-600">(optional — routes to correct tier)</span>
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={broadcastDayNumber}
-                  onChange={e => setBroadcastDayNumber(e.target.value)}
-                  placeholder="Leave blank to send to everyone"
-                  className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
-                />
-                {broadcastDayNumber && (
-                  <p className="text-xs mt-1.5 text-orange-400/80">
-                    {parseInt(broadcastDayNumber) % 2 !== 0
-                      ? '→ Odd day — sends to Hallowed (all) + Odd Balls'
-                      : '→ Even day — sends to Hallowed only'}
-                  </p>
-                )}
-                {!broadcastDayNumber && (
-                  <p className="text-xs mt-1.5 text-gray-600">→ No day # — sends to all members</p>
-                )}
+                <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">Send To</label>
+                <div className="flex gap-2">
+                  {[
+                    { id: 'hallowed', label: 'The Hallowed' },
+                    { id: 'oddballs', label: 'Odd Balls' },
+                  ].map(tier => {
+                    const active = broadcastTiers.includes(tier.id)
+                    return (
+                      <button
+                        key={tier.id}
+                        type="button"
+                        onClick={() => setBroadcastTiers(prev =>
+                          active
+                            ? prev.filter(t => t !== tier.id)
+                            : [...prev, tier.id]
+                        )}
+                        className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                          active
+                            ? 'bg-orange-500 text-black'
+                            : 'bg-[#0d0b0f] border border-purple-800 text-gray-500'
+                        }`}
+                      >
+                        {tier.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-xs mt-1.5 text-gray-600">
+                  {broadcastTiers.length === 2 || broadcastTiers.length === 0
+                    ? '→ Both selected — sends to all members'
+                    : `→ Sends to ${broadcastTiers.map(t => t === 'hallowed' ? 'The Hallowed' : 'Odd Balls').join(' only')}`}
+                </p>
               </div>
               {broadcastResult && (
                 <p className={`text-sm ${broadcastResult.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>
@@ -559,8 +567,8 @@ export default function AdminPage() {
                 disabled={broadcasting}
                 className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold py-2.5 rounded-lg transition-colors text-sm"
               >
-                {broadcasting ? 'Sending...' : broadcastDayNumber
-                  ? `Send — Day ${broadcastDayNumber} (${parseInt(broadcastDayNumber) % 2 !== 0 ? 'Hallowed + Odd Balls' : 'Hallowed only'})`
+                {broadcasting ? 'Sending...' : broadcastTiers.length === 1
+                  ? `Send to ${broadcastTiers[0] === 'hallowed' ? 'The Hallowed' : 'Odd Balls'}`
                   : 'Send to All Members'}
               </button>
             </form>

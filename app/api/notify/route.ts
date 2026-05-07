@@ -13,19 +13,16 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
-async function broadcast(title: string, body: string, url = '/', dayNumber?: number) {
+async function broadcast(title: string, body: string, url = '/', tiers?: string[]) {
   // Get all push subscriptions
   const { data: subs } = await supabase
     .from('push_subscriptions')
     .select('subscription, user_id')
   if (!subs || subs.length === 0) return { sent: 0, failed: [], notificationId: null }
 
-  // If day number provided, filter by tier:
-  // - 'hallowed' gets every day
-  // - 'oddballs' gets odd days only
-  // - null/unknown tier falls back to hallowed behavior (gets all)
+  // If tiers specified, filter to only those members
   let filteredSubs = subs
-  if (dayNumber !== undefined) {
+  if (tiers && tiers.length > 0) {
     const userIds = subs.map(s => s.user_id).filter(Boolean)
     const { data: profiles } = await supabase
       .from('profiles')
@@ -35,11 +32,9 @@ async function broadcast(title: string, body: string, url = '/', dayNumber?: num
     const tierMap: Record<string, string | null> = {}
     for (const p of (profiles || [])) tierMap[p.id] = p.tier
 
-    const isOddDay = dayNumber % 2 !== 0
     filteredSubs = subs.filter(s => {
       const tier = tierMap[s.user_id]
-      if (tier === 'oddballs') return isOddDay   // odd days only
-      return true                                  // hallowed + unknown get everything
+      return tiers.includes(tier ?? 'hallowed') // unknown tier treated as hallowed
     })
   }
 
@@ -80,16 +75,16 @@ async function broadcast(title: string, body: string, url = '/', dayNumber?: num
   return { sent, failed, notificationId }
 }
 
-// GET — cron-triggered beer notification (tier-aware)
+// GET — cron-triggered beer notification (tier-aware by day)
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Use October day number (1–31). Outside October, use actual date for testing.
   const today = new Date()
   const dayNumber = today.getDate()
+  const isOddDay = dayNumber % 2 !== 0
 
   const { data: beer } = await supabase
     .from('beers')
@@ -102,18 +97,21 @@ export async function GET(req: NextRequest) {
     ? `Day ${dayNumber}: ${beer.name} by ${beer.brewery}`
     : `Day ${dayNumber} beer has been poured. Come rate it!`
 
-  const result = await broadcast(title, body, '/beers', dayNumber)
+  // Odd days: both tiers. Even days: Hallowed only.
+  const tiers = isOddDay ? ['hallowed', 'oddballs'] : ['hallowed']
+  const result = await broadcast(title, body, '/beers', tiers)
   return NextResponse.json(result)
 }
 
-// POST — admin broadcast (pass day_number for tier-aware routing, omit for everyone)
+// POST — admin broadcast with explicit tier targeting
 export async function POST(req: NextRequest) {
-  const { title, body, url, day_number } = await req.json()
+  const { title, body, url, tiers } = await req.json()
   if (!title || !body) {
     return NextResponse.json({ error: 'title and body are required' }, { status: 400 })
   }
 
-  const result = await broadcast(title, body, url || '/', day_number ?? undefined)
+  // tiers: undefined = everyone, ['hallowed'] = Hallowed only, ['oddballs'] = Odd Balls only, ['hallowed','oddballs'] = both
+  const result = await broadcast(title, body, url || '/', tiers ?? undefined)
   return NextResponse.json(result)
 }
 

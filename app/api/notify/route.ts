@@ -13,34 +13,11 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
-export async function GET(req: NextRequest) {
-  // Verify cron secret to prevent unauthorized triggers
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Get today's beer
-  const today = new Date()
-  const dayNumber = today.getDate() // 1-31
-  const { data: beer } = await supabase
-    .from('beers')
-    .select('name, brewery, style')
-    .eq('day_number', dayNumber)
-    .maybeSingle()
-
-  const title = '🍺 Today\'s Beer is Ready'
-  const body = beer
-    ? `Day ${dayNumber}: ${beer.name} by ${beer.brewery}`
-    : `Day ${dayNumber} beer has been poured. Come rate it!`
-
-  // Get all subscriptions
+async function broadcast(title: string, body: string, url = '/') {
   const { data: subs } = await supabase.from('push_subscriptions').select('subscription')
-  if (!subs || subs.length === 0) {
-    return NextResponse.json({ sent: 0 })
-  }
+  if (!subs || subs.length === 0) return { sent: 0, failed: [] }
 
-  const payload = JSON.stringify({ title, body, url: '/beers' })
+  const payload = JSON.stringify({ title, body, url })
   let sent = 0
   const failed: string[] = []
 
@@ -56,5 +33,45 @@ export async function GET(req: NextRequest) {
     })
   )
 
-  return NextResponse.json({ sent, failed })
+  return { sent, failed }
+}
+
+// GET — scheduled daily beer notification (cron)
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const today = new Date()
+  const dayNumber = today.getDate()
+  const { data: beer } = await supabase
+    .from('beers')
+    .select('name, brewery, style')
+    .eq('day_number', dayNumber)
+    .maybeSingle()
+
+  const title = '🍺 Today\'s Beer is Ready'
+  const body = beer
+    ? `Day ${dayNumber}: ${beer.name} by ${beer.brewery}`
+    : `Day ${dayNumber} beer has been poured. Come rate it!`
+
+  const result = await broadcast(title, body, '/beers')
+  return NextResponse.json(result)
+}
+
+// POST — on-demand broadcast from admin panel (or ZAP)
+export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { title, body, url } = await req.json()
+  if (!title || !body) {
+    return NextResponse.json({ error: 'title and body are required' }, { status: 400 })
+  }
+
+  const result = await broadcast(title, body, url || '/')
+  return NextResponse.json(result)
 }

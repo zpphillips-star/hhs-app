@@ -28,6 +28,10 @@ export default function AdminPage() {
   const [requests, setRequests] = useState<MemberRequest[]>([])
   const [reviewingId, setReviewingId] = useState<string | null>(null)
   const [reviewMsg, setReviewMsg] = useState<Record<string, string>>({})
+  const [broadcastTitle, setBroadcastTitle] = useState('')
+  const [broadcastBody, setBroadcastBody] = useState('')
+  const [broadcasting, setBroadcasting] = useState(false)
+  const [broadcastResult, setBroadcastResult] = useState('')
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
@@ -70,6 +74,28 @@ export default function AdminPage() {
       setReviewMsg(prev => ({ ...prev, [requestId]: 'Something went wrong.' }))
     }
     setReviewingId(null)
+  }
+
+  const handleBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBroadcasting(true)
+    setBroadcastResult('')
+    try {
+      const res = await fetch('/api/notify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ''}`,
+        },
+        body: JSON.stringify({ title: broadcastTitle, body: broadcastBody }),
+      })
+      const data = await res.json()
+      if (!res.ok) setBroadcastResult(`Error: ${data.error}`)
+      else setBroadcastResult(`✅ Sent to ${data.sent} member${data.sent !== 1 ? 's' : ''}`)
+    } catch {
+      setBroadcastResult('Something went wrong.')
+    }
+    setBroadcasting(false)
   }
 
   const loadBeerForEdit = (beer: Beer) => {
@@ -297,6 +323,49 @@ export default function AdminPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Broadcast Notification */}
+        <div className="mt-12 mb-12">
+          <h2 className="text-lg font-semibold text-white mb-4">Send Notification</h2>
+          <div className="bg-[#1a1520] border border-purple-900/60 rounded-2xl p-6">
+            <form onSubmit={handleBroadcast} className="space-y-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Title</label>
+                <input
+                  type="text"
+                  value={broadcastTitle}
+                  onChange={e => setBroadcastTitle(e.target.value)}
+                  required
+                  placeholder="e.g. Beer order update"
+                  className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Message</label>
+                <textarea
+                  value={broadcastBody}
+                  onChange={e => setBroadcastBody(e.target.value)}
+                  required
+                  rows={3}
+                  placeholder="e.g. Your beer box ships Friday. Keep an eye out."
+                  className="w-full bg-[#0d0b0f] border border-purple-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 resize-none"
+                />
+              </div>
+              {broadcastResult && (
+                <p className={`text-sm ${broadcastResult.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>
+                  {broadcastResult}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={broadcasting}
+                className="w-full bg-orange-500 hover:bg-orange-400 disabled:bg-gray-700 disabled:text-gray-500 text-black font-bold py-2.5 rounded-lg transition-colors text-sm"
+              >
+                {broadcasting ? 'Sending...' : 'Send to All Members'}
+              </button>
+            </form>
+          </div>
         </div>
       </main>
     </div>

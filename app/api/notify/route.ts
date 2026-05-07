@@ -13,11 +13,39 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
-async function broadcast(title: string, body: string, url = '/') {
-  const { data: subs } = await supabase.from('push_subscriptions').select('subscription, user_id')
+async function broadcast(title: string, body: string, url = '/', dayNumber?: number) {
+  // Get all push subscriptions
+  const { data: subs } = await supabase
+    .from('push_subscriptions')
+    .select('subscription, user_id')
   if (!subs || subs.length === 0) return { sent: 0, failed: [], notificationId: null }
 
-  // Log the broadcast first so we have an ID to embed in each payload
+  // If day number provided, filter by tier:
+  // - 'hallowed' gets every day
+  // - 'oddballs' gets odd days only
+  // - null/unknown tier falls back to hallowed behavior (gets all)
+  let filteredSubs = subs
+  if (dayNumber !== undefined) {
+    const userIds = subs.map(s => s.user_id).filter(Boolean)
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, tier')
+      .in('id', userIds)
+
+    const tierMap: Record<string, string | null> = {}
+    for (const p of (profiles || [])) tierMap[p.id] = p.tier
+
+    const isOddDay = dayNumber % 2 !== 0
+    filteredSubs = subs.filter(s => {
+      const tier = tierMap[s.user_id]
+      if (tier === 'oddballs') return isOddDay   // odd days only
+      return true                                  // hallowed + unknown get everything
+    })
+  }
+
+  if (filteredSubs.length === 0) return { sent: 0, failed: [], notificationId: null }
+
+  // Log the broadcast
   const { data: logEntry } = await supabase
     .from('notification_log')
     .insert({ title, body, url, total_sent: 0 })
@@ -30,10 +58,9 @@ async function broadcast(title: string, body: string, url = '/') {
   const failed: string[] = []
 
   await Promise.allSettled(
-    subs.map(async (row) => {
+    filteredSubs.map(async (row) => {
       try {
         const sub = JSON.parse(row.subscription)
-        // Each subscriber gets their own userId embedded so click tracking knows who opened it
         const payload = JSON.stringify({ title, body, url, notificationId, userId: row.user_id })
         await webpush.sendNotification(sub, payload)
         sent++
@@ -43,7 +70,6 @@ async function broadcast(title: string, body: string, url = '/') {
     })
   )
 
-  // Update the log with actual sent count
   if (notificationId) {
     await supabase
       .from('notification_log')
@@ -54,37 +80,40 @@ async function broadcast(title: string, body: string, url = '/') {
   return { sent, failed, notificationId }
 }
 
-// GET — scheduled daily beer notification (cron)
+// GET — cron-triggered beer notification (tier-aware)
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Use October day number (1–31). Outside October, use actual date for testing.
   const today = new Date()
   const dayNumber = today.getDate()
+
   const { data: beer } = await supabase
     .from('beers')
     .select('name, brewery, style')
     .eq('day_number', dayNumber)
     .maybeSingle()
 
-  const title = '🍺 Today\'s Beer is Ready'
+  const title = '🍺 Your Next Beer is Ready'
   const body = beer
     ? `Day ${dayNumber}: ${beer.name} by ${beer.brewery}`
     : `Day ${dayNumber} beer has been poured. Come rate it!`
 
-  const result = await broadcast(title, body, '/beers')
+  const result = await broadcast(title, body, '/beers', dayNumber)
   return NextResponse.json(result)
 }
 
-// POST — on-demand broadcast from admin panel (or ZAP)
+// POST — admin broadcast (pass day_number for tier-aware routing, omit for everyone)
 export async function POST(req: NextRequest) {
-  const { title, body, url } = await req.json()
+  const { title, body, url, day_number } = await req.json()
   if (!title || !body) {
     return NextResponse.json({ error: 'title and body are required' }, { status: 400 })
   }
 
-  const result = await broadcast(title, body, url || '/')
+  const result = await broadcast(title, body, url || '/', day_number ?? undefined)
   return NextResponse.json(result)
 }
+

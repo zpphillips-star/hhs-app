@@ -331,7 +331,22 @@ function PostCard({
   )
 }
 
+// Pure helper — lives outside the component so hooks aren't affected
+const mergeProfiles = (
+  postsData: WallPost[],
+  profileMap: Record<string, { username: string; display_name: string | null }>
+): WallPost[] =>
+  postsData.map(post => ({
+    ...post,
+    profiles: profileMap[post.user_id] || { username: 'Member', display_name: null },
+    post_comments: (post.post_comments || []).map(c => ({
+      ...c,
+      profiles: profileMap[c.user_id] || { username: 'Member', display_name: null },
+    })),
+  }))
+
 export default function WallPage() {
+  // ── ALL hooks must come before any conditional return ──
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
   const [posts, setPosts] = useState<WallPost[]>([])
@@ -341,6 +356,12 @@ export default function WallPage() {
   const [page, setPage] = useState(0)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
+  const [wallPostText, setWallPostText] = useState('')
+  const [wallPosting, setWallPosting] = useState(false)
+  const [wallPhoto, setWallPhoto] = useState<File | null>(null)
+  const [wallPhotoPreview, setWallPhotoPreview] = useState<string | null>(null)
+  const wallFileRef = useRef<HTMLInputElement>(null)
+  const wallCameraRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -350,58 +371,6 @@ export default function WallPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => setUser(s?.user ?? null))
     return () => subscription.unsubscribe()
   }, [])
-
-  if (!authChecked) return null
-
-  // 🔒 Secret society gate for unauthenticated visitors
-  if (!user) return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
-      <Nav user={null} />
-      <main style={{ maxWidth: '500px', margin: '0 auto', padding: '6rem 2rem', textAlign: 'center' }}>
-        <div style={{ marginBottom: '1.5rem' }}><RavenIcon size={150} /></div>
-        <p style={{
-          fontFamily: "'Modern Antiqua', serif",
-          fontSize: '0.6rem', letterSpacing: '0.5em',
-          textTransform: 'uppercase', color: 'var(--gold)',
-          marginBottom: '1.5rem',
-        }}>Members Only</p>
-        <h2 style={{
-          fontFamily: "'Modern Antiqua', serif",
-          fontSize: '1.6rem', color: 'var(--text)',
-          marginBottom: '1rem', lineHeight: 1.3,
-        }}>This space belongs to the Society.</h2>
-        <p style={{
-          color: 'var(--text-muted)', fontSize: '0.9rem',
-          lineHeight: 1.7, marginBottom: '2.5rem',
-        }}>
-          What&apos;s shared here stays among members. You&apos;ll need to be one to enter.
-        </p>
-        <a href="/auth" style={{
-          display: 'inline-block',
-          padding: '0.8rem 2.5rem',
-          background: 'var(--gold)', color: 'var(--bg)',
-          borderRadius: '10px',
-          fontFamily: "'Modern Antiqua', serif",
-          fontWeight: 700, fontSize: '0.9rem',
-          letterSpacing: '0.1em', textDecoration: 'none',
-        }}>Enter the Society</a>
-        <div style={{ width: '4rem', height: '1px', background: 'rgba(255,140,0,0.3)', margin: '3rem auto 0' }} />
-      </main>
-    </div>
-  )
-
-  const mergeProfiles = (
-    postsData: WallPost[],
-    profileMap: Record<string, { username: string; display_name: string | null }>
-  ): WallPost[] =>
-    postsData.map(post => ({
-      ...post,
-      profiles: profileMap[post.user_id] || { username: 'Member', display_name: null },
-      post_comments: (post.post_comments || []).map(c => ({
-        ...c,
-        profiles: profileMap[c.user_id] || { username: 'Member', display_name: null },
-      })),
-    }))
 
   const fetchPage = useCallback(async (pageIndex: number, replace = false) => {
     if (pageIndex === 0) setLoading(true)
@@ -454,6 +423,46 @@ export default function WallPage() {
     if (sentinelRef.current) observerRef.current.observe(sentinelRef.current)
     return () => observerRef.current?.disconnect()
   }, [hasMore, loadingMore, loading, fetchPage])
+
+  // ── Conditional returns AFTER all hooks ──
+  if (!authChecked) return null
+
+  // 🔒 Secret society gate for unauthenticated visitors
+  if (!user) return (
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+      <Nav user={null} />
+      <main style={{ maxWidth: '500px', margin: '0 auto', padding: '6rem 2rem', textAlign: 'center' }}>
+        <div style={{ marginBottom: '1.5rem' }}><RavenIcon size={150} /></div>
+        <p style={{
+          fontFamily: "'Modern Antiqua', serif",
+          fontSize: '0.6rem', letterSpacing: '0.5em',
+          textTransform: 'uppercase', color: 'var(--gold)',
+          marginBottom: '1.5rem',
+        }}>Members Only</p>
+        <h2 style={{
+          fontFamily: "'Modern Antiqua', serif",
+          fontSize: '1.6rem', color: 'var(--text)',
+          marginBottom: '1rem', lineHeight: 1.3,
+        }}>This space belongs to the Society.</h2>
+        <p style={{
+          color: 'var(--text-muted)', fontSize: '0.9rem',
+          lineHeight: 1.7, marginBottom: '2.5rem',
+        }}>
+          What&apos;s shared here stays among members. You&apos;ll need to be one to enter.
+        </p>
+        <a href="/auth" style={{
+          display: 'inline-block',
+          padding: '0.8rem 2.5rem',
+          background: 'var(--gold)', color: 'var(--bg)',
+          borderRadius: '10px',
+          fontFamily: "'Modern Antiqua', serif",
+          fontWeight: 700, fontSize: '0.9rem',
+          letterSpacing: '0.1em', textDecoration: 'none',
+        }}>Enter the Society</a>
+        <div style={{ width: '4rem', height: '1px', background: 'rgba(255,140,0,0.3)', margin: '3rem auto 0' }} />
+      </main>
+    </div>
+  )
 
   const reloadPost = async (postId: string) => {
     const [{ data }, { data: profilesData }] = await Promise.all([
@@ -510,13 +519,6 @@ export default function WallPage() {
     if (error) { alert('Delete error: ' + error.message); return }
     setPosts(prev => prev.filter(p => p.id !== postId))
   }
-
-  const [wallPostText, setWallPostText] = useState('')
-  const [wallPosting, setWallPosting] = useState(false)
-  const [wallPhoto, setWallPhoto] = useState<File | null>(null)
-  const [wallPhotoPreview, setWallPhotoPreview] = useState<string | null>(null)
-  const wallFileRef = useRef<HTMLInputElement>(null)
-  const wallCameraRef = useRef<HTMLInputElement>(null)
 
   const handleWallPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

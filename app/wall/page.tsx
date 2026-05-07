@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import RavenIcon from '@/components/RavenIcon'
 import Link from 'next/link'
+import TierSelectionModal from '@/components/TierSelectionModal'
 
 const PAGE_SIZE = 15
 
@@ -373,11 +374,23 @@ export default function WallPage() {
   const wallCameraRef = useRef<HTMLInputElement>(null)
   const [filterBeerId, setFilterBeerId] = useState<string | null>(null)
   const [filterBeerLabel, setFilterBeerLabel] = useState<string>('')
+  const [showTierModal, setShowTierModal] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       setUser(user)
       setAuthChecked(true)
+
+      if (user) {
+        // Check if tier selection is open and this member hasn't picked yet
+        const [{ data: settings }, { data: profile }] = await Promise.all([
+          supabase.from('app_settings').select('tier_selection_open').eq('id', 1).single(),
+          supabase.from('profiles').select('tier').eq('id', user.id).single(),
+        ])
+        if (settings?.tier_selection_open && !profile?.tier) {
+          setShowTierModal(true)
+        }
+      }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => setUser(s?.user ?? null))
     return () => subscription.unsubscribe()
@@ -601,6 +614,14 @@ export default function WallPage() {
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       <Nav user={user} />
+
+      {/* Tier selection modal — only shows when admin has opened tier selection and member hasn't picked */}
+      {showTierModal && user && (
+        <TierSelectionModal
+          userId={user.id}
+          onComplete={() => setShowTierModal(false)}
+        />
+      )}
 
       <main style={{ maxWidth: '700px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 

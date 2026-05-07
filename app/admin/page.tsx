@@ -37,6 +37,9 @@ type Member = {
   created_at: string
   has_notifications: boolean
   has_pwa: boolean
+  tier: string | null
+  tier_selected_at: string | null
+  venmo_clicked_at: string | null
 }
 
 export default function AdminPage() {
@@ -62,6 +65,8 @@ export default function AdminPage() {
   const [expandedNotif, setExpandedNotif] = useState<string | null>(null)
   const [notifDetail, setNotifDetail] = useState<Record<string, NotifDetail>>({})
   const [members, setMembers] = useState<Member[]>([])
+  const [tierSelectionOpen, setTierSelectionOpen] = useState(false)
+  const [togglingTier, setTogglingTier] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
@@ -69,12 +74,26 @@ export default function AdminPage() {
     fetchRequests()
     fetchNotifHistory()
     fetchMembers()
+    fetchTierStatus()
   }, [])
+
+  const fetchTierStatus = async () => {
+    const { data } = await supabase.from('app_settings').select('tier_selection_open').eq('id', 1).single()
+    setTierSelectionOpen(data?.tier_selection_open ?? false)
+  }
+
+  const toggleTierSelection = async () => {
+    setTogglingTier(true)
+    const newVal = !tierSelectionOpen
+    await supabase.from('app_settings').update({ tier_selection_open: newVal }).eq('id', 1)
+    setTierSelectionOpen(newVal)
+    setTogglingTier(false)
+  }
 
   const fetchMembers = async () => {
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, username, status, created_at, has_pwa')
+      .select('id, first_name, last_name, username, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at')
       .eq('status', 'approved')
       .order('created_at', { ascending: true })
 
@@ -88,6 +107,9 @@ export default function AdminPage() {
       ...p,
       has_notifications: subSet.has(p.id),
       has_pwa: p.has_pwa || false,
+      tier: p.tier || null,
+      tier_selected_at: p.tier_selected_at || null,
+      venmo_clicked_at: p.venmo_clicked_at || null,
     })))
   }
 
@@ -282,20 +304,45 @@ export default function AdminPage() {
             <h2 className="text-lg font-semibold text-white">Members</h2>
             <span className="text-sm text-gray-500">{members.length} approved</span>
           </div>
+
+          {/* Tier Selection Control */}
+          <div className={`mb-4 px-4 py-3 rounded-xl border flex items-center justify-between ${tierSelectionOpen ? 'bg-orange-500/10 border-orange-500/40' : 'bg-[#1a1520] border-purple-900/40'}`}>
+            <div>
+              <p className="text-white text-sm font-medium">Tier Selection</p>
+              <p className="text-gray-500 text-xs">
+                {tierSelectionOpen
+                  ? 'Open — members will see the tier picker when they open the app'
+                  : 'Closed — members see nothing until you open this'}
+              </p>
+            </div>
+            <button
+              onClick={toggleTierSelection}
+              disabled={togglingTier}
+              className={`text-xs font-bold px-4 py-2 rounded-lg transition-colors ${tierSelectionOpen
+                ? 'bg-orange-500/20 hover:bg-orange-500/40 text-orange-400'
+                : 'bg-purple-900/40 hover:bg-purple-900/60 text-purple-300'
+              }`}
+            >
+              {togglingTier ? '...' : tierSelectionOpen ? 'Close' : 'Open'}
+            </button>
+          </div>
+
           {members.length === 0 ? (
             <p className="text-gray-600 text-sm text-center py-8">No approved members yet.</p>
           ) : (
             <div className="bg-[#1a1520] border border-purple-900/40 rounded-2xl overflow-hidden">
               {/* Header row */}
-              <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-2 border-b border-purple-900/30">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2 border-b border-purple-900/30">
                 <span className="text-xs text-gray-500 uppercase tracking-wider">Member</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">🔔 Notifs</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">📱 PWA</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">🔔</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">📱</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">Tier</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider text-center">Venmo</span>
               </div>
               {members.map((m, i) => (
                 <div
                   key={m.id}
-                  className={`grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-3 items-center ${i < members.length - 1 ? 'border-b border-purple-900/20' : ''}`}
+                  className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-3 items-center ${i < members.length - 1 ? 'border-b border-purple-900/20' : ''}`}
                 >
                   <div>
                     <p className="text-white text-sm font-medium">
@@ -303,25 +350,37 @@ export default function AdminPage() {
                     </p>
                     <p className="text-gray-500 text-xs">@{m.username}</p>
                   </div>
-                  <div className="text-center w-12">
-                    {m.has_notifications
-                      ? <span className="text-green-400 text-base">✓</span>
-                      : <span className="text-gray-600 text-base">—</span>
+                  <div className="text-center w-8">
+                    {m.has_notifications ? <span className="text-green-400">✓</span> : <span className="text-gray-600">—</span>}
+                  </div>
+                  <div className="text-center w-8">
+                    {m.has_pwa ? <span className="text-green-400">✓</span> : <span className="text-gray-600">—</span>}
+                  </div>
+                  <div className="text-center w-20">
+                    {m.tier
+                      ? <span className={`text-xs font-semibold px-2 py-0.5 rounded ${m.tier === 'hallowed' ? 'bg-orange-500/20 text-orange-400' : 'bg-purple-500/20 text-purple-300'}`}>
+                          {m.tier === 'hallowed' ? 'Hallowed' : 'Odd Balls'}
+                        </span>
+                      : <span className="text-gray-600 text-xs">—</span>
                     }
                   </div>
-                  <div className="text-center w-12">
-                    {m.has_pwa
-                      ? <span className="text-green-400 text-base">✓</span>
-                      : <span className="text-gray-600 text-base">—</span>
+                  <div className="text-center w-14">
+                    {m.venmo_clicked_at
+                      ? <span className="text-green-400 text-xs">✓ sent</span>
+                      : m.tier
+                        ? <span className="text-yellow-600 text-xs">pending</span>
+                        : <span className="text-gray-600 text-xs">—</span>
                     }
                   </div>
                 </div>
               ))}
               {/* Summary row */}
-              <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-2 border-t border-purple-900/30 bg-[#0d0b0f]/50">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2 border-t border-purple-900/30 bg-[#0d0b0f]/50">
                 <span className="text-xs text-gray-500">{members.length} total</span>
-                <span className="text-xs text-orange-400 text-center w-12">{members.filter(m => m.has_notifications).length}/{members.length}</span>
-                <span className="text-xs text-orange-400 text-center w-12">{members.filter(m => m.has_pwa).length}/{members.length}</span>
+                <span className="text-xs text-orange-400 text-center w-8">{members.filter(m => m.has_notifications).length}/{members.length}</span>
+                <span className="text-xs text-orange-400 text-center w-8">{members.filter(m => m.has_pwa).length}/{members.length}</span>
+                <span className="text-xs text-orange-400 text-center w-20">{members.filter(m => m.tier).length}/{members.length}</span>
+                <span className="text-xs text-green-400 text-center w-14">{members.filter(m => m.venmo_clicked_at).length}/{members.length}</span>
               </div>
             </div>
           )}

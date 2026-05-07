@@ -13,6 +13,26 @@ function isPWA() {
     ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
 }
 
+// Returns 'gmail-android' | 'gmail-ios' | 'webview' | null
+function detectInAppBrowser(): 'gmail-android' | 'gmail-ios' | 'webview' | null {
+  const ua = navigator.userAgent
+  const referrer = document.referrer
+
+  // Gmail on Android opens links in Chrome Custom Tabs — referrer is the gmail android app
+  if (referrer.startsWith('android-app://com.google.android.gm')) return 'gmail-android'
+
+  // Gmail on iOS uses a WebView with GSA (Google Search App) in the UA
+  if (/GSA\//.test(ua) && isIOS()) return 'gmail-ios'
+
+  // Generic Android WebView (wv flag in UA)
+  if (/wv\)/.test(ua) || /; wv/.test(ua)) return 'webview'
+
+  // Facebook, Instagram in-app browsers
+  if (/FBAN|FBAV|Instagram/.test(ua)) return 'webview'
+
+  return null
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let deferredInstallPrompt: any = null
 
@@ -22,6 +42,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
   const [subscribing, setSubscribing] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [canPromptInstall, setCanPromptInstall] = useState(false)
+  const [inAppBrowser, setInAppBrowser] = useState<'gmail-android' | 'gmail-ios' | 'webview' | null>(null)
 
   // Capture the browser's native install prompt (Android / Chrome)
   useEffect(() => {
@@ -39,8 +60,10 @@ export default function SetupGuide({ userId }: { userId: string }) {
     // If user completed the welcome flow, don't re-prompt
     if (localStorage.getItem('hhs_setup_done') === '1') return
 
-    // Always show the browser step first — skipped only if user already clicked through
-    if (localStorage.getItem('hhs_browser_step_done') !== '1') {
+    // Detect in-app browser — only show browser step if actually needed
+    const detected = detectInAppBrowser()
+    if (detected) {
+      setInAppBrowser(detected)
       setStep('browser')
       return
     }
@@ -136,26 +159,24 @@ export default function SetupGuide({ userId }: { userId: string }) {
       {step === 'browser' && (
         <>
           <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-            For the best experience, open this page in your <strong style={{ color: 'var(--gold)' }}>default browser</strong> before continuing setup.
+            {inAppBrowser === 'gmail-android'
+              ? <>You&apos;re in Gmail. Tap the <strong style={{ color: 'var(--gold)' }}>browser icon</strong> in the top-right corner to open in Chrome, then return here to continue.</>
+              : inAppBrowser === 'gmail-ios'
+              ? <>You&apos;re in Gmail. Tap <strong style={{ color: 'var(--gold)' }}>&ldquo;Open in Safari&rdquo;</strong> at the top of your screen to continue setup.</>
+              : <>You&apos;re in an in-app browser. Open this page in your <strong style={{ color: 'var(--gold)' }}>default browser</strong> to continue setup.</>
+            }
           </p>
-          <a
-            href={typeof window !== 'undefined' ? window.location.href : '#'}
-            style={{
-              display: 'block', width: '100%', padding: '0.85rem',
-              background: 'var(--gold)', border: 'none', borderRadius: '10px',
-              color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif",
-              fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.1em',
-              cursor: 'pointer', marginBottom: '0.75rem',
-              textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box',
-            }}
-          >Open in Browser</a>
+          {/* iOS Gmail — show the URL to copy since "Open in Safari" may not always appear */}
+          {inAppBrowser === 'gmail-ios' && (
+            <div style={{ background: 'rgba(255,140,0,0.07)', border: '1px solid rgba(255,140,0,0.2)', borderRadius: '10px', padding: '0.85rem', marginBottom: '1rem', wordBreak: 'break-all' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.25rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Or copy this link into Safari:</p>
+              <p style={{ color: 'var(--gold)', fontSize: '0.8rem', margin: 0 }}>{typeof window !== 'undefined' ? window.location.href : ''}</p>
+            </div>
+          )}
           <button
-            onClick={() => {
-              localStorage.setItem('hhs_browser_step_done', '1')
-              proceedToSetup()
-            }}
-            style={{ width: '100%', padding: '0.6rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem', cursor: 'pointer' }}
-          >Already in my browser — Continue</button>
+            onClick={() => setDismissed(true)}
+            style={{ width: '100%', marginTop: '0.5rem', padding: '0.7rem', background: 'transparent', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem', cursor: 'pointer', letterSpacing: '0.1em' }}
+          >I&apos;ll do this later</button>
         </>
       )}
 

@@ -81,6 +81,9 @@ export default function AuthPage() {
             Hallowed Hop Society
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', fontStyle: 'italic' }}>Members Only</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, fontFamily: "'Modern Antiqua', serif", opacity: 0.6 }}>
+            An invitation-only craft beer society
+          </p>
         </div>
 
         <div style={{ border: '1px solid var(--border)', padding: '2rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
@@ -149,12 +152,18 @@ export default function AuthPage() {
           {mode === 'request' && (
             <>
               {message ? (
-                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                  <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '1rem', marginBottom: '0.75rem' }}>
-                    Request received.
+                <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>✦</div>
+                  <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '1.1rem', marginBottom: '1rem', letterSpacing: '0.05em' }}>
+                    Petition received.
                   </p>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.7, fontStyle: 'italic' }}>
-                    Your request has been received. You'll hear from us if you're admitted.
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.8, fontStyle: 'italic' }}>
+                    Your request has been logged.<br />
+                    If you're selected, an invitation will be sent to<br />
+                    <span style={{ color: 'var(--text)', fontStyle: 'normal', fontWeight: 600 }}>{email}</span>
+                  </p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '1.25rem', opacity: 0.5, letterSpacing: '0.1em', textTransform: 'uppercase' as const, fontFamily: "'Modern Antiqua', serif" }}>
+                    The Society will be in touch.
                   </p>
                 </div>
               ) : (

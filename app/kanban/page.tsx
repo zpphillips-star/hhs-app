@@ -36,6 +36,7 @@ const COLUMNS: { key: string; label: string; color: string }[] = [
   { key: 'in_communication', label: 'In Communication', color: '#1a4a3a' },
   { key: 'agreed',           label: 'Agreed ✓',         color: '#1a3a1a' },
   { key: 'opted_out',        label: 'Opted Out',        color: '#3a1a1a' },
+  { key: 'bounced',          label: '⚠ Bounced',        color: '#5a2a00' },
 ]
 
 const STATUS_BADGE: Record<string, string> = {
@@ -45,6 +46,7 @@ const STATUS_BADGE: Record<string, string> = {
   in_communication: '#1a5a46',
   agreed:           '#1a5a1a',
   opted_out:        '#5a1a1a',
+  bounced:          '#8a3a00',
 }
 
 export default function KanbanPage() {

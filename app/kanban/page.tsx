@@ -6,9 +6,24 @@ import { supabase } from '@/lib/supabase'
 type BreweryOutreach = {
   id: number
   brewery_name: string
+  area: string | null
   website: string | null
-  email: string | null
-  recommended_beer: string | null
+  website_validated: string | null
+  address: string | null
+  address_validated: string | null
+  friday_open: string | null
+  friday_close: string | null
+  saturday_open: string | null
+  saturday_close: string | null
+  hours_validated: string | null
+  contact_1: string | null
+  contact_2: string | null
+  contact_3: string | null
+  contact_4: string | null
+  beer_1: string | null
+  beer_2: string | null
+  beer_3: string | null
+  beer_4: string | null
   status: string
   notes: string | null
   last_updated: string
@@ -305,12 +320,29 @@ export default function KanbanPage() {
                       ) : (
                         /* View mode */
                         <>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e8dcc8', lineHeight: 1.3, marginBottom: '0.3rem' }}>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e8dcc8', lineHeight: 1.3, marginBottom: '0.2rem' }}>
                             {row.brewery_name}
                           </div>
-                          {row.recommended_beer && (
-                            <div style={{ fontSize: '0.68rem', color: '#d97c2b', marginBottom: row.notes ? '0.35rem' : 0 }}>
-                              🍺 {row.recommended_beer}
+                          {row.area && (
+                            <div style={{ fontSize: '0.63rem', color: 'rgba(232,220,200,0.4)', marginBottom: '0.25rem', letterSpacing: '0.05em' }}>
+                              📍 {row.area}
+                            </div>
+                          )}
+                          {(row.beer_1) && (
+                            <div style={{ fontSize: '0.68rem', color: '#d97c2b', marginBottom: '0.2rem', lineHeight: 1.4 }}>
+                              🍺 {[row.beer_1, row.beer_2, row.beer_3, row.beer_4].filter(Boolean).join(' · ')}
+                            </div>
+                          )}
+                          {row.contact_1 && (
+                            <div style={{ fontSize: '0.63rem', color: 'rgba(217,124,43,0.6)', lineHeight: 1.5 }}>
+                              ✉ {[row.contact_1, row.contact_2, row.contact_3, row.contact_4].filter(Boolean).join(', ')}
+                            </div>
+                          )}
+                          {(row.friday_open || row.saturday_open) && (
+                            <div style={{ fontSize: '0.62rem', color: 'rgba(232,220,200,0.35)', marginTop: '0.2rem' }}>
+                              {row.friday_open && `Fri ${row.friday_open}–${row.friday_close}`}
+                              {row.friday_open && row.saturday_open && '  ·  '}
+                              {row.saturday_open && `Sat ${row.saturday_open}–${row.saturday_close}`}
                             </div>
                           )}
                           {row.notes && (
@@ -320,20 +352,20 @@ export default function KanbanPage() {
                               lineHeight: 1.5,
                               borderTop: '1px solid rgba(217,124,43,0.1)',
                               paddingTop: '0.3rem',
-                              marginTop: '0.1rem',
+                              marginTop: '0.3rem',
                             }}>
                               {row.notes}
                             </div>
                           )}
                           {row.website && (
                             <a
-                              href={`https://${row.website}`}
+                              href={row.website.startsWith('http') ? row.website : `https://${row.website}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={e => e.stopPropagation()}
-                              style={{ fontSize: '0.62rem', color: 'rgba(217,124,43,0.5)', display: 'block', marginTop: '0.35rem', textDecoration: 'none' }}
+                              style={{ fontSize: '0.62rem', color: 'rgba(217,124,43,0.45)', display: 'block', marginTop: '0.35rem', textDecoration: 'none' }}
                             >
-                              ↗ {row.website}
+                              ↗ {row.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                             </a>
                           )}
                         </>

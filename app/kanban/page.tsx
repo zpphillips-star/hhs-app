@@ -320,54 +320,109 @@ export default function KanbanPage() {
                       ) : (
                         /* View mode */
                         <>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e8dcc8', lineHeight: 1.3, marginBottom: '0.2rem' }}>
-                            {row.brewery_name}
+                          {/* Brewery name + area */}
+                          <div style={{ marginBottom: '0.5rem' }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#e8dcc8', lineHeight: 1.3 }}>
+                              {row.brewery_name}
+                            </div>
+                            {row.area && (
+                              <div style={{ fontSize: '0.63rem', color: 'rgba(232,220,200,0.4)', marginTop: '0.1rem', letterSpacing: '0.04em' }}>
+                                📍 {row.area}
+                              </div>
+                            )}
                           </div>
-                          {row.area && (
-                            <div style={{ fontSize: '0.63rem', color: 'rgba(232,220,200,0.4)', marginBottom: '0.25rem', letterSpacing: '0.05em' }}>
-                              📍 {row.area}
-                            </div>
-                          )}
-                          {(row.beer_1) && (
-                            <div style={{ fontSize: '0.68rem', color: '#d97c2b', marginBottom: '0.2rem', lineHeight: 1.4 }}>
-                              🍺 {[row.beer_1, row.beer_2, row.beer_3, row.beer_4].filter(Boolean).join(' · ')}
-                            </div>
-                          )}
-                          {row.contact_1 && (
-                            <div style={{ fontSize: '0.63rem', color: 'rgba(217,124,43,0.6)', lineHeight: 1.5 }}>
-                              ✉ {[row.contact_1, row.contact_2, row.contact_3, row.contact_4].filter(Boolean).join(', ')}
-                            </div>
-                          )}
-                          {(row.friday_open || row.saturday_open) && (
-                            <div style={{ fontSize: '0.62rem', color: 'rgba(232,220,200,0.35)', marginTop: '0.2rem' }}>
-                              {row.friday_open && `Fri ${row.friday_open}–${row.friday_close}`}
-                              {row.friday_open && row.saturday_open && '  ·  '}
-                              {row.saturday_open && `Sat ${row.saturday_open}–${row.saturday_close}`}
-                            </div>
-                          )}
-                          {row.notes && (
+
+                          {/* ── BREWERY INFO section ── */}
+                          <div style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(217,124,43,0.15)',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            marginBottom: '0.4rem',
+                          }}>
                             <div style={{
-                              fontSize: '0.68rem',
-                              color: 'rgba(232,220,200,0.55)',
-                              lineHeight: 1.5,
-                              borderTop: '1px solid rgba(217,124,43,0.1)',
-                              paddingTop: '0.3rem',
-                              marginTop: '0.3rem',
+                              fontSize: '0.55rem',
+                              fontWeight: 700,
+                              letterSpacing: '0.18em',
+                              textTransform: 'uppercase',
+                              color: 'rgba(217,124,43,0.6)',
+                              padding: '0.2rem 0.5rem',
+                              borderBottom: '1px solid rgba(217,124,43,0.12)',
+                              background: 'rgba(217,124,43,0.06)',
                             }}>
-                              {row.notes}
+                              Brewery Info
                             </div>
-                          )}
-                          {row.website && (
-                            <a
-                              href={row.website.startsWith('http') ? row.website : `https://${row.website}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={e => e.stopPropagation()}
-                              style={{ fontSize: '0.62rem', color: 'rgba(217,124,43,0.45)', display: 'block', marginTop: '0.35rem', textDecoration: 'none' }}
-                            >
-                              ↗ {row.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                            </a>
-                          )}
+                            <div style={{ padding: '0.4rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                              {row.beer_1 && (
+                                <div style={{ fontSize: '0.68rem', color: '#d97c2b', lineHeight: 1.4 }}>
+                                  🍺 {[row.beer_1, row.beer_2, row.beer_3, row.beer_4].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
+                              {row.contact_1 && (
+                                <div style={{ fontSize: '0.63rem', color: 'rgba(217,124,43,0.65)', lineHeight: 1.5, wordBreak: 'break-all' }}>
+                                  ✉ {[row.contact_1, row.contact_2, row.contact_3, row.contact_4].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
+                              {(row.friday_open || row.saturday_open) && (
+                                <div style={{ fontSize: '0.62rem', color: 'rgba(232,220,200,0.4)', lineHeight: 1.4 }}>
+                                  🕐 {[
+                                    row.friday_open ? `Fri ${row.friday_open}–${row.friday_close}` : null,
+                                    row.saturday_open ? `Sat ${row.saturday_open}–${row.saturday_close}` : null,
+                                  ].filter(Boolean).join('  ·  ')}
+                                </div>
+                              )}
+                              {row.website && (
+                                <a
+                                  href={row.website.startsWith('http') ? row.website : `https://${row.website}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  style={{ fontSize: '0.62rem', color: 'rgba(217,124,43,0.45)', textDecoration: 'none', display: 'inline-block' }}
+                                >
+                                  ↗ {row.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                                </a>
+                              )}
+                              {!row.beer_1 && !row.contact_1 && !row.friday_open && !row.website && (
+                                <div style={{ fontSize: '0.63rem', color: 'rgba(232,220,200,0.2)', fontStyle: 'italic' }}>No details yet</div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* ── NOTES section ── */}
+                          <div style={{
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid rgba(232,220,200,0.08)',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              fontSize: '0.55rem',
+                              fontWeight: 700,
+                              letterSpacing: '0.18em',
+                              textTransform: 'uppercase',
+                              color: 'rgba(232,220,200,0.35)',
+                              padding: '0.2rem 0.5rem',
+                              borderBottom: '1px solid rgba(232,220,200,0.06)',
+                              background: 'rgba(232,220,200,0.03)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}>
+                              <span>Notes</span>
+                              <span style={{ color: 'rgba(217,124,43,0.4)', fontSize: '0.6rem', fontWeight: 400, letterSpacing: 0 }}>click to edit</span>
+                            </div>
+                            <div style={{ padding: '0.4rem 0.5rem', minHeight: '1.8rem' }}>
+                              {row.notes ? (
+                                <div style={{ fontSize: '0.68rem', color: 'rgba(232,220,200,0.6)', lineHeight: 1.5 }}>
+                                  {row.notes}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '0.63rem', color: 'rgba(232,220,200,0.18)', fontStyle: 'italic' }}>
+                                  No notes yet…
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </>
                       )}
                     </div>

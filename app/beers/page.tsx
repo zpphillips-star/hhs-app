@@ -549,6 +549,50 @@ export default function BeersPage() {
                   </p>
                 </div>
 
+                {/* ── THE BREWERY ───────────────────────────────────────── */}
+                {todayBeer.brewery_fact && (
+                  <div style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '1.25rem 1.5rem',
+                    marginBottom: '1rem',
+                  }}>
+                    <div style={{
+                      color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                      fontSize: '0.58rem', letterSpacing: '0.28em',
+                      textTransform: 'uppercase', marginBottom: '0.75rem',
+                    }}>
+                      The Brewery
+                    </div>
+                    <p style={{ color: 'var(--text)', fontSize: '0.92rem', lineHeight: 1.8, margin: 0 }}>
+                      {todayBeer.brewery_fact}
+                    </p>
+                  </div>
+                )}
+
+                {/* ── THE BEER ──────────────────────────────────────────── */}
+                {todayBeer.beer_fact && (
+                  <div style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '1.25rem 1.5rem',
+                    marginBottom: '1rem',
+                  }}>
+                    <div style={{
+                      color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                      fontSize: '0.58rem', letterSpacing: '0.28em',
+                      textTransform: 'uppercase', marginBottom: '0.75rem',
+                    }}>
+                      The Beer
+                    </div>
+                    <p style={{ color: 'var(--text)', fontSize: '0.92rem', lineHeight: 1.8, margin: 0 }}>
+                      {todayBeer.beer_fact}
+                    </p>
+                  </div>
+                )}
+
                 {/* ── RATING ────────────────────────────────────────────── */}
                 <div style={{
                   background: 'var(--bg-card)',

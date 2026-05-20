@@ -95,18 +95,37 @@ function classifyReply(subject, body) {
   return 'replied'; // replied but unclear — needs human review
 }
 
-// --- Find brewery by sender email ---
+// --- Find brewery by sender email (exact match first, then domain fallback) ---
 async function findBreweryByEmail(fromEmail) {
   const email = fromEmail.toLowerCase().trim();
 
-  const { data } = await supabase
+  // 1. Try exact/partial match against stored contacts
+  const { data: exactMatches } = await supabase
     .from('brewery_outreach')
     .select('*')
     .or(
       `contact_1.ilike.%${email}%,contact_2.ilike.%${email}%,contact_3.ilike.%${email}%,contact_4.ilike.%${email}%`
     );
 
-  return data?.[0] || null;
+  if (exactMatches?.[0]) return exactMatches[0];
+
+  // 2. Domain-based fallback — match @domain.com against any stored contact
+  const domainMatch = email.match(/@([a-z0-9.\-]+)$/);
+  if (!domainMatch) return null;
+  const domain = domainMatch[1];
+
+  // Skip generic domains that would false-match
+  const genericDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'shaw.ca', 'icloud.com'];
+  if (genericDomains.includes(domain)) return null;
+
+  const { data: domainMatches } = await supabase
+    .from('brewery_outreach')
+    .select('*')
+    .or(
+      `contact_1.ilike.%@${domain}%,contact_2.ilike.%@${domain}%,contact_3.ilike.%@${domain}%,contact_4.ilike.%@${domain}%`
+    );
+
+  return domainMatches?.[0] || null;
 }
 
 // --- Fetch all emails from a sender (full thread context) ---
@@ -188,12 +207,18 @@ function checkInbox() {
                   const emailDate = parsed.date ? new Date(parsed.date) : new Date(0);
                   if (emailDate < cutoffTime) return res(null);
 
-                  const fromAddr = parsed.from?.value?.[0]?.address || '';
+                  const fromAddr = parsed.from?.value?.[0]?.address || parsed.from?.text || '';
                   const subject = parsed.subject || '';
                   const textBody = parsed.text || '';
 
-                  console.log(`\n  [${emailDate.toISOString()}] From: ${fromAddr}`);
+                  console.log(`\n  [${emailDate.toISOString()}] From: ${fromAddr || '(no sender)'}`);
                   console.log(`  Subject: ${subject}`);
+
+                  // Skip emails with no parseable sender
+                  if (!fromAddr) {
+                    console.log('  -> Skipping: no sender address (malformed email)');
+                    return res(null);
+                  }
 
                   // Skip emails we sent
                   if (fromAddr.toLowerCase() === GMAIL_USER.toLowerCase()) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
+import { welcomeEmail, rejectionEmail } from '@/lib/email-templates'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,20 +36,11 @@ export async function POST(req: NextRequest) {
         .eq('id', request_id)
 
       // Send rejection email
+      const rejectTpl = rejectionEmail({ first_name: memberReq.first_name })
       await resend.emails.send({
         from: 'HHS <notifications@hallowedhopsociety.com>',
         to: memberReq.email,
-        subject: 'Your Hallowed Hop Society petition',
-        html: `
-          <div style="font-family: Georgia, serif; background: #0d0b0f; color: #e8dcc8; padding: 32px; max-width: 480px; margin: 0 auto; border: 1px solid #2a1f3d; border-radius: 8px;">
-            <p style="font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(217,124,43,0.65); margin: 0 0 20px 0;">Hallowed Hop Society</p>
-            <h2 style="color: #d97c2b; font-size: 1.2rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px;">The Society Has Spoken</h2>
-            <p style="line-height: 1.8; color: #e8dcc8;">Thank you for your interest in the Hallowed Hop Society, ${memberReq.first_name}.</p>
-            <p style="line-height: 1.8; color: #e8dcc8;">After careful deliberation, the Society has decided not to extend membership this season. The circle is small, and the selection is never easy.</p>
-            <p style="line-height: 1.8; color: #e8dcc8; font-style: italic;">You're welcome to petition again next year.</p>
-            <p style="margin-top: 24px; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(217,124,43,0.6);">Until then — may your pints be cold.</p>
-          </div>
-        `,
+        ...rejectTpl,
       })
 
       return NextResponse.json({ success: true, action: 'rejected' })
@@ -158,20 +150,11 @@ export async function POST(req: NextRequest) {
     })
     const setupLink = linkData?.properties?.action_link || 'https://hallowedhopsociety.com/auth'
 
+    const welcomeTpl = welcomeEmail({ first_name: memberReq.first_name, setup_link: setupLink })
     await resend.emails.send({
       from: 'HHS <notifications@hallowedhopsociety.com>',
       to: memberReq.email,
-      subject: 'You\'ve been admitted to the Hallowed Hop Society',
-      html: `
-        <div style="font-family: Georgia, serif; background: #0d0b0f; color: #e8dcc8; padding: 32px; max-width: 480px; margin: 0 auto; border: 1px solid #2a1f3d; border-radius: 8px;">
-          <p style="font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(217,124,43,0.65); margin: 0 0 20px 0;">Hallowed Hop Society</p>
-          <h2 style="color: #d97c2b; font-size: 1.2rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px;">You're In.</h2>
-          <p style="line-height: 1.8; color: #e8dcc8;">Welcome to the Hallowed Hop Society, ${memberReq.first_name}. Your membership has been approved.</p>
-          <p style="line-height: 1.8; color: #e8dcc8;">Tap the button below to choose your Society name and complete your account setup.</p>
-          <a href="${setupLink}" style="display: inline-block; margin: 20px 0; padding: 12px 28px; background: #d97c2b; color: #0d0b0f; font-family: Georgia, serif; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.05em;">Enter the Society →</a>
-          <p style="margin-top: 24px; font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(217,124,43,0.6);">This link expires in 24 hours.</p>
-        </div>
-      `,
+      ...welcomeTpl,
     })
 
     return NextResponse.json({ success: true, action: 'approved', user_id: userId })

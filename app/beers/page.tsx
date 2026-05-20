@@ -203,7 +203,7 @@ function PostCard({
 
 // ── PREVIEW MODE ─────────────────────────────────────────────────────────────
 // TODO: Remove PREVIEW_MODE and PREVIEW_BEER before October launch
-const PREVIEW_MODE = true
+const PREVIEW_MODE = false
 
 const PREVIEW_BEER = {
   id: 'preview-space-dust',
@@ -707,11 +707,82 @@ export default function BeersPage() {
                 </p>
               </section>
             ) : (
-              <section style={{ textAlign: 'center', padding: '3rem 0', marginBottom: '3rem' }}>
-                <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: '1.5rem', letterSpacing: '0.1em', marginBottom: '1rem' }}>
-                  The Ritual Awaits
-                </h2>
-                <p style={{ color: 'var(--text-muted)' }}>The sacred calendar awakens on October 1st.</p>
+              <section style={{ textAlign: 'center', padding: '4rem 0 3rem', marginBottom: '3rem' }}>
+
+                {/* Divider line + label */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '3rem' }}>
+                  <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(255,140,0,0.35))' }} />
+                  <span style={{
+                    fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '0.6rem', letterSpacing: '0.4em',
+                    textTransform: 'uppercase', color: 'var(--gold)', whiteSpace: 'nowrap',
+                  }}>The Society Awaits</span>
+                  <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
+                </div>
+
+                {/* Countdown */}
+                {(() => {
+                  const now = new Date()
+                  const oct1 = new Date(now.getFullYear(), 9, 1)
+                  if (oct1 < now) oct1.setFullYear(oct1.getFullYear() + 1)
+                  const diff = oct1.getTime() - now.getTime()
+                  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                  const hrs  = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                  return (
+                    <div style={{ marginBottom: '2.5rem' }}>
+                      <div style={{
+                        fontFamily: "'Modern Antiqua', serif",
+                        color: 'var(--text-muted)', fontSize: '0.65rem',
+                        letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: '0.75rem',
+                      }}>
+                        October 1st begins in
+                      </div>
+                      <div style={{
+                        fontFamily: "'Modern Antiqua', serif",
+                        color: 'var(--gold)',
+                        fontSize: 'clamp(2.5rem, 8vw, 4.5rem)',
+                        lineHeight: 1,
+                        letterSpacing: '0.05em',
+                      }}>
+                        {days}<span style={{ fontSize: '0.4em', color: 'var(--text-muted)', marginLeft: '0.3em' }}>days</span>
+                        <span style={{ color: 'var(--border)', margin: '0 0.4em' }}>·</span>
+                        {hrs}<span style={{ fontSize: '0.4em', color: 'var(--text-muted)', marginLeft: '0.3em' }}>hrs</span>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Manifesto */}
+                <div style={{
+                  maxWidth: '480px', margin: '0 auto 2.5rem',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  padding: '1.75rem 2rem',
+                }}>
+                  <p style={{
+                    fontFamily: "'Modern Antiqua', serif",
+                    color: 'var(--text-muted)',
+                    fontSize: '0.95rem',
+                    lineHeight: 1.9,
+                    fontStyle: 'italic',
+                    margin: 0,
+                  }}>
+                    Every October, the Society convenes. Thirty-one days. Thirty-one beers.
+                    Each one chosen, debated, and decreed. The calendar is set.
+                    The bottles are waiting. So are we.
+                  </p>
+                </div>
+
+                {/* CTA hint */}
+                <p style={{
+                  color: 'var(--text-muted)', fontSize: '0.8rem',
+                  fontFamily: "'Modern Antiqua', serif",
+                  letterSpacing: '0.1em',
+                }}>
+                  The October calendar is sealed below — each beer revealed on its appointed day.
+                </p>
+
               </section>
             )}
 

@@ -32,9 +32,8 @@ const base = (content: string) => `
 
         <!-- Header -->
         <tr><td align="center" style="padding-bottom:28px;">
-          <div style="display:inline-block;border:2px solid rgba(217,124,43,0.45);border-radius:50%;
-                      width:72px;height:72px;line-height:72px;text-align:center;
-                      font-size:1.1rem;font-weight:700;color:${text};letter-spacing:0.05em;">HHS</div>
+          <img src="https://hallowedhopsociety.com/hhs-logo-8.25-1.png" alt="Hallowed Hop Society"
+               width="120" style="display:block;margin:0 auto;width:120px;max-width:120px;" />
           <div style="margin-top:16px;font-size:1.3rem;font-weight:700;color:${text};
                       letter-spacing:0.12em;text-transform:uppercase;">Hallowed Hop Society</div>
           <div style="margin-top:5px;font-size:0.82rem;color:${textMuted};font-style:italic;">Members Only</div>

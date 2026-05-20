@@ -23,7 +23,11 @@ export default function AuthPage() {
     setLoading(true); setError(''); setMessage('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) setError(error.message)
-    else { router.push('/'); router.refresh() }
+    else {
+      const setupDone = typeof window !== 'undefined' && localStorage.getItem('hhs_setup_done')
+      router.push(setupDone ? '/' : '/welcome')
+      router.refresh()
+    }
     setLoading(false)
   }
 

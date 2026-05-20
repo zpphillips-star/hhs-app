@@ -44,7 +44,10 @@ export default function ResetPasswordPage() {
       setError(err.message)
     } else {
       setDone(true)
-      setTimeout(() => router.push('/'), 2500)
+      setTimeout(() => {
+        const setupDone = typeof window !== 'undefined' && localStorage.getItem('hhs_setup_done')
+        router.push(setupDone ? '/' : '/welcome')
+      }, 2500)
     }
     setLoading(false)
   }

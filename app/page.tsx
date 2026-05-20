@@ -44,6 +44,10 @@ export default function HomePage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
+      if (user) {
+        const setupDone = typeof window !== 'undefined' && localStorage.getItem('hhs_setup_done')
+        if (!setupDone) { router.replace('/welcome'); return }
+      }
       // Logged-in members go straight to the daily ritual during October
       if (user && isOctober) router.replace('/beers')
     })

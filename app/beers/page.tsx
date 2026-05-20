@@ -716,7 +716,7 @@ export default function BeersPage() {
                     fontFamily: "'Modern Antiqua', serif",
                     fontSize: '0.6rem', letterSpacing: '0.4em',
                     textTransform: 'uppercase', color: 'var(--gold)', whiteSpace: 'nowrap',
-                  }}>The Society Awaits</span>
+                  }}>The Calendar Is Being Set</span>
                   <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
                 </div>
 
@@ -769,8 +769,8 @@ export default function BeersPage() {
                     margin: 0,
                   }}>
                     Every October, the Society convenes. Thirty-one days. Thirty-one beers.
-                    Each one chosen, debated, and decreed. The calendar is set.
-                    The bottles are waiting. So are we.
+                    The deliberation is underway — each selection debated, contested, and earned.
+                    The calendar isn&apos;t set yet. But it will be.
                   </p>
                 </div>
 
@@ -780,7 +780,7 @@ export default function BeersPage() {
                   fontFamily: "'Modern Antiqua', serif",
                   letterSpacing: '0.1em',
                 }}>
-                  The October calendar is sealed below — each beer revealed on its appointed day.
+                  The 31 slots below are reserved. The beers have yet to be named.
                 </p>
 
               </section>

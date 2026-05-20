@@ -498,11 +498,23 @@ export default function BeersPage() {
 
                 {/* Brewery + style/ABV as subtitle under the name */}
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontFamily: "'Modern Antiqua', serif" }}>
+                  <div style={{
+                    color: 'var(--text)',
+                    fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '1.1rem',
+                    marginBottom: '0.25rem',
+                  }}>
                     {todayBeer.brewery}
-                    {(todayBeer.style || todayBeer.abv) && ' · '}
-                    {todayBeer.style}{todayBeer.style && todayBeer.abv ? ' · ' : ''}{todayBeer.abv ? `${todayBeer.abv}% ABV` : ''}
-                  </span>
+                  </div>
+                  {(todayBeer.style || todayBeer.abv) && (
+                    <div style={{
+                      color: 'var(--text-muted)',
+                      fontFamily: "'Modern Antiqua', serif",
+                      fontSize: '0.85rem',
+                    }}>
+                      {todayBeer.style}{todayBeer.style && todayBeer.abv ? ' · ' : ''}{todayBeer.abv ? `${todayBeer.abv}% ABV` : ''}
+                    </div>
+                  )}
                 </div>
 
                 {/* ── BEER INFO CARD ─────────────────────────────────────── */}

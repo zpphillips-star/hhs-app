@@ -224,7 +224,7 @@ export default function BeersPage() {
   // In PREVIEW_MODE, treat today as an active beer day regardless of month
   const isOctober = today.getMonth() === 9 || PREVIEW_MODE
   const year      = today.getFullYear()
-  const todayDay  = today.getDate()
+  const todayDay  = isOctober ? today.getDate() : null
   const oct1DOW   = new Date(year, 9, 1).getDay()
 
   const [user,         setUser]         = useState<{ id: string; email?: string } | null>(null)

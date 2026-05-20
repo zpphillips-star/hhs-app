@@ -528,70 +528,58 @@ export default function BeersPage() {
                   </div>
                 </div>
 
-                {/* ── TASTING NOTES ─────────────────────────────────────── */}
+                {/* ── TASTING NOTES + FACTS ─────────────────────────────── */}
                 <div style={{
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border)',
                   borderRadius: '12px',
                   padding: '1.25rem 1.5rem',
                   marginBottom: '1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.25rem',
                 }}>
-                  <div style={{
-                    color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
-                    fontSize: '0.58rem', letterSpacing: '0.28em',
-                    textTransform: 'uppercase', marginBottom: '0.75rem',
-                  }}>
-                    Tasting Notes
-                  </div>
+                  {/* Tasting notes */}
                   <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.85, fontStyle: 'italic', margin: 0 }}>
                     {todayBeer.description ||
                       "Tasting notes coming soon — the society's chronicler is still studying the brew..."}
                   </p>
+
+                  {/* Divider */}
+                  {(todayBeer.brewery_fact || todayBeer.beer_fact) && (
+                    <div style={{ borderTop: '1px solid var(--border)' }} />
+                  )}
+
+                  {/* The Beer + The Brewery side by side (or stacked on mobile) */}
+                  {(todayBeer.brewery_fact || todayBeer.beer_fact) && (
+                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                      {todayBeer.beer_fact && (
+                        <div style={{ flex: '1 1 200px' }}>
+                          <div style={{
+                            color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                            fontSize: '0.58rem', letterSpacing: '0.28em',
+                            textTransform: 'uppercase', marginBottom: '0.5rem',
+                          }}>The Beer</div>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.75, margin: 0 }}>
+                            {todayBeer.beer_fact}
+                          </p>
+                        </div>
+                      )}
+                      {todayBeer.brewery_fact && (
+                        <div style={{ flex: '1 1 200px' }}>
+                          <div style={{
+                            color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                            fontSize: '0.58rem', letterSpacing: '0.28em',
+                            textTransform: 'uppercase', marginBottom: '0.5rem',
+                          }}>The Brewery</div>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.75, margin: 0 }}>
+                            {todayBeer.brewery_fact}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-
-                {/* ── THE BREWERY ───────────────────────────────────────── */}
-                {todayBeer.brewery_fact && (
-                  <div style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '12px',
-                    padding: '1.25rem 1.5rem',
-                    marginBottom: '1rem',
-                  }}>
-                    <div style={{
-                      color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
-                      fontSize: '0.58rem', letterSpacing: '0.28em',
-                      textTransform: 'uppercase', marginBottom: '0.75rem',
-                    }}>
-                      The Brewery
-                    </div>
-                    <p style={{ color: 'var(--text)', fontSize: '0.92rem', lineHeight: 1.8, margin: 0 }}>
-                      {todayBeer.brewery_fact}
-                    </p>
-                  </div>
-                )}
-
-                {/* ── THE BEER ──────────────────────────────────────────── */}
-                {todayBeer.beer_fact && (
-                  <div style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '12px',
-                    padding: '1.25rem 1.5rem',
-                    marginBottom: '1rem',
-                  }}>
-                    <div style={{
-                      color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
-                      fontSize: '0.58rem', letterSpacing: '0.28em',
-                      textTransform: 'uppercase', marginBottom: '0.75rem',
-                    }}>
-                      The Beer
-                    </div>
-                    <p style={{ color: 'var(--text)', fontSize: '0.92rem', lineHeight: 1.8, margin: 0 }}>
-                      {todayBeer.beer_fact}
-                    </p>
-                  </div>
-                )}
 
                 {/* ── RATING ────────────────────────────────────────────── */}
                 <div style={{

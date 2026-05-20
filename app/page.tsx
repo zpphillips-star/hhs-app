@@ -96,20 +96,25 @@ export default function HomePage() {
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <Nav user={user} />
 
-      {/* Hero section — single flow column, image floats right so text wraps around it */}
+      {/* Hero section — title first, then image floats right with text wrapping on both desktop + mobile */}
       <style>{`
         .hhs-hero { max-width: 860px; margin: 0 auto; padding: 4rem 2rem 2rem; }
-        .hhs-hero-img { float: right; width: 44%; height: auto; opacity: 0.9; margin-left: 2.5rem; margin-bottom: 1rem; }
-        .hhs-hero-imgwrap { float: right; width: 42%; margin-left: 2.5rem; margin-bottom: 1.5rem; }
+        .hhs-hero-img { float: right; width: 44%; height: auto; opacity: 0.9; margin-left: 2rem; margin-bottom: 1rem; }
+        .hhs-hero-imgwrap { float: right; width: 42%; margin-left: 2rem; margin-bottom: 1.5rem; }
         @media (max-width: 767px) {
           .hhs-hero { padding: 2rem 1.25rem 1.5rem; }
-          .hhs-hero-img { float: none; width: 100%; margin-left: 0; margin-bottom: 1.5rem; }
-          .hhs-hero-imgwrap { float: none; width: 100%; margin-left: 0; margin-bottom: 1.5rem; }
+          .hhs-hero-img { float: right; width: 50%; margin-left: 1rem; margin-bottom: 0.75rem; }
+          .hhs-hero-imgwrap { float: right; width: 50%; margin-left: 1rem; margin-bottom: 0.75rem; }
         }
       `}</style>
       <section className="hhs-hero">
 
-        {/* Float image right — text wraps around it */}
+        {/* Title renders first — full width above the float */}
+        <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', lineHeight: 1.05, fontWeight: 900, marginBottom: '1.5rem' }}>
+          HALLOWED<br />HOP SOCIETY
+        </h2>
+
+        {/* Image floats right — paragraphs wrap around it */}
         {isOctober && beer ? (
           <div className="hhs-hero-imgwrap">
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', borderRadius: '16px' }}>
@@ -145,11 +150,6 @@ export default function HomePage() {
             style={{ opacity: 0.9 }}
           />
         )}
-
-        {/* Text flows around the floated image */}
-        <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', lineHeight: 1.05, fontWeight: 900, marginBottom: '1.5rem' }}>
-          HALLOWED<br />HOP SOCIETY
-        </h2>
         <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
           As October&apos;s chill creeps in and shadows grow long, a devoted fellowship rises to honor the sacred tradition of the hop.
         </p>

@@ -73,8 +73,8 @@ export default function AuthPage() {
   ]
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
-      <div style={{ width: '100%', maxWidth: '400px' }}>
+    <div className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--bg)' }}>
+      <div style={{ width: '100%', maxWidth: '440px' }}>
         <div className="text-center mb-10">
           <a href="/">
             <Image src="/hhs_no_circles_300dpi.webp" alt="HHS" width={100} height={100} className="mx-auto mb-4 opacity-90" style={{ cursor: 'pointer' }} />
@@ -85,7 +85,7 @@ export default function AuthPage() {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', fontStyle: 'italic' }}>Members Only</p>
         </div>
 
-        <div style={{ border: '1px solid var(--border)', padding: '2rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
+        <div style={{ border: '1px solid var(--border)', padding: '2.25rem 2rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
           {/* Mode toggle */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '2rem' }}>
             {tabs.map(({ key, label }) => (
@@ -119,7 +119,17 @@ export default function AuthPage() {
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={inputStyle} placeholder="your@email.com" />
               </div>
               <div>
-                <label style={labelStyle}>Password</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem' }}>
+                  <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
+                  <a
+                    href="/auth/forgot-password"
+                    style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textDecoration: 'none', fontFamily: "'Modern Antiqua', serif", letterSpacing: '0.05em', opacity: 0.7 }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--gold)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+                  >
+                    Forgot password?
+                  </a>
+                </div>
                 <input type="password" value={password} onChange={e => setPassword(e.target.value)} required style={inputStyle} placeholder="••••••••" />
               </div>
               {error && <p style={{ color: '#e57373', fontSize: '0.9rem' }}>{error}</p>}

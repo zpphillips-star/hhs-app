@@ -27,6 +27,9 @@ type BreweryOutreach = {
   status: string
   notes: string | null
   last_updated: string
+  order_total: number | null
+  beer_count: number | null
+  price_per_beer: number | null
 }
 
 const COLUMNS: { key: string; label: string; color: string }[] = [
@@ -57,6 +60,8 @@ export default function KanbanPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editNotes, setEditNotes] = useState('')
   const [editStatus, setEditStatus] = useState('')
+  const [editOrderTotal, setEditOrderTotal] = useState('')
+  const [editBeerCount, setEditBeerCount] = useState('31')
   const [saving, setSaving] = useState(false)
 
   const fetchData = useCallback(async () => {
@@ -91,24 +96,44 @@ export default function KanbanPage() {
     setEditingId(row.id)
     setEditNotes(row.notes ?? '')
     setEditStatus(row.status)
+    setEditOrderTotal(row.order_total != null ? String(row.order_total) : '')
+    setEditBeerCount(row.beer_count != null ? String(row.beer_count) : '31')
   }
 
   const cancelEdit = () => {
     setEditingId(null)
     setEditNotes('')
     setEditStatus('')
+    setEditOrderTotal('')
+    setEditBeerCount('31')
   }
 
   const saveEdit = async (id: number) => {
     setSaving(true)
+    const orderTotalVal = editOrderTotal !== '' ? parseFloat(editOrderTotal) : null
+    const beerCountVal  = editBeerCount  !== '' ? parseInt(editBeerCount, 10) : 31
+    const payload: Record<string, unknown> = {
+      notes:       editNotes || null,
+      status:      editStatus,
+      order_total: orderTotalVal,
+      beer_count:  beerCountVal,
+    }
     const { error: err } = await supabase
       .from('brewery_outreach')
-      .update({ notes: editNotes || null, status: editStatus })
+      .update(payload)
       .eq('id', id)
     if (err) {
       alert('Save failed: ' + err.message)
     } else {
-      setRows(prev => prev.map(r => r.id === id ? { ...r, notes: editNotes || null, status: editStatus } : r))
+      const ppb = orderTotalVal != null && beerCountVal > 0 ? orderTotalVal / beerCountVal : null
+      setRows(prev => prev.map(r => r.id === id ? {
+        ...r,
+        notes: editNotes || null,
+        status: editStatus,
+        order_total: orderTotalVal,
+        beer_count: beerCountVal,
+        price_per_beer: ppb,
+      } : r))
       setEditingId(null)
     }
     setSaving(false)
@@ -282,6 +307,39 @@ export default function KanbanPage() {
                               marginBottom: '0.5rem',
                             }}
                           />
+                           {/* Order data — shown when status = agreed */}
+                           {editStatus === 'agreed' && (
+                             <div style={{ marginBottom: '0.5rem' }}>
+                               <div style={{ background: 'rgba(217,124,43,0.08)', border: '1px solid rgba(217,124,43,0.3)', borderRadius: '6px', padding: '0.5rem' }}>
+                                 <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#d97c2b', marginBottom: '0.4rem' }}>
+                                   Order Details
+                                 </div>
+                                 <label style={{ fontSize: '0.63rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(232,220,200,0.5)', display: 'block', marginBottom: '0.15rem' }}>
+                                   Total Order ($)
+                                 </label>
+                                 <input
+                                   type="number" min="0" step="0.01" placeholder="e.g. 450.00"
+                                   value={editOrderTotal}
+                                   onChange={e => setEditOrderTotal(e.target.value)}
+                                   style={{ width: '100%', background: '#2a1f10', border: '1px solid rgba(217,124,43,0.4)', color: '#e8dcc8', borderRadius: '6px', padding: '0.3rem 0.4rem', fontSize: '0.75rem', marginBottom: '0.4rem', fontFamily: 'inherit' }}
+                                 />
+                                 <label style={{ fontSize: '0.63rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(232,220,200,0.5)', display: 'block', marginBottom: '0.15rem' }}>
+                                   # of Beers (31 standard / 15 oddballs)
+                                 </label>
+                                 <input
+                                   type="number" min="1" step="1" placeholder="31"
+                                   value={editBeerCount}
+                                   onChange={e => setEditBeerCount(e.target.value)}
+                                   style={{ width: '100%', background: '#2a1f10', border: '1px solid rgba(217,124,43,0.4)', color: '#e8dcc8', borderRadius: '6px', padding: '0.3rem 0.4rem', fontSize: '0.75rem', marginBottom: '0.4rem', fontFamily: 'inherit' }}
+                                 />
+                                 {editOrderTotal !== '' && editBeerCount !== '' && parseFloat(editBeerCount) > 0 && (
+                                   <div style={{ fontSize: '0.8rem', color: '#d97c2b', fontWeight: 700, textAlign: 'right' }}>
+                                     = ${'{'}(parseFloat(editOrderTotal) / parseFloat(editBeerCount)).toFixed(2){'}'} / beer
+                                   </div>
+                                 )}
+                               </div>
+                             </div>
+                           )}
                           <div style={{ display: 'flex', gap: '0.4rem' }}>
                             <button
                               onClick={() => saveEdit(row.id)}
@@ -425,6 +483,23 @@ export default function KanbanPage() {
                               )}
                             </div>
                           </div>
+                           {/* ── ORDER DETAILS (agreed only) ── */}
+                           {row.status === 'agreed' && row.order_total != null && (
+                             <div style={{ background: 'rgba(217,124,43,0.08)', border: '1px solid rgba(217,124,43,0.3)', borderRadius: '6px', padding: '0.4rem 0.5rem', marginTop: '0.4rem' }}>
+                               <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#d97c2b', marginBottom: '0.3rem' }}>
+                                 Order
+                               </div>
+                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#e8dcc8' }}>
+                                 <span>{row.beer_count ?? 31} beers</span>
+                                 <span style={{ color: '#d97c2b', fontWeight: 700 }}>${row.order_total.toFixed(2)}</span>
+                               </div>
+                               {row.price_per_beer != null && (
+                                 <div style={{ fontSize: '0.65rem', color: 'rgba(217,124,43,0.7)', textAlign: 'right', marginTop: '0.15rem' }}>
+                                   ${row.price_per_beer.toFixed(2)} / beer
+                                 </div>
+                               )}
+                             </div>
+                           )}
                         </>
                       )}
                     </div>

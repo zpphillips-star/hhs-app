@@ -115,6 +115,8 @@ export default function WelcomePage() {
 
   const finish = () => {
     localStorage.setItem('hhs_setup_done', '1')
+    // Trigger same-tab banner dismiss (storage event only fires in OTHER tabs)
+    window.dispatchEvent(new StorageEvent('storage', { key: 'hhs_setup_done', newValue: '1' }))
     router.push('/')
   }
 

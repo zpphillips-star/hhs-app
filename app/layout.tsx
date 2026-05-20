@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Modern_Antiqua } from "next/font/google";
 import "./globals.css";
+import SetupBanner from "@/components/SetupBanner";
 
 const modernAntiqua = Modern_Antiqua({
   variable: "--font-modern-antiqua",
@@ -30,6 +31,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
         {children}
+        <SetupBanner />
         <script dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {

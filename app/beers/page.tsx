@@ -496,27 +496,26 @@ export default function BeersPage() {
                   {todayBeer.name}
                 </h1>
 
-                {/* ── BREWERY INFO ──────────────────────────────────────── */}
+                {/* ── BEER INFO CARD (all-in-one) ───────────────────────── */}
                 <div style={{
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border)',
                   borderRadius: '12px',
                   padding: '1.25rem 1.5rem',
                   marginBottom: '1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
                 }}>
-                  <div style={{
-                    color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
-                    fontSize: '0.58rem', letterSpacing: '0.28em',
-                    textTransform: 'uppercase', marginBottom: '0.75rem',
-                  }}>
-                    The Brewery
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  {/* Brewery name + style/ABV */}
+                  <div>
                     <span style={{
                       color: 'var(--text)',
                       fontFamily: "'Modern Antiqua', serif",
                       fontSize: '1.15rem',
                       fontWeight: 600,
+                      display: 'block',
+                      marginBottom: '0.2rem',
                     }}>
                       {todayBeer.brewery}
                     </span>
@@ -526,31 +525,19 @@ export default function BeersPage() {
                       </span>
                     )}
                   </div>
-                </div>
 
-                {/* ── TASTING NOTES + FACTS ─────────────────────────────── */}
-                <div style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '12px',
-                  padding: '1.25rem 1.5rem',
-                  marginBottom: '1rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '1.25rem',
-                }}>
+                  <div style={{ borderTop: '1px solid var(--border)' }} />
+
                   {/* Tasting notes */}
                   <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.85, fontStyle: 'italic', margin: 0 }}>
                     {todayBeer.description ||
                       "Tasting notes coming soon — the society's chronicler is still studying the brew..."}
                   </p>
 
-                  {/* Divider */}
+                  {/* The Beer + The Brewery */}
                   {(todayBeer.brewery_fact || todayBeer.beer_fact) && (
                     <div style={{ borderTop: '1px solid var(--border)' }} />
                   )}
-
-                  {/* The Beer + The Brewery side by side (or stacked on mobile) */}
                   {(todayBeer.brewery_fact || todayBeer.beer_fact) && (
                     <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                       {todayBeer.beer_fact && (

@@ -499,7 +499,7 @@ export default function BeersPage() {
                 {/* Brewery + style/ABV as subtitle under the name */}
                 <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{
-                    color: 'var(--text)',
+                    color: 'var(--gold)',
                     fontFamily: "'Modern Antiqua', serif",
                     fontSize: '1.1rem',
                     marginBottom: '0.25rem',

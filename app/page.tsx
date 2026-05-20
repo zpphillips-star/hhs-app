@@ -97,11 +97,21 @@ export default function HomePage() {
       <Nav user={user} />
 
       {/* Hero section — single flow column, image floats right so text wraps around it */}
-      <section style={{ maxWidth: '860px', margin: '0 auto', padding: '4rem 2rem 2rem' }}>
+      <style>{`
+        .hhs-hero { max-width: 860px; margin: 0 auto; padding: 4rem 2rem 2rem; }
+        .hhs-hero-img { float: right; width: 44%; height: auto; opacity: 0.9; margin-left: 2.5rem; margin-bottom: 1rem; }
+        .hhs-hero-imgwrap { float: right; width: 42%; margin-left: 2.5rem; margin-bottom: 1.5rem; }
+        @media (max-width: 767px) {
+          .hhs-hero { padding: 2rem 1.25rem 1.5rem; }
+          .hhs-hero-img { float: none; width: 100%; margin-left: 0; margin-bottom: 1.5rem; }
+          .hhs-hero-imgwrap { float: none; width: 100%; margin-left: 0; margin-bottom: 1.5rem; }
+        }
+      `}</style>
+      <section className="hhs-hero">
 
         {/* Float image right — text wraps around it */}
         {isOctober && beer ? (
-          <div style={{ float: 'right', width: '42%', marginLeft: '2.5rem', marginBottom: '1.5rem' }}>
+          <div className="hhs-hero-imgwrap">
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', borderRadius: '16px' }}>
               <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">
                 Day {beer.day_number} · October {beer.day_number}
@@ -131,7 +141,8 @@ export default function HomePage() {
           <img
             src="/mughhs.webp"
             alt="Hallowed Hop Society"
-            style={{ float: 'right', width: '44%', height: 'auto', opacity: 0.9, marginLeft: '2.5rem', marginBottom: '1rem' }}
+            className="hhs-hero-img"
+            style={{ opacity: 0.9 }}
           />
         )}
 

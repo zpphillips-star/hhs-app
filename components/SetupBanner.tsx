@@ -18,20 +18,31 @@ function isAndroid() {
   if (typeof navigator === 'undefined') return false
   return /android/i.test(navigator.userAgent)
 }
+function getBrowserName() {
+  if (typeof navigator === 'undefined') return 'your browser'
+  const ua = navigator.userAgent
+  if (/Edg\/|EdgA\//.test(ua)) return 'Edge'
+  if (/SamsungBrowser/.test(ua)) return 'Samsung Internet'
+  if (/OPR\/|Opera/.test(ua)) return 'Opera'
+  if (/Firefox/.test(ua)) return 'Firefox'
+  if (/Safari/.test(ua) && !/Chrome/.test(ua)) return 'Safari'
+  return 'Chrome'
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let deferredPrompt: any = null
 
+type Step = 'install' | 'notify' | 'done'
+
 export default function SetupBanner() {
   const [userId, setUserId] = useState<string | null>(null)
-  const [appInstalled, setAppInstalled] = useState(false)
-  const [hasPwaDB, setHasPwaDB] = useState(false)
-  const [notifGranted, setNotifGranted] = useState(false)
+  const [step, setStep] = useState<Step | null>(null)
   const [canNativeInstall, setCanNativeInstall] = useState(false)
-  const [subscribing, setSubscribing] = useState(false)
   const [showInstallSteps, setShowInstallSteps] = useState(false)
+  const [subscribing, setSubscribing] = useState(false)
+  const [notifBlocked, setNotifBlocked] = useState(false)
 
-  // Capture Android/desktop native install prompt
+  // Capture native install prompt (Android/desktop Chrome/Edge)
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault()
@@ -42,24 +53,59 @@ export default function SetupBanner() {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  // Load user + real state
+  // On every page load: check real state from Supabase + browser
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       setUserId(user.id)
-      setAppInstalled(isPWA())
-      setNotifGranted('Notification' in window && Notification.permission === 'granted')
-      supabase.from('profiles').select('has_pwa').eq('id', user.id).single().then(({ data }) => {
-        if (data?.has_pwa) setHasPwaDB(true)
-      })
+
+      // Check install: running as PWA counts automatically
+      const runningAsPWA = isPWA()
+
+      // Also check DB (they may have installed on another device/session)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('has_pwa')
+        .eq('id', user.id)
+        .single()
+
+      const installDone = runningAsPWA || !!profile?.has_pwa
+
+      // If running as PWA right now, write it back so DB stays in sync
+      if (runningAsPWA && !profile?.has_pwa) {
+        supabase.from('profiles').update({ has_pwa: true }).eq('id', user.id).then(() => {})
+      }
+
+      // Check notifications: browser permission + push subscription in DB
+      const notifPermission = 'Notification' in window ? Notification.permission : 'denied'
+      const { data: pushSub } = await supabase
+        .from('push_subscriptions')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      const notifDone = notifPermission === 'granted' && !!pushSub
+
+      // Decide which step to show
+      if (!installDone) {
+        setStep('install')
+      } else if (!notifDone) {
+        setNotifBlocked(notifPermission === 'denied')
+        setStep('notify')
+      } else {
+        setStep('done')
+      }
     })
   }, [])
 
-  const installedDone = appInstalled || hasPwaDB
-  const allDone = installedDone && notifGranted
+  // Don't render until we know what to show
+  if (!userId || !step || step === 'done') return null
 
-  // Nothing to show: not logged in, or all done
-  if (!userId || allDone) return null
+  const markInstalled = async () => {
+    if (!userId) return
+    await supabase.from('profiles').update({ has_pwa: true }).eq('id', userId)
+    setStep('notify')
+  }
 
   const handleNativeInstall = async () => {
     if (!deferredPrompt) return
@@ -67,11 +113,7 @@ export default function SetupBanner() {
     const { outcome } = await deferredPrompt.userChoice
     deferredPrompt = null
     setCanNativeInstall(false)
-    if (outcome === 'accepted' && userId) {
-      await supabase.from('profiles').update({ has_pwa: true }).eq('id', userId)
-      setHasPwaDB(true)
-      setTimeout(() => setAppInstalled(isPWA()), 1500)
-    }
+    if (outcome === 'accepted') await markInstalled()
   }
 
   const handleEnableNotifications = async () => {
@@ -80,7 +122,6 @@ export default function SetupBanner() {
     try {
       const perm = await Notification.requestPermission()
       if (perm === 'granted') {
-        setNotifGranted(true)
         try {
           const reg = await navigator.serviceWorker.ready
           const existing = await reg.pushManager.getSubscription()
@@ -93,7 +134,10 @@ export default function SetupBanner() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ subscription: sub.toJSON(), user_id: userId }),
           })
-        } catch { /* push subscription optional */ }
+          setStep('done')
+        } catch { setStep('done') }
+      } else if (perm === 'denied') {
+        setNotifBlocked(true)
       }
     } catch { /* silent */ }
     setSubscribing(false)
@@ -101,7 +145,7 @@ export default function SetupBanner() {
 
   return (
     <>
-      {/* Dark overlay — blocks the page until setup is done */}
+      {/* Dark overlay */}
       <div style={{
         position: 'fixed',
         inset: 0,
@@ -118,192 +162,119 @@ export default function SetupBanner() {
         left: '50%',
         transform: 'translate(-50%, -50%)',
         zIndex: 9999,
-        width: 'min(440px, 92vw)',
+        width: 'min(420px, 92vw)',
         background: 'var(--bg-card)',
         border: '1px solid rgba(255,140,0,0.3)',
         borderRadius: '18px',
         padding: '2rem 1.75rem',
         boxShadow: '0 32px 96px rgba(0,0,0,0.8)',
       }}>
-        {/* Header */}
-        <p style={{
-          fontFamily: "'Modern Antiqua', serif",
-          fontSize: '0.6rem',
-          letterSpacing: '0.4em',
-          textTransform: 'uppercase',
-          color: 'var(--gold)',
-          marginBottom: '0.4rem',
-          textAlign: 'center',
-        }}>
-          Setup Required
-        </p>
-        <h2 style={{
-          fontFamily: "'Modern Antiqua', serif",
-          fontSize: '1.3rem',
-          color: 'var(--text)',
-          textAlign: 'center',
-          marginBottom: '0.5rem',
-        }}>
-          Finish Your Setup
-        </h2>
-        <p style={{
-          color: 'var(--text-muted)',
-          fontSize: '0.85rem',
-          textAlign: 'center',
-          marginBottom: '1.75rem',
-          lineHeight: 1.6,
-        }}>
-          Complete both steps to enter the Society.
+
+        {/* Step indicator */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem', marginBottom: '1.5rem' }}>
+          {(['install', 'notify'] as Step[]).map((s, i) => (
+            <div key={s} style={{
+              height: '4px',
+              width: step === s ? '1.5rem' : '0.4rem',
+              borderRadius: '99px',
+              background: (step === 'notify' && i === 0) ? 'var(--gold)'
+                : step === s ? 'var(--gold)'
+                : 'rgba(255,255,255,0.15)',
+              transition: 'all 0.3s ease',
+            }} />
+          ))}
+        </div>
+
+        <p style={{ fontFamily: "'Modern Antiqua', serif", fontSize: '0.58rem', letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '0.4rem', textAlign: 'center' }}>
+          {step === 'install' ? 'Step 1 of 2' : 'Step 2 of 2'}
         </p>
 
-        {/* Step 1 — Install */}
-        <CheckRow
-          done={installedDone}
-          label="Add to Home Screen"
-          description={
-            installedDone
-              ? 'App installed — you\'re good'
-              : isIOS() || isAndroid()
-                ? 'Required to receive beer notifications'
-                : 'Open on your phone to install as an app'
-          }
-        >
-          {!installedDone && (
-            canNativeInstall ? (
-              <button onClick={handleNativeInstall} style={btnStyle}>
+        {/* ── STEP 1: INSTALL ── */}
+        {step === 'install' && (
+          <>
+            <h2 style={heading}>Add to Home Screen</h2>
+            <p style={body}>
+              Install the app on your phone so you can receive notifications when your beer drops.
+            </p>
+
+            {canNativeInstall ? (
+              <button onClick={handleNativeInstall} style={btnPrimary}>
                 Add to Home Screen
               </button>
             ) : (
               <>
                 <button
                   onClick={() => setShowInstallSteps(s => !s)}
-                  style={{ ...btnStyle, background: 'transparent', border: '1px solid rgba(255,140,0,0.4)', color: 'var(--gold)' }}
+                  style={btnPrimary}
                 >
                   {showInstallSteps ? 'Hide Steps ↑' : 'Show me how →'}
                 </button>
+
                 {showInstallSteps && (
                   <div style={infoBox}>
                     {isIOS() ? (
                       <>
                         <InstallStep n={1} text="Tap the Share button at the bottom of Safari" />
                         <InstallStep n={2} text={'Tap "Add to Home Screen"'} />
-                        <InstallStep n={3} text="Tap Add — then reopen from your Home Screen" />
+                        <InstallStep n={3} text="Tap Add — then reopen from your Home Screen and continue" />
                       </>
                     ) : isAndroid() ? (
                       <>
-                        <InstallStep n={1} text="Tap the ⋮ menu in the top-right of Chrome" />
-                        <InstallStep n={2} text={'Tap "Add to Home screen"'} />
-                        <InstallStep n={3} text="Tap Add to confirm — then reopen from your home screen" />
+                        <InstallStep n={1} text={`Tap the menu (⋮ or ···) in ${getBrowserName()}`} />
+                        <InstallStep n={2} text={'"Add to Home screen" or "Install app"'} />
+                        <InstallStep n={3} text="Tap Add — then reopen from your home screen and continue" />
                       </>
                     ) : (
                       <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0, lineHeight: 1.6 }}>
-                        Open <strong style={{ color: 'var(--gold)' }}>hallowedhopsociety.com</strong> on your phone and follow the steps there.
+                        Open <strong style={{ color: 'var(--gold)' }}>hallowedhopsociety.com</strong> on your phone to install.
                       </p>
                     )}
                   </div>
                 )}
-              </>
-            )
-          )}
-        </CheckRow>
 
-        {/* Step 2 — Notifications */}
-        <CheckRow
-          done={notifGranted}
-          label="Enable Notifications"
-          description={
-            notifGranted
-              ? "You'll be notified when each beer drops"
-              : 'Get notified the moment your beer is revealed'
-          }
-        >
-          {!notifGranted && (
-            typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'denied' ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.25rem', lineHeight: 1.6 }}>
-                Notifications are blocked. Go to{' '}
-                <strong style={{ color: 'var(--gold)' }}>
-                  Settings → {isIOS() ? 'Safari' : 'Chrome'} → Notifications
-                </strong>{' '}
-                and allow this site, then reload.
-              </p>
+                {/* Once they've done it manually, let them confirm */}
+                {showInstallSteps && (
+                  <button onClick={markInstalled} style={{ ...btnPrimary, marginTop: '0.75rem', background: 'transparent', border: '1px solid rgba(255,140,0,0.4)', color: 'var(--gold)' }}>
+                    I added it — Next →
+                  </button>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── STEP 2: NOTIFICATIONS ── */}
+        {step === 'notify' && (
+          <>
+            <h2 style={heading}>Enable Notifications</h2>
+            <p style={body}>
+              Get notified the moment each beer is revealed — just for you, based on your membership.
+            </p>
+
+            {notifBlocked ? (
+              <div style={infoBox}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0, lineHeight: 1.7 }}>
+                  Notifications are blocked. Go to{' '}
+                  <strong style={{ color: 'var(--gold)' }}>
+                    Settings → {isIOS() ? 'Safari' : getBrowserName()} → Notifications
+                  </strong>{' '}
+                  → allow <strong style={{ color: 'var(--gold)' }}>hallowedhopsociety.com</strong>, then reload this page.
+                </p>
+              </div>
             ) : (
-              <button
-                onClick={handleEnableNotifications}
-                disabled={subscribing}
-                style={btnStyle}
-              >
+              <button onClick={handleEnableNotifications} disabled={subscribing} style={btnPrimary}>
                 {subscribing ? 'Enabling...' : 'Enable Notifications'}
               </button>
-            )
-          )}
-        </CheckRow>
+            )}
+          </>
+        )}
+
       </div>
     </>
   )
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
-
-function CheckRow({
-  done, label, description, children,
-}: {
-  done: boolean
-  label: string
-  description: string
-  children?: React.ReactNode
-}) {
-  return (
-    <div style={{
-      borderRadius: '12px',
-      border: `1px solid ${done ? 'rgba(255,140,0,0.4)' : 'rgba(255,255,255,0.08)'}`,
-      background: done ? 'rgba(255,140,0,0.06)' : 'rgba(255,255,255,0.02)',
-      padding: '1rem 1rem 1rem',
-      marginBottom: '0.85rem',
-      transition: 'all 0.3s ease',
-    }}>
-      <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'flex-start' }}>
-        {/* Checkbox circle */}
-        <div style={{
-          width: '22px',
-          height: '22px',
-          minWidth: '22px',
-          borderRadius: '50%',
-          border: `2px solid ${done ? 'var(--gold)' : 'rgba(255,255,255,0.25)'}`,
-          background: done ? 'var(--gold)' : 'transparent',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginTop: '2px',
-          transition: 'all 0.3s ease',
-          flexShrink: 0,
-        }}>
-          {done && <span style={{ color: 'var(--bg)', fontSize: '0.68rem', fontWeight: 700, lineHeight: 1 }}>✓</span>}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{
-            color: done ? 'var(--gold)' : 'var(--text)',
-            fontFamily: "'Modern Antiqua', serif",
-            fontSize: '0.92rem',
-            fontWeight: 700,
-            margin: '0 0 0.2rem',
-            transition: 'color 0.3s ease',
-          }}>
-            {label}
-          </p>
-          <p style={{
-            color: 'var(--text-muted)',
-            fontSize: '0.8rem',
-            margin: done ? 0 : '0 0 0.75rem',
-            lineHeight: 1.5,
-          }}>
-            {description}
-          </p>
-          {!done && children}
-        </div>
-      </div>
-    </div>
-  )
-}
+// ── Sub-components ──────────────────────────────────────────────────────────
 
 function InstallStep({ n, text }: { n: number; text: string }) {
   return (
@@ -314,30 +285,46 @@ function InstallStep({ n, text }: { n: number; text: string }) {
   )
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────
+// ── Styles ──────────────────────────────────────────────────────────────────
 
-const btnStyle: React.CSSProperties = {
+const heading: React.CSSProperties = {
+  fontFamily: "'Modern Antiqua', serif",
+  fontSize: '1.3rem',
+  color: 'var(--text)',
+  textAlign: 'center',
+  marginBottom: '0.6rem',
+}
+
+const body: React.CSSProperties = {
+  color: 'var(--text-muted)',
+  fontSize: '0.88rem',
+  textAlign: 'center',
+  marginBottom: '1.5rem',
+  lineHeight: 1.7,
+}
+
+const btnPrimary: React.CSSProperties = {
   width: '100%',
-  padding: '0.65rem',
+  padding: '0.8rem',
   background: 'var(--gold)',
   border: 'none',
-  borderRadius: '8px',
+  borderRadius: '10px',
   color: 'var(--bg)',
   fontFamily: "'Modern Antiqua', serif",
-  fontSize: '0.8rem',
+  fontSize: '0.85rem',
   fontWeight: 700,
   letterSpacing: '0.1em',
   cursor: 'pointer',
   textTransform: 'uppercase',
-  marginBottom: '0.25rem',
+  marginBottom: '0.5rem',
 }
 
 const infoBox: React.CSSProperties = {
   background: 'rgba(255,140,0,0.07)',
   border: '1px solid rgba(255,140,0,0.2)',
-  borderRadius: '8px',
-  padding: '0.85rem',
-  marginTop: '0.5rem',
+  borderRadius: '10px',
+  padding: '1rem',
+  marginBottom: '0.75rem',
 }
 
 function urlBase64ToUint8Array(base64String: string) {

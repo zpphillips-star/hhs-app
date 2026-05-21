@@ -60,6 +60,12 @@ async function broadcast(title: string, body: string, url = '/', tiers?: string[
         await webpush.sendNotification(sub, payload)
         sent++
       } catch (err: unknown) {
+        const status = (err as { statusCode?: number }).statusCode
+        if (status === 410 || status === 404) {
+          // Subscription is gone — clean it out so setup re-triggers for this user
+          await supabase.from('push_subscriptions').delete().eq('user_id', row.user_id)
+          await supabase.from('profiles').update({ has_notifications: false }).eq('id', row.user_id)
+        }
         failed.push(err instanceof Error ? err.message : String(err))
       }
     })

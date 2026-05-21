@@ -44,6 +44,10 @@ export default function HomePage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
+      if (user) {
+        const setupDone = typeof window !== 'undefined' && localStorage.getItem('hhs_setup_done')
+        if (!setupDone) { router.replace('/welcome'); return }
+      }
       // Logged-in members go straight to the daily ritual during October
       if (user && isOctober) router.replace('/beers')
     })
@@ -96,38 +100,27 @@ export default function HomePage() {
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <Nav user={user} />
 
-      {/* Hero section — 2 col: text left, mug right (matches Divi Fullwidth Header) */}
-      <section className="container mx-auto px-8 py-16" style={{ maxWidth: '1400px', display: 'flex', gap: '4rem', alignItems: 'flex-start' }}>
+      {/* Hero section — title first, then image floats right with text wrapping on both desktop + mobile */}
+      <style>{`
+        .hhs-hero { max-width: 860px; margin: 0 auto; padding: 4rem 2rem 2rem; }
+        .hhs-hero-img { float: right; width: 44%; height: auto; opacity: 0.9; margin-left: 2rem; margin-bottom: 1rem; }
+        .hhs-hero-imgwrap { float: right; width: 42%; margin-left: 2rem; margin-bottom: 1.5rem; }
+        @media (max-width: 767px) {
+          .hhs-hero { padding: 2rem 1.25rem 1.5rem; }
+          .hhs-hero-img { float: right; width: 50%; margin-left: 1rem; margin-bottom: 0.75rem; }
+          .hhs-hero-imgwrap { float: right; width: 50%; margin-left: 1rem; margin-bottom: 0.75rem; }
+        }
+      `}</style>
+      <section className="hhs-hero">
 
-        {/* Left: title + body text — wider so lines feel free */}
-        <div style={{ flex: '1 1 0', minWidth: 0 }}>
-          <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', lineHeight: 1.05, fontWeight: 900, marginBottom: '1.5rem' }}>
-            HALLOWED<br />HOP SOCIETY
-          </h2>
-          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
-            As October&apos;s chill creeps in and shadows grow long, a devoted fellowship rises to honor the sacred tradition of the hop.
-          </p>
-          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
-            <strong>The Hallowed Hop Society</strong> is an annual gathering of beer enthusiasts who embark on a solemn (and slightly ridiculous) ritual:{' '}
-            <em>31 unique beers in 31 haunted days.</em> No repeats. No excuses. Just pure, unfiltered reverence for the craft of brewing.
-          </p>
-          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
-            Each year brings a new theme, a new lineup of brews, and new initiates brave enough to take the oath. From spiced pumpkin ales to bone-chilling stouts, we drink not just for the flavor—but for the fellowship.
-          </p>
-          <blockquote style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '1.25rem', margin: '1.5rem 0', color: 'var(--text)', fontSize: '1.15rem', fontWeight: 700 }}>
-            Through ritual we pour, through hops we unite.
-          </blockquote>
-          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '0.25rem' }}>
-            We are a society of the sip, the story, and the sacred pour.
-          </p>
-          <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8 }}>
-            If you&apos;ve got a taste for adventure (and good beer), your place at the circle awaits.
-          </p>
-        </div>
+        {/* Title renders first — full width above the float */}
+        <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', lineHeight: 1.05, fontWeight: 900, marginBottom: '1.5rem' }}>
+          HALLOWED<br />HOP SOCIETY
+        </h2>
 
-        {/* Right: mug — 49% (28% bigger than original 38%) */}
-        <div style={{ flex: '0 0 49%', maxWidth: '640px' }}>
-          {isOctober && beer ? (
+        {/* Image floats right — paragraphs wrap around it */}
+        {isOctober && beer ? (
+          <div className="hhs-hero-imgwrap">
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', borderRadius: '16px' }}>
               <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">
                 Day {beer.day_number} · October {beer.day_number}
@@ -151,15 +144,37 @@ export default function HomePage() {
                 </p>
               )}
             </div>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src="/mughhs.webp"
-              alt="Hallowed Hop Society"
-              style={{ width: '100%', height: 'auto', opacity: 0.9 }}
-            />
-          )}
-        </div>
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src="/mughhs.webp"
+            alt="Hallowed Hop Society"
+            className="hhs-hero-img"
+            style={{ opacity: 0.9 }}
+          />
+        )}
+        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+          As October&apos;s chill creeps in and shadows grow long, a devoted fellowship rises to honor the sacred tradition of the hop.
+        </p>
+        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+          <strong>The Hallowed Hop Society</strong> is an annual gathering of beer enthusiasts who embark on a solemn (and slightly ridiculous) ritual:{' '}
+          <em>31 unique beers in 31 haunted days.</em> No repeats. No excuses. Just pure, unfiltered reverence for the craft of brewing.
+        </p>
+        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '1rem' }}>
+          Each year brings a new theme, a new lineup of brews, and new initiates brave enough to take the oath. From spiced pumpkin ales to bone-chilling stouts, we drink not just for the flavor—but for the fellowship.
+        </p>
+        <blockquote style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '1.25rem', margin: '1.5rem 0', color: 'var(--text)', fontSize: '1.15rem', fontWeight: 700 }}>
+          Through ritual we pour, through hops we unite.
+        </blockquote>
+        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8, marginBottom: '0.25rem' }}>
+          We are a society of the sip, the story, and the sacred pour.
+        </p>
+        <p style={{ color: 'var(--text)', fontSize: '1.1rem', lineHeight: 1.8 }}>
+          If you&apos;ve got a taste for adventure (and good beer), your place at the circle awaits.
+        </p>
+        {/* Clear float */}
+        <div style={{ clear: 'both' }} />
       </section>
 
       {/* Countdown or rating section */}

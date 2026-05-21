@@ -6,12 +6,30 @@ import { supabase } from '@/lib/supabase'
 type BreweryOutreach = {
   id: number
   brewery_name: string
+  area: string | null
   website: string | null
-  email: string | null
-  recommended_beer: string | null
+  website_validated: string | null
+  address: string | null
+  address_validated: string | null
+  friday_open: string | null
+  friday_close: string | null
+  saturday_open: string | null
+  saturday_close: string | null
+  hours_validated: string | null
+  contact_1: string | null
+  contact_2: string | null
+  contact_3: string | null
+  contact_4: string | null
+  beer_1: string | null
+  beer_2: string | null
+  beer_3: string | null
+  beer_4: string | null
   status: string
   notes: string | null
   last_updated: string
+  order_total: number | null
+  beer_count: number | null
+  price_per_beer: number | null
 }
 
 const COLUMNS: { key: string; label: string; color: string }[] = [
@@ -21,6 +39,7 @@ const COLUMNS: { key: string; label: string; color: string }[] = [
   { key: 'in_communication', label: 'In Communication', color: '#1a4a3a' },
   { key: 'agreed',           label: 'Agreed ✓',         color: '#1a3a1a' },
   { key: 'opted_out',        label: 'Opted Out',        color: '#3a1a1a' },
+  { key: 'bounced',          label: '⚠ Bounced',        color: '#5a2a00' },
 ]
 
 const STATUS_BADGE: Record<string, string> = {
@@ -30,6 +49,7 @@ const STATUS_BADGE: Record<string, string> = {
   in_communication: '#1a5a46',
   agreed:           '#1a5a1a',
   opted_out:        '#5a1a1a',
+  bounced:          '#8a3a00',
 }
 
 export default function KanbanPage() {
@@ -40,6 +60,8 @@ export default function KanbanPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editNotes, setEditNotes] = useState('')
   const [editStatus, setEditStatus] = useState('')
+  const [editOrderTotal, setEditOrderTotal] = useState('')
+  const [editBeerCount, setEditBeerCount] = useState('31')
   const [saving, setSaving] = useState(false)
 
   const fetchData = useCallback(async () => {
@@ -74,24 +96,44 @@ export default function KanbanPage() {
     setEditingId(row.id)
     setEditNotes(row.notes ?? '')
     setEditStatus(row.status)
+    setEditOrderTotal(row.order_total != null ? String(row.order_total) : '')
+    setEditBeerCount(row.beer_count != null ? String(row.beer_count) : '31')
   }
 
   const cancelEdit = () => {
     setEditingId(null)
     setEditNotes('')
     setEditStatus('')
+    setEditOrderTotal('')
+    setEditBeerCount('31')
   }
 
   const saveEdit = async (id: number) => {
     setSaving(true)
+    const orderTotalVal = editOrderTotal !== '' ? parseFloat(editOrderTotal) : null
+    const beerCountVal  = editBeerCount  !== '' ? parseInt(editBeerCount, 10) : 31
+    const payload: Record<string, unknown> = {
+      notes:       editNotes || null,
+      status:      editStatus,
+      order_total: orderTotalVal,
+      beer_count:  beerCountVal,
+    }
     const { error: err } = await supabase
       .from('brewery_outreach')
-      .update({ notes: editNotes || null, status: editStatus })
+      .update(payload)
       .eq('id', id)
     if (err) {
       alert('Save failed: ' + err.message)
     } else {
-      setRows(prev => prev.map(r => r.id === id ? { ...r, notes: editNotes || null, status: editStatus } : r))
+      const ppb = orderTotalVal != null && beerCountVal > 0 ? orderTotalVal / beerCountVal : null
+      setRows(prev => prev.map(r => r.id === id ? {
+        ...r,
+        notes: editNotes || null,
+        status: editStatus,
+        order_total: orderTotalVal,
+        beer_count: beerCountVal,
+        price_per_beer: ppb,
+      } : r))
       setEditingId(null)
     }
     setSaving(false)
@@ -265,6 +307,39 @@ export default function KanbanPage() {
                               marginBottom: '0.5rem',
                             }}
                           />
+                           {/* Order data — shown when status = agreed */}
+                           {editStatus === 'agreed' && (
+                             <div style={{ marginBottom: '0.5rem' }}>
+                               <div style={{ background: 'rgba(217,124,43,0.08)', border: '1px solid rgba(217,124,43,0.3)', borderRadius: '6px', padding: '0.5rem' }}>
+                                 <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#d97c2b', marginBottom: '0.4rem' }}>
+                                   Order Details
+                                 </div>
+                                 <label style={{ fontSize: '0.63rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(232,220,200,0.5)', display: 'block', marginBottom: '0.15rem' }}>
+                                   Total Order ($)
+                                 </label>
+                                 <input
+                                   type="number" min="0" step="0.01" placeholder="e.g. 450.00"
+                                   value={editOrderTotal}
+                                   onChange={e => setEditOrderTotal(e.target.value)}
+                                   style={{ width: '100%', background: '#2a1f10', border: '1px solid rgba(217,124,43,0.4)', color: '#e8dcc8', borderRadius: '6px', padding: '0.3rem 0.4rem', fontSize: '0.75rem', marginBottom: '0.4rem', fontFamily: 'inherit' }}
+                                 />
+                                 <label style={{ fontSize: '0.63rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(232,220,200,0.5)', display: 'block', marginBottom: '0.15rem' }}>
+                                   # of Beers (31 standard / 15 oddballs)
+                                 </label>
+                                 <input
+                                   type="number" min="1" step="1" placeholder="31"
+                                   value={editBeerCount}
+                                   onChange={e => setEditBeerCount(e.target.value)}
+                                   style={{ width: '100%', background: '#2a1f10', border: '1px solid rgba(217,124,43,0.4)', color: '#e8dcc8', borderRadius: '6px', padding: '0.3rem 0.4rem', fontSize: '0.75rem', marginBottom: '0.4rem', fontFamily: 'inherit' }}
+                                 />
+                                 {editOrderTotal !== '' && editBeerCount !== '' && parseFloat(editBeerCount) > 0 && (
+                                   <div style={{ fontSize: '0.8rem', color: '#d97c2b', fontWeight: 700, textAlign: 'right' }}>
+                                     = ${'{'}(parseFloat(editOrderTotal) / parseFloat(editBeerCount)).toFixed(2){'}'} / beer
+                                   </div>
+                                 )}
+                               </div>
+                             </div>
+                           )}
                           <div style={{ display: 'flex', gap: '0.4rem' }}>
                             <button
                               onClick={() => saveEdit(row.id)}
@@ -305,37 +380,126 @@ export default function KanbanPage() {
                       ) : (
                         /* View mode */
                         <>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e8dcc8', lineHeight: 1.3, marginBottom: '0.3rem' }}>
-                            {row.brewery_name}
+                          {/* Brewery name + area */}
+                          <div style={{ marginBottom: '0.5rem' }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#e8dcc8', lineHeight: 1.3 }}>
+                              {row.brewery_name}
+                            </div>
+                            {row.area && (
+                              <div style={{ fontSize: '0.63rem', color: 'rgba(232,220,200,0.4)', marginTop: '0.1rem', letterSpacing: '0.04em' }}>
+                                📍 {row.area}
+                              </div>
+                            )}
                           </div>
-                          {row.recommended_beer && (
-                            <div style={{ fontSize: '0.68rem', color: '#d97c2b', marginBottom: row.notes ? '0.35rem' : 0 }}>
-                              🍺 {row.recommended_beer}
-                            </div>
-                          )}
-                          {row.notes && (
+
+                          {/* ── BREWERY INFO section ── */}
+                          <div style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(217,124,43,0.15)',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            marginBottom: '0.4rem',
+                          }}>
                             <div style={{
-                              fontSize: '0.68rem',
-                              color: 'rgba(232,220,200,0.55)',
-                              lineHeight: 1.5,
-                              borderTop: '1px solid rgba(217,124,43,0.1)',
-                              paddingTop: '0.3rem',
-                              marginTop: '0.1rem',
+                              fontSize: '0.55rem',
+                              fontWeight: 700,
+                              letterSpacing: '0.18em',
+                              textTransform: 'uppercase',
+                              color: 'rgba(217,124,43,0.6)',
+                              padding: '0.2rem 0.5rem',
+                              borderBottom: '1px solid rgba(217,124,43,0.12)',
+                              background: 'rgba(217,124,43,0.06)',
                             }}>
-                              {row.notes}
+                              Brewery Info
                             </div>
-                          )}
-                          {row.website && (
-                            <a
-                              href={`https://${row.website}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={e => e.stopPropagation()}
-                              style={{ fontSize: '0.62rem', color: 'rgba(217,124,43,0.5)', display: 'block', marginTop: '0.35rem', textDecoration: 'none' }}
-                            >
-                              ↗ {row.website}
-                            </a>
-                          )}
+                            <div style={{ padding: '0.4rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                              {row.beer_1 && (
+                                <div style={{ fontSize: '0.68rem', color: '#d97c2b', lineHeight: 1.4 }}>
+                                  🍺 {[row.beer_1, row.beer_2, row.beer_3, row.beer_4].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
+                              {row.contact_1 && (
+                                <div style={{ fontSize: '0.63rem', color: 'rgba(217,124,43,0.65)', lineHeight: 1.5, wordBreak: 'break-all' }}>
+                                  ✉ {[row.contact_1, row.contact_2, row.contact_3, row.contact_4].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
+                              {(row.friday_open || row.saturday_open) && (
+                                <div style={{ fontSize: '0.62rem', color: 'rgba(232,220,200,0.4)', lineHeight: 1.4 }}>
+                                  🕐 {[
+                                    row.friday_open ? `Fri ${row.friday_open}–${row.friday_close}` : null,
+                                    row.saturday_open ? `Sat ${row.saturday_open}–${row.saturday_close}` : null,
+                                  ].filter(Boolean).join('  ·  ')}
+                                </div>
+                              )}
+                              {row.website && (
+                                <a
+                                  href={row.website.startsWith('http') ? row.website : `https://${row.website}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  style={{ fontSize: '0.62rem', color: 'rgba(217,124,43,0.45)', textDecoration: 'none', display: 'inline-block' }}
+                                >
+                                  ↗ {row.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                                </a>
+                              )}
+                              {!row.beer_1 && !row.contact_1 && !row.friday_open && !row.website && (
+                                <div style={{ fontSize: '0.63rem', color: 'rgba(232,220,200,0.2)', fontStyle: 'italic' }}>No details yet</div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* ── NOTES section ── */}
+                          <div style={{
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid rgba(232,220,200,0.08)',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              fontSize: '0.55rem',
+                              fontWeight: 700,
+                              letterSpacing: '0.18em',
+                              textTransform: 'uppercase',
+                              color: 'rgba(232,220,200,0.35)',
+                              padding: '0.2rem 0.5rem',
+                              borderBottom: '1px solid rgba(232,220,200,0.06)',
+                              background: 'rgba(232,220,200,0.03)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}>
+                              <span>Notes</span>
+                              <span style={{ color: 'rgba(217,124,43,0.4)', fontSize: '0.6rem', fontWeight: 400, letterSpacing: 0 }}>click to edit</span>
+                            </div>
+                            <div style={{ padding: '0.4rem 0.5rem', minHeight: '1.8rem' }}>
+                              {row.notes ? (
+                                <div style={{ fontSize: '0.68rem', color: 'rgba(232,220,200,0.6)', lineHeight: 1.5 }}>
+                                  {row.notes}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '0.63rem', color: 'rgba(232,220,200,0.18)', fontStyle: 'italic' }}>
+                                  No notes yet…
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                           {/* ── ORDER DETAILS (agreed only) ── */}
+                           {row.status === 'agreed' && row.order_total != null && (
+                             <div style={{ background: 'rgba(217,124,43,0.08)', border: '1px solid rgba(217,124,43,0.3)', borderRadius: '6px', padding: '0.4rem 0.5rem', marginTop: '0.4rem' }}>
+                               <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#d97c2b', marginBottom: '0.3rem' }}>
+                                 Order
+                               </div>
+                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#e8dcc8' }}>
+                                 <span>{row.beer_count ?? 31} beers</span>
+                                 <span style={{ color: '#d97c2b', fontWeight: 700 }}>${row.order_total.toFixed(2)}</span>
+                               </div>
+                               {row.price_per_beer != null && (
+                                 <div style={{ fontSize: '0.65rem', color: 'rgba(217,124,43,0.7)', textAlign: 'right', marginTop: '0.15rem' }}>
+                                   ${row.price_per_beer.toFixed(2)} / beer
+                                 </div>
+                               )}
+                             </div>
+                           )}
                         </>
                       )}
                     </div>

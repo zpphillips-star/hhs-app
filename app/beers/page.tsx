@@ -203,7 +203,7 @@ function PostCard({
 
 // ── PREVIEW MODE ─────────────────────────────────────────────────────────────
 // TODO: Remove PREVIEW_MODE and PREVIEW_BEER before October launch
-const PREVIEW_MODE = true
+const PREVIEW_MODE = false
 
 const PREVIEW_BEER = {
   id: 'preview-space-dust',
@@ -224,7 +224,7 @@ export default function BeersPage() {
   // In PREVIEW_MODE, treat today as an active beer day regardless of month
   const isOctober = today.getMonth() === 9 || PREVIEW_MODE
   const year      = today.getFullYear()
-  const todayDay  = today.getDate()
+  const todayDay  = isOctober ? today.getDate() : null
   const oct1DOW   = new Date(year, 9, 1).getDay()
 
   const [user,         setUser]         = useState<{ id: string; email?: string } | null>(null)
@@ -491,63 +491,73 @@ export default function BeersPage() {
                   color: 'var(--text)',
                   fontSize: 'clamp(1.75rem, 4vw, 2.75rem)',
                   lineHeight: 1.1,
-                  marginBottom: '1.5rem',
+                  marginBottom: '0.4rem',
                 }}>
                   {todayBeer.name}
                 </h1>
 
-                {/* ── BREWERY INFO ──────────────────────────────────────── */}
-                <div style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '12px',
-                  padding: '1.25rem 1.5rem',
-                  marginBottom: '1rem',
-                }}>
+                {/* Brewery + style/ABV as subtitle under the name */}
+                <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{
-                    color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
-                    fontSize: '0.58rem', letterSpacing: '0.28em',
-                    textTransform: 'uppercase', marginBottom: '0.75rem',
+                    color: 'var(--gold)',
+                    fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '1.1rem',
+                    marginBottom: '0.25rem',
                   }}>
-                    The Brewery
+                    {todayBeer.brewery}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                    <span style={{
-                      color: 'var(--text)',
+                  {(todayBeer.style || todayBeer.abv) && (
+                    <div style={{
+                      color: 'var(--text-muted)',
                       fontFamily: "'Modern Antiqua', serif",
-                      fontSize: '1.15rem',
-                      fontWeight: 600,
+                      fontSize: '0.85rem',
                     }}>
-                      {todayBeer.brewery}
-                    </span>
-                    {(todayBeer.style || todayBeer.abv) && (
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                        {todayBeer.style}{todayBeer.style && todayBeer.abv ? ' · ' : ''}{todayBeer.abv ? `${todayBeer.abv}% ABV` : ''}
-                      </span>
-                    )}
-                  </div>
+                      {todayBeer.style}{todayBeer.style && todayBeer.abv ? ' · ' : ''}{todayBeer.abv ? `${todayBeer.abv}% ABV` : ''}
+                    </div>
+                  )}
                 </div>
 
-                {/* ── TASTING NOTES ─────────────────────────────────────── */}
+                {/* ── BEER INFO CARD ─────────────────────────────────────── */}
+                {(todayBeer.beer_fact || todayBeer.brewery_fact) && (
                 <div style={{
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border)',
                   borderRadius: '12px',
                   padding: '1.25rem 1.5rem',
                   marginBottom: '1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
                 }}>
-                  <div style={{
-                    color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
-                    fontSize: '0.58rem', letterSpacing: '0.28em',
-                    textTransform: 'uppercase', marginBottom: '0.75rem',
-                  }}>
-                    Tasting Notes
-                  </div>
-                  <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.85, fontStyle: 'italic', margin: 0 }}>
-                    {todayBeer.description ||
-                      "Tasting notes coming soon — the society's chronicler is still studying the brew..."}
-                  </p>
+                  {todayBeer.beer_fact && (
+                    <div>
+                      <div style={{
+                        color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                        fontSize: '0.58rem', letterSpacing: '0.28em',
+                        textTransform: 'uppercase', marginBottom: '0.5rem',
+                      }}>The Beer</div>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.75, margin: 0 }}>
+                        {todayBeer.beer_fact}
+                      </p>
+                    </div>
+                  )}
+                  {todayBeer.beer_fact && todayBeer.brewery_fact && (
+                    <div style={{ borderTop: '1px solid var(--border)' }} />
+                  )}
+                  {todayBeer.brewery_fact && (
+                    <div>
+                      <div style={{
+                        color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                        fontSize: '0.58rem', letterSpacing: '0.28em',
+                        textTransform: 'uppercase', marginBottom: '0.5rem',
+                      }}>The Brewery</div>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.75, margin: 0 }}>
+                        {todayBeer.brewery_fact}
+                      </p>
+                    </div>
+                  )}
                 </div>
+                )}
 
                 {/* ── RATING ────────────────────────────────────────────── */}
                 <div style={{
@@ -697,11 +707,82 @@ export default function BeersPage() {
                 </p>
               </section>
             ) : (
-              <section style={{ textAlign: 'center', padding: '3rem 0', marginBottom: '3rem' }}>
-                <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: '1.5rem', letterSpacing: '0.1em', marginBottom: '1rem' }}>
-                  The Ritual Awaits
-                </h2>
-                <p style={{ color: 'var(--text-muted)' }}>The sacred calendar awakens on October 1st.</p>
+              <section style={{ textAlign: 'center', padding: '4rem 0 3rem', marginBottom: '3rem' }}>
+
+                {/* Divider line + label */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '3rem' }}>
+                  <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(255,140,0,0.35))' }} />
+                  <span style={{
+                    fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '0.6rem', letterSpacing: '0.4em',
+                    textTransform: 'uppercase', color: 'var(--gold)', whiteSpace: 'nowrap',
+                  }}>The Calendar Is Being Set</span>
+                  <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
+                </div>
+
+                {/* Countdown */}
+                {(() => {
+                  const now = new Date()
+                  const oct1 = new Date(now.getFullYear(), 9, 1)
+                  if (oct1 < now) oct1.setFullYear(oct1.getFullYear() + 1)
+                  const diff = oct1.getTime() - now.getTime()
+                  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                  const hrs  = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+                  return (
+                    <div style={{ marginBottom: '2.5rem' }}>
+                      <div style={{
+                        fontFamily: "'Modern Antiqua', serif",
+                        color: 'var(--text-muted)', fontSize: '0.65rem',
+                        letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: '0.75rem',
+                      }}>
+                        October 1st begins in
+                      </div>
+                      <div style={{
+                        fontFamily: "'Modern Antiqua', serif",
+                        color: 'var(--gold)',
+                        fontSize: 'clamp(2.5rem, 8vw, 4.5rem)',
+                        lineHeight: 1,
+                        letterSpacing: '0.05em',
+                      }}>
+                        {days}<span style={{ fontSize: '0.4em', color: 'var(--text-muted)', marginLeft: '0.3em' }}>days</span>
+                        <span style={{ color: 'var(--border)', margin: '0 0.4em' }}>·</span>
+                        {hrs}<span style={{ fontSize: '0.4em', color: 'var(--text-muted)', marginLeft: '0.3em' }}>hrs</span>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Manifesto */}
+                <div style={{
+                  maxWidth: '480px', margin: '0 auto 2.5rem',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  padding: '1.75rem 2rem',
+                }}>
+                  <p style={{
+                    fontFamily: "'Modern Antiqua', serif",
+                    color: 'var(--text-muted)',
+                    fontSize: '0.95rem',
+                    lineHeight: 1.9,
+                    fontStyle: 'italic',
+                    margin: 0,
+                  }}>
+                    Every October, the Society convenes. Thirty-one days. Thirty-one beers.
+                    The deliberation is underway — each selection debated, contested, and earned.
+                    The calendar isn&apos;t set yet. But it will be.
+                  </p>
+                </div>
+
+                {/* CTA hint */}
+                <p style={{
+                  color: 'var(--text-muted)', fontSize: '0.8rem',
+                  fontFamily: "'Modern Antiqua', serif",
+                  letterSpacing: '0.1em',
+                }}>
+                  The 31 slots below are reserved. The beers have yet to be named.
+                </p>
+
               </section>
             )}
 

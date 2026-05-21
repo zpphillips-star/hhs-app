@@ -59,21 +59,28 @@ export default function SetupBanner() {
       if (!user) return
       setUserId(user.id)
 
-      // Check install: running as PWA counts automatically
       const runningAsPWA = isPWA()
+      const onMobile = isIOS() || isAndroid()
 
-      // Also check DB (they may have installed on another device/session)
+      // Also check DB (used for admin tracking only, not modal logic)
       const { data: profile } = await supabase
         .from('profiles')
         .select('has_pwa')
         .eq('id', user.id)
         .single()
 
-      const installDone = runningAsPWA || !!profile?.has_pwa
-
-      // If running as PWA right now, write it back so DB stays in sync
+      // If running as PWA right now → installed. Write it to DB if not already set.
+      // If NOT running as PWA on mobile → they deleted it (or never installed). Reset DB.
+      let installDone = runningAsPWA
       if (runningAsPWA && !profile?.has_pwa) {
         supabase.from('profiles').update({ has_pwa: true }).eq('id', user.id).then(() => {})
+      } else if (!runningAsPWA && onMobile && profile?.has_pwa) {
+        // They deleted the app — reset the flag so admin dashboard reflects reality
+        supabase.from('profiles').update({ has_pwa: false }).eq('id', user.id).then(() => {})
+        installDone = false
+      } else if (!onMobile) {
+        // Desktop — skip the install step entirely, not applicable
+        installDone = true
       }
 
       // Check notifications: browser permission + push subscription in DB

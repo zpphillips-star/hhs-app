@@ -5,10 +5,13 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 
+type Tier = 'hallowed' | 'oddballs'
+
 export default function CompleteProfilePage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [tier, setTier] = useState<Tier | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [firstName, setFirstName] = useState('')
@@ -38,6 +41,10 @@ export default function CompleteProfilePage() {
     }
     if (!username.trim()) {
       setError('Please choose a Society name.')
+      return
+    }
+    if (!tier) {
+      setError('Please choose your membership tier.')
       return
     }
 
@@ -72,10 +79,11 @@ export default function CompleteProfilePage() {
         username: username.trim().toLowerCase(),
         display_name: username.trim(),
         status: 'approved',
+        tier,
       }, { onConflict: 'id' })
     }
 
-    router.push('/welcome')
+    router.push('/auth/payment')
   }
 
   const inputStyle = {
@@ -148,6 +156,74 @@ export default function CompleteProfilePage() {
                 style={inputStyle}
                 placeholder="••••••••"
               />
+            </div>
+
+            {/* Tier Selection */}
+            <div>
+              <label style={{ ...labelStyle, marginBottom: '0.75rem' }}>Membership Tier</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                {([
+                  {
+                    key: 'hallowed' as Tier,
+                    name: 'Hallowed',
+                    count: '31 Beers',
+                    desc: 'Every day of October',
+                  },
+                  {
+                    key: 'oddballs' as Tier,
+                    name: 'Oddballs',
+                    count: '16 Beers',
+                    desc: 'Odd days only',
+                  },
+                ] as const).map(({ key, name, count, desc }) => {
+                  const selected = tier === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setTier(key)}
+                      style={{
+                        padding: '1rem 0.75rem',
+                        border: `2px solid ${selected ? 'var(--gold)' : 'var(--border)'}`,
+                        borderRadius: 'var(--radius-sm)',
+                        background: selected ? 'rgba(var(--gold-rgb, 180,130,50), 0.08)' : 'var(--bg)',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'border-color 0.2s, background 0.2s',
+                      }}
+                    >
+                      <div style={{
+                        fontFamily: "'Modern Antiqua', serif",
+                        fontSize: '0.8rem',
+                        letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                        color: selected ? 'var(--gold)' : 'var(--text)',
+                        fontWeight: 700,
+                        marginBottom: '0.3rem',
+                      }}>
+                        {name}
+                      </div>
+                      <div style={{
+                        fontFamily: "'Crimson Text', serif",
+                        fontSize: '1.1rem',
+                        color: selected ? 'var(--gold)' : 'var(--text)',
+                        fontWeight: 600,
+                        marginBottom: '0.2rem',
+                      }}>
+                        {count}
+                      </div>
+                      <div style={{
+                        fontFamily: "'Crimson Text', serif",
+                        fontSize: '0.8rem',
+                        color: 'var(--text-muted)',
+                        fontStyle: 'italic',
+                      }}>
+                        {desc}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {error && <p style={{ color: '#e57373', fontSize: '0.9rem' }}>{error}</p>}

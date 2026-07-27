@@ -7,6 +7,13 @@ type Step = 'browser' | 'install' | 'notify' | 'done'
 type InAppType = 'gmail-android' | 'gmail-ios' | 'webview' | null
 type BrowserName = 'chrome' | 'edge' | 'brave' | 'samsung' | 'opera' | 'firefox' | 'safari' | 'other'
 
+function isNativeApp() {
+  if (typeof window === 'undefined') return false
+  if ((window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__) return true
+  try { if (localStorage.getItem('__hhs_native_app__') === '1') return true } catch { /* ignore */ }
+  return false
+}
+
 function isIOS() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent)
 }
@@ -59,6 +66,9 @@ export default function SetupGuide({ userId }: { userId: string }) {
   const [canPromptInstall, setCanPromptInstall] = useState(false)
   const [inAppBrowser, setInAppBrowser] = useState<InAppType>(null)
   const [currentBrowser, setCurrentBrowser] = useState<BrowserName>('other')
+
+  // Don't render at all in the native app — install/PWA prompts are not applicable
+  if (isNativeApp()) return null
 
   useEffect(() => {
     const handler = (e: Event) => {

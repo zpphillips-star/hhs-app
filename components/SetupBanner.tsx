@@ -3,6 +3,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+function isNativeApp() {
+  if (typeof window === 'undefined') return false
+  if ((window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__) return true
+  try { if (localStorage.getItem('__hhs_native_app__') === '1') return true } catch { /* ignore */ }
+  return false
+}
+
 function isPWA() {
   if (typeof window === 'undefined') return false
   return (
@@ -41,6 +48,9 @@ export default function SetupBanner() {
   const [showInstallSteps, setShowInstallSteps] = useState(false)
   const [subscribing, setSubscribing] = useState(false)
   const [notifBlocked, setNotifBlocked] = useState(false)
+
+  // Don't render at all in the native app — install/PWA prompts are not applicable
+  if (isNativeApp()) return null
 
   // Capture native install prompt (Android/desktop Chrome/Edge)
   useEffect(() => {

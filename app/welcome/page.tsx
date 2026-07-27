@@ -61,6 +61,17 @@ export default function WelcomePage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) { router.push('/auth'); return }
+
+      // In native app: skip the webapp welcome/install flow — go directly to beers
+      const nativeApp =
+        !!(window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__ ||
+        localStorage.getItem('__hhs_native_app__') === '1'
+      if (nativeApp) {
+        localStorage.setItem('hhs_setup_done', '1')
+        router.replace('/beers')
+        return
+      }
+
       setUserId(user.id)
       setFirstName(user.user_metadata?.first_name || '')
     })

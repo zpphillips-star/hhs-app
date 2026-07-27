@@ -46,7 +46,12 @@ export default function HomePage() {
       setUser(user)
       if (user) {
         const setupDone = typeof window !== 'undefined' && localStorage.getItem('hhs_setup_done')
-        if (!setupDone) { router.replace('/welcome'); return }
+        // In native app: skip the webapp welcome/install flow entirely
+        const nativeApp = typeof window !== 'undefined' && (
+          !!(window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__ ||
+          localStorage.getItem('__hhs_native_app__') === '1'
+        )
+        if (!setupDone && !nativeApp) { router.replace('/welcome'); return }
       }
       // Logged-in members go straight to the daily ritual during October
       if (user && isOctober) router.replace('/beers')

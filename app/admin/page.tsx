@@ -33,6 +33,7 @@ type Member = {
   first_name: string | null
   last_name: string | null
   username: string
+  email: string | null
   status: string
   created_at: string
   has_notifications: boolean
@@ -40,6 +41,8 @@ type Member = {
   tier: string | null
   tier_selected_at: string | null
   venmo_clicked_at: string | null
+  native_membership_amount: number | null
+  native_source: string | null
 }
 
 export default function AdminPage() {
@@ -123,7 +126,7 @@ export default function AdminPage() {
   const fetchMembers = async () => {
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, username, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at')
+      .select('id, first_name, last_name, username, email, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at, native_membership_amount, native_source')
       .eq('status', 'approved')
       .order('created_at', { ascending: true })
 
@@ -137,9 +140,12 @@ export default function AdminPage() {
       ...p,
       has_notifications: subSet.has(p.id),
       has_pwa: p.has_pwa || false,
+      email: p.email || null,
       tier: p.tier || null,
       tier_selected_at: p.tier_selected_at || null,
       venmo_clicked_at: p.venmo_clicked_at || null,
+      native_membership_amount: p.native_membership_amount || null,
+      native_source: p.native_source || null,
     })))
   }
 
@@ -389,24 +395,28 @@ export default function AdminPage() {
           ) : (
             <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               {/* Header row */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
                 <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Member</span>
                 <span className="text-xs uppercase tracking-wider text-center w-8" style={{ color: 'var(--text-muted)' }}>Notifs</span>
                 <span className="text-xs uppercase tracking-wider text-center w-8" style={{ color: 'var(--text-muted)' }}>PWA</span>
                 <span className="text-xs uppercase tracking-wider text-center w-20" style={{ color: 'var(--text-muted)' }}>Tier</span>
                 <span className="text-xs uppercase tracking-wider text-center w-14" style={{ color: 'var(--text-muted)' }}>Venmo</span>
+                <span className="text-xs uppercase tracking-wider text-center w-12" style={{ color: 'var(--text-muted)' }}>Amt</span>
               </div>
               {members.map((m, i) => (
                 <div
                   key={m.id}
-                  className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-3 items-center"
+                  className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-3 items-center"
                   style={i < members.length - 1 ? { borderBottom: '1px solid rgba(217,124,43,0.08)' } : {}}
                 >
                   <div>
                     <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                       {m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : m.username}
                     </p>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>@{m.username}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      {m.email || `@${m.username}`}
+                      {m.native_source && <span className="ml-1 px-1 rounded" style={{ background: 'rgba(217,124,43,0.12)', color: 'var(--gold)', fontSize: '0.65rem' }}>native</span>}
+                    </p>
                   </div>
                   <div className="text-center w-8" title="Push notifications enabled">
                     {m.has_notifications ? <span className="text-green-400">✓</span> : <span style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>}
@@ -424,21 +434,32 @@ export default function AdminPage() {
                   </div>
                   <div className="text-center w-14">
                     {m.venmo_clicked_at
-                      ? <span className="text-green-400 text-xs">✓ sent</span>
+                      ? <span className="text-green-400 text-xs" title={`Clicked: ${new Date(m.venmo_clicked_at).toLocaleDateString()}`}>✓ sent</span>
                       : m.tier
                         ? <span className="text-xs" style={{ color: 'var(--gold)', opacity: 0.6 }}>pending</span>
+                        : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
+                    }
+                  </div>
+                  <div className="text-center w-12">
+                    {m.native_membership_amount
+                      ? <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>${m.native_membership_amount}</span>
+                      : m.tier
+                        ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}>${m.tier === 'hallowed' ? 150 : 100}</span>
                         : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                     }
                   </div>
                 </div>
               ))}
               {/* Summary row */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ borderTop: '1px solid var(--border)', background: 'rgba(25,23,38,0.5)' }}>
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ borderTop: '1px solid var(--border)', background: 'rgba(25,23,38,0.5)' }}>
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{members.length} total</span>
                 <span className="text-xs text-center w-8" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_notifications).length}/{members.length}</span>
                 <span className="text-xs text-center w-8" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_pwa).length}/{members.length}</span>
                 <span className="text-xs text-center w-20" style={{ color: 'var(--gold)' }}>{members.filter(m => m.tier).length}/{members.length}</span>
                 <span className="text-xs text-green-400 text-center w-14">{members.filter(m => m.venmo_clicked_at).length}/{members.length}</span>
+                <span className="text-xs text-center w-12" style={{ color: 'var(--gold)' }}>
+                  ${members.reduce((sum, m) => sum + (m.native_membership_amount || (m.tier === 'hallowed' ? 150 : m.tier === 'oddballs' ? 100 : 0)), 0)}
+                </span>
               </div>
             </div>
           )}

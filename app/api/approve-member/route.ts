@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
           username: finalUsername,
           first_name: memberReq.first_name,
           last_name: memberReq.last_name,
+          email: memberReq.email,
           status: 'approved',
         }, { onConflict: 'id' })
     }

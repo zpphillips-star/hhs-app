@@ -73,6 +73,12 @@ export default function SetupGuide({ userId }: { userId: string }) {
   useEffect(() => {
     if (dismissed) return
 
+    // Skip entirely when running inside the HHS native Android app.
+    // The native app manages its own onboarding overlay and sets window.__HHS_NATIVE_APP__.
+    if (typeof window !== 'undefined' && (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__) {
+      return
+    }
+
     setCurrentBrowser(detectCurrentBrowser())
 
     const detected = detectInAppBrowser()

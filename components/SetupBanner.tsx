@@ -55,6 +55,12 @@ export default function SetupBanner() {
 
   // On every page load: check real state from Supabase + browser
   useEffect(() => {
+    // Skip entirely when running inside the HHS native Android app.
+    // The native app manages its own membership onboarding overlay and sets
+    // window.__HHS_NATIVE_APP__ via injectedJavaScriptBeforeContentLoaded.
+    if (typeof window !== 'undefined' && (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__) {
+      return
+    }
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       setUserId(user.id)

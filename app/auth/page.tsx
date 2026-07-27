@@ -24,8 +24,10 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) setError(error.message)
     else {
+      // Native app skips the web setup flow — go straight to the main page
+      const isNativeApp = typeof window !== 'undefined' && (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__
       const setupDone = typeof window !== 'undefined' && localStorage.getItem('hhs_setup_done')
-      router.push(setupDone ? '/' : '/welcome')
+      router.push(isNativeApp || setupDone ? '/' : '/welcome')
       router.refresh()
     }
     setLoading(false)

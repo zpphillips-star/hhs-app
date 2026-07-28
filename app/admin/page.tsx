@@ -336,6 +336,24 @@ export default function AdminPage() {
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{beers.length}/31 beers</span>
         </div>
 
+        {/* Feedback quick link */}
+        <div className="mb-6">
+          <a
+            href="/admin/feedback"
+            className="flex items-center justify-between px-4 py-3 rounded-xl"
+            style={{ border: '1px solid rgba(217,124,43,0.22)', background: 'rgba(217,124,43,0.06)',
+              color: 'var(--text)', textDecoration: 'none' }}
+          >
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--gold)' }}>💬 Feedback Board</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Review &amp; triage member suggestions</p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: 'var(--gold)', opacity: 0.7, flexShrink: 0 }}>
+              <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </a>
+        </div>
+
         {/* Notification setup banner for admin */}
         {myNotifStatus !== 'granted' && (
           <div className="mb-6 px-4 py-3 rounded-xl flex items-center justify-between gap-4" style={{ border: '1px solid rgba(217,124,43,0.3)', background: 'rgba(217,124,43,0.08)' }}>

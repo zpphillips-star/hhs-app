@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
+import { sendExpoPush } from '@/lib/expo-push'
 
 webpush.setVapidDetails(
   process.env.VAPID_EMAIL!,
@@ -105,8 +106,22 @@ export async function GET(req: NextRequest) {
 
   // Odd days: both tiers. Even days: Hallowed only.
   const tiers = isOddDay ? ['hallowed', 'oddballs'] : ['hallowed']
-  const result = await broadcast(title, body, '/beers', tiers)
-  return NextResponse.json(result)
+  const webResult = await broadcast(title, body, '/beers', tiers)
+
+  // Also send to Expo (native) push tokens, respecting daily_beer preference
+  const expoResult = await sendExpoPush({
+    supabase,
+    // userIds omitted = all registered tokens (preferences filter applied inside)
+    title,
+    body,
+    url: '/beers',
+    category: 'daily_beer',
+  }).catch(err => {
+    console.error('[notify] expo push error:', err instanceof Error ? err.message : err)
+    return { sent: 0, skipped: 0, failed: [String(err)] }
+  })
+
+  return NextResponse.json({ web: webResult, expo: expoResult })
 }
 
 // POST — admin broadcast with explicit tier targeting
@@ -117,7 +132,20 @@ export async function POST(req: NextRequest) {
   }
 
   // tiers: undefined = everyone, ['hallowed'] = Hallowed only, ['oddballs'] = Odd Balls only, ['hallowed','oddballs'] = both
-  const result = await broadcast(title, body, url || '/', tiers ?? undefined)
-  return NextResponse.json(result)
+  const webResult = await broadcast(title, body, url || '/', tiers ?? undefined)
+
+  // Also broadcast to Expo tokens
+  const expoResult = await sendExpoPush({
+    supabase,
+    title,
+    body,
+    url: url || '/',
+    category: 'daily_beer',
+  }).catch(err => {
+    console.error('[notify] expo push broadcast error:', err instanceof Error ? err.message : err)
+    return { sent: 0, skipped: 0, failed: [String(err)] }
+  })
+
+  return NextResponse.json({ web: webResult, expo: expoResult })
 }
 

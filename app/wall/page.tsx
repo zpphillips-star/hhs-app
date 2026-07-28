@@ -511,33 +511,29 @@ export default function WallPage() {
 
   const handleReact = async (postId: string, reaction: ReactionKey) => {
     if (!user) return
-    // Find if user already has a reaction on this post
-    const post = posts.find(p => p.id === postId)
-    const existing = post?.post_reactions.find(r => r.user_id === user.id)
-
-    if (existing) {
-      if (existing.reaction === reaction) {
-        // Same reaction — toggle off
-        const { error } = await supabase.from('post_reactions').delete()
-          .eq('post_id', postId).eq('user_id', user.id)
-        if (error) { alert('Remove error: ' + error.message); return }
-      } else {
-        // Different reaction — swap it
-        const { error } = await supabase.from('post_reactions').update({ reaction })
-          .eq('post_id', postId).eq('user_id', user.id)
-        if (error) { alert('Update error: ' + error.message); return }
-      }
-    } else {
-      // No reaction yet — insert
-      const { error } = await supabase.from('post_reactions').insert({ post_id: postId, user_id: user.id, reaction })
-      if (error) { alert('React error: ' + error.message); return }
+    const res = await fetch('/api/wall/react', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: postId, user_id: user.id, reaction }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string }
+      console.error('[wall] react error:', err?.error ?? res.status)
     }
     await reloadPost(postId)
   }
 
   const handleComment = async (postId: string, content: string) => {
     if (!user) return
-    await supabase.from('post_comments').insert({ post_id: postId, user_id: user.id, content })
+    const res = await fetch('/api/wall/comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: postId, user_id: user.id, content }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string }
+      console.error('[wall] comment error:', err?.error ?? res.status)
+    }
     await reloadPost(postId)
   }
 

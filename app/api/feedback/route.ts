@@ -23,6 +23,19 @@ function getSupabaseAnon() {
   )
 }
 
+const VALID_STATUSES = new Set(['submitted', 'backlog', 'in_progress', 'live'])
+
+function normalizeFeedbackItem(item: Record<string, unknown>) {
+  const rawImages = item.image_urls
+  return {
+    ...item,
+    status: typeof item.status === 'string' && VALID_STATUSES.has(item.status) ? item.status : 'submitted',
+    image_urls: Array.isArray(rawImages)
+      ? rawImages.filter((url): url is string => typeof url === 'string' && /^https:\/\//i.test(url))
+      : [],
+  }
+}
+
 // ── GET ───────────────────────────────────────────────────────────────────────
 export async function GET() {
   try {
@@ -33,7 +46,7 @@ export async function GET() {
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    return NextResponse.json({ items: data ?? [] })
+    return NextResponse.json({ items: (data ?? []).map(item => normalizeFeedbackItem(item)) })
   } catch (err) {
     console.error('[feedback] GET error:', err)
     return NextResponse.json({ items: [] })
@@ -65,7 +78,9 @@ export async function POST(req: NextRequest) {
         name: name?.trim() || null,
         email: email?.trim() || null,
         status: 'submitted',
-        image_urls: Array.isArray(image_urls) ? image_urls : [],
+        image_urls: Array.isArray(image_urls)
+          ? image_urls.filter((url): url is string => typeof url === 'string' && /^https:\/\//i.test(url)).slice(0, 4)
+          : [],
       })
       .select()
       .single()
@@ -103,8 +118,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json()
     const { status } = body as { status?: string }
 
-    const validStatuses = ['submitted', 'backlog', 'in_progress', 'live']
-    if (!status || !validStatuses.includes(status)) {
+    if (!status || !VALID_STATUSES.has(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
 

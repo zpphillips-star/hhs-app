@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import Link from 'next/link'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type FeedbackStatus = 'submitted' | 'backlog' | 'in_progress' | 'live'
@@ -269,6 +268,7 @@ function StageSection({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function FeedbackPage() {
+  const mountedRef = useRef(true)
   const [items, setItems] = useState<FeedbackItem[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [token, setToken] = useState<string | null>(null)
@@ -282,6 +282,10 @@ export default function FeedbackPage() {
   const [imageUrls, setImageUrls]     = useState<string[]>([])
   const [submitting, setSubmitting]   = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  useEffect(() => {
+    return () => { mountedRef.current = false }
+  }, [])
 
   // Check auth (admin detection)
   useEffect(() => {
@@ -298,19 +302,26 @@ export default function FeedbackPage() {
   }, [])
 
   // Fetch feedback items
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/feedback')
+      const res = await fetch('/api/feedback', { signal })
       if (!res.ok) return
       const data = await res.json()
-      if (Array.isArray(data.items)) setItems(data.items)
-    } catch { /* silent */ }
+      if (mountedRef.current && Array.isArray(data.items)) setItems(data.items)
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      /* silent */
+    }
   }, [])
 
   useEffect(() => {
-    fetchItems()
-    const iv = setInterval(fetchItems, 30_000)
-    return () => clearInterval(iv)
+    const controller = new AbortController()
+    fetchItems(controller.signal)
+    const iv = setInterval(() => fetchItems(), 30_000)
+    return () => {
+      controller.abort()
+      clearInterval(iv)
+    }
   }, [fetchItems])
 
   // Submit feedback
@@ -334,7 +345,7 @@ export default function FeedbackPage() {
       setJustSubmitted(true)
       setTitle(''); setDescription(''); setName(''); setImageUrls([])
       setShowForm(false)
-      setTimeout(() => setJustSubmitted(false), 6000)
+      setTimeout(() => { if (mountedRef.current) setJustSubmitted(false) }, 6000)
       fetchItems()
     } catch {
       setSubmitError('Something went wrong. Please try again.')
@@ -382,6 +393,10 @@ export default function FeedbackPage() {
     e.currentTarget.style.boxShadow = 'none'
   }
 
+  function goHome() {
+    window.location.assign('/')
+  }
+
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', paddingBottom: '4rem' }}>
 
@@ -389,15 +404,17 @@ export default function FeedbackPage() {
       <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center',
         padding: '12px 16px', background: 'rgba(25,23,38,0.96)', backdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(217,124,43,0.18)' }}>
-        <Link href="/"
+        <button
+          type="button"
+          onClick={goHome}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32,
             borderRadius: 8, color: '#a69d8d', background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(217,124,43,0.18)', textDecoration: 'none', flexShrink: 0 }}
+            border: '1px solid rgba(217,124,43,0.18)', textDecoration: 'none', flexShrink: 0, cursor: 'pointer' }}
           aria-label="Go back">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-        </Link>
+        </button>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <span style={{ fontFamily: 'var(--font-modern-antiqua, "Modern Antiqua", serif)',
             fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#d97c2b' }}>

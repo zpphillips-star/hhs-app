@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { MouseEvent, useEffect, useState } from 'react'
 
 // Extend Window to accommodate the React Native WebView bridge
 declare global {
@@ -50,6 +50,15 @@ export default function Nav({ user }: Props) {
     }
   }
 
+  const handleTopNavClick = (href: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isNativeApp) return
+
+    // Android WebView has been more reliable with document-level navigation
+    // than with Next client transitions for the persistent top nav.
+    event.preventDefault()
+    window.location.assign(href)
+  }
+
   const links = [
     { href: '/beers', label: 'The Beer' },
     { href: '/wall', label: 'The Wall' },
@@ -59,7 +68,7 @@ export default function Nav({ user }: Props) {
   return (
     <nav style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }} className="px-6 py-4">
       <div className="container mx-auto max-w-6xl flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3" onClick={handleTopNavClick('/')}>
           <Image src="/hhs-nav-icon.webp" alt="HHS" width={44} height={26} className="opacity-90" />
         </Link>
 
@@ -68,6 +77,7 @@ export default function Nav({ user }: Props) {
             <Link
               key={link.href}
               href={link.href}
+              onClick={handleTopNavClick(link.href)}
               style={{
                 fontFamily: "'Modern Antiqua', serif",
                 color: pathname === link.href ? 'var(--gold)' : 'var(--text-muted)',
@@ -112,6 +122,7 @@ export default function Nav({ user }: Props) {
           ) : (
             <Link
               href="/auth"
+              onClick={handleTopNavClick('/auth')}
               style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: '0.75rem', letterSpacing: '0.15em' }}
               className="uppercase tracking-wider"
             >

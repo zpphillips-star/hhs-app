@@ -22,19 +22,26 @@ export default function Nav({ user }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [isNativeApp, setIsNativeApp] = useState(false)
+  const [hideNativeFallbackChrome, setHideNativeFallbackChrome] = useState(false)
 
   useEffect(() => {
     try {
+      const nativeFallbackRoute = pathname === '/wall' || pathname === '/leaderboard'
+      const nativeFallbackMarker =
+        new URLSearchParams(window.location.search).get('hhs_native_fallback') === '1' ||
+        sessionStorage.getItem('__hhs_native_fallback__') === '1'
+
       if (
         window.__HHS_NATIVE_APP__ ||
         localStorage.getItem('__hhs_native_app__') === '1'
       ) {
         setIsNativeApp(true)
       }
+      setHideNativeFallbackChrome(nativeFallbackRoute && nativeFallbackMarker)
     } catch {
       // storage or window not available — stay false
     }
-  }, [])
+  }, [pathname])
 
   const signOut = async () => {
     await supabase.auth.signOut()
@@ -64,6 +71,8 @@ export default function Nav({ user }: Props) {
     { href: '/wall', label: 'The Wall' },
     { href: '/leaderboard', label: 'The Rankings' },
   ]
+
+  if (hideNativeFallbackChrome) return null
 
   return (
     <nav style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }} className="px-6 py-4">

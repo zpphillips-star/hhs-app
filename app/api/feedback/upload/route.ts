@@ -28,9 +28,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'File too large (max 5 MB)' }, { status: 400 })
     }
 
+    // Use service-role key so uploads bypass RLS regardless of bucket policy state.
+    // This is a server-side route — the secret key is never exposed to the client.
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      process.env.SUPABASE_SECRET_KEY!,
     )
 
     const ext = file.name.split('.').pop() ?? 'jpg'

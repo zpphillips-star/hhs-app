@@ -4,6 +4,15 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Image from 'next/image'
+import { useEffect, useState } from 'react'
+
+// Extend Window to accommodate the React Native WebView bridge
+declare global {
+  interface Window {
+    __HHS_NATIVE_APP__?: boolean
+    ReactNativeWebView?: { postMessage: (msg: string) => void }
+  }
+}
 
 type Props = {
   user: { id: string; email?: string } | null
@@ -12,11 +21,33 @@ type Props = {
 export default function Nav({ user }: Props) {
   const pathname = usePathname()
   const router = useRouter()
+  const [isNativeApp, setIsNativeApp] = useState(false)
+
+  useEffect(() => {
+    try {
+      if (
+        window.__HHS_NATIVE_APP__ ||
+        localStorage.getItem('__hhs_native_app__') === '1'
+      ) {
+        setIsNativeApp(true)
+      }
+    } catch {
+      // storage or window not available — stay false
+    }
+  }, [])
 
   const signOut = async () => {
     await supabase.auth.signOut()
     router.push('/')
     router.refresh()
+  }
+
+  const openNativeMenu = () => {
+    try {
+      window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'HHS_OPEN_MENU' }))
+    } catch {
+      // bridge not available
+    }
   }
 
   const links = [
@@ -48,7 +79,29 @@ export default function Nav({ user }: Props) {
               {link.label}
             </Link>
           ))}
-          {user ? (
+
+          {isNativeApp ? (
+            /* Hamburger — replaces Members Only / Sign Out in native app */
+            <button
+              onClick={openNativeMenu}
+              aria-label="Open menu"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '5px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px 2px',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <span style={{ display: 'block', width: '20px', height: '2px', background: 'var(--gold)', borderRadius: '1px' }} />
+              <span style={{ display: 'block', width: '20px', height: '2px', background: 'var(--gold)', borderRadius: '1px' }} />
+              <span style={{ display: 'block', width: '20px', height: '2px', background: 'var(--gold)', borderRadius: '1px' }} />
+            </button>
+          ) : user ? (
             <button
               onClick={signOut}
               style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.15em' }}

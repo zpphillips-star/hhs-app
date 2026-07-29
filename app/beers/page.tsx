@@ -217,15 +217,34 @@ const PREVIEW_BEER = {
   created_at: new Date().toISOString(),
 } as Beer
 
+const BEER_YEAR = 2026
+
+function getNativeBeerView() {
+  if (typeof window === 'undefined') return { appMode: false, view: '' }
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const appMode =
+      params.get('hhs_app') === '1' ||
+      (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__ ||
+      localStorage.getItem('__hhs_native_app__') === '1'
+    return { appMode, view: params.get('hhs_view') || '' }
+  } catch {
+    return { appMode: false, view: '' }
+  }
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function BeersPage() {
+  const [nativeView] = useState(getNativeBeerView)
   const today    = new Date()
   // In PREVIEW_MODE, treat today as an active beer day regardless of month
-  const isOctober = today.getMonth() === 9 || PREVIEW_MODE
-  const year      = today.getFullYear()
+  const isOctober = (today.getFullYear() === BEER_YEAR && today.getMonth() === 9) || PREVIEW_MODE
+  const year      = BEER_YEAR
   const todayDay  = isOctober ? today.getDate() : null
   const oct1DOW   = new Date(year, 9, 1).getDay()
+  const calendarOnly = nativeView.appMode && nativeView.view === 'calendar'
+  const todayOnly = nativeView.appMode && nativeView.view === 'today'
 
   const [user,         setUser]         = useState<{ id: string; email?: string } | null>(null)
   const [beers,        setBeers]        = useState<Beer[]>([])
@@ -425,7 +444,7 @@ export default function BeersPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
-      <Nav user={user} />
+      {!nativeView.appMode && <Nav user={user} />}
 
       <main style={{ maxWidth: '900px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
         {loading ? (
@@ -438,7 +457,7 @@ export default function BeersPage() {
             {/* ══════════════════════════════════════════════════════════════
                 BEER OF THE DAY
             ══════════════════════════════════════════════════════════════ */}
-            {isOctober && todayBeer ? (
+            {!calendarOnly && isOctober && todayBeer ? (
               <section style={{ marginBottom: '3.5rem' }}>
 
                 {/* TODAY'S BEER label */}
@@ -466,7 +485,7 @@ export default function BeersPage() {
                   fontSize: '0.65rem', letterSpacing: '0.35em', marginBottom: '0.75rem',
                   textTransform: 'uppercase',
                 }}>
-                  {today.getMonth() === 9
+                  {isOctober
                     ? `Day ${todayBeer.day_number} · October ${todayBeer.day_number}, ${year}`
                     : today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
                   }
@@ -686,7 +705,7 @@ export default function BeersPage() {
                 )}
 
                 {/* Link to The Wall */}
-                <div style={{ textAlign: 'center', paddingBottom: '0.5rem' }}>
+                {!nativeView.appMode && <div style={{ textAlign: 'center', paddingBottom: '0.5rem' }}>
                   <a href="/wall" style={{
                     color: 'var(--gold)',
                     fontFamily: "'Modern Antiqua', serif",
@@ -696,17 +715,17 @@ export default function BeersPage() {
                   }}>
                     → Go to The Wall
                   </a>
-                </div>
+                </div>}
 
               </section>
 
-            ) : isOctober && !todayBeer ? (
+            ) : !calendarOnly && isOctober && !todayBeer ? (
               <section style={{ textAlign: 'center', padding: '3rem 0', marginBottom: '3rem' }}>
                 <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
                   Today&apos;s beer hasn&apos;t been added yet. Check back soon.
                 </p>
               </section>
-            ) : (
+            ) : !todayOnly ? (
               <section style={{ textAlign: 'center', padding: '4rem 0 3rem', marginBottom: '3rem' }}>
 
                 {/* Divider line + label */}
@@ -723,9 +742,8 @@ export default function BeersPage() {
                 {/* Countdown */}
                 {(() => {
                   const now = new Date()
-                  const oct1 = new Date(now.getFullYear(), 9, 1)
-                  if (oct1 < now) oct1.setFullYear(oct1.getFullYear() + 1)
-                  const diff = oct1.getTime() - now.getTime()
+                  const oct1 = new Date(BEER_YEAR, 9, 1)
+                  const diff = Math.max(0, oct1.getTime() - now.getTime())
                   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
                   const hrs  = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
                   return (
@@ -784,12 +802,12 @@ export default function BeersPage() {
                 </p>
 
               </section>
-            )}
+            ) : null}
 
             {/* ══════════════════════════════════════════════════════════════
                 OCTOBER CALENDAR
             ══════════════════════════════════════════════════════════════ */}
-            <section style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+            {!todayOnly && <section style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
 
               {/* Month header */}
               <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -957,7 +975,7 @@ export default function BeersPage() {
                   })}
                 </div>
               </div>
-            </section>
+            </section>}
 
           </>
         )}

@@ -59,3 +59,14 @@ input, textarea, button {
 ::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
 
+html[data-hhs-app-mode="true"] nav,
+html[data-hhs-app-mode="true"] [data-hhs-web-nav="true"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+html[data-hhs-app-mode="true"],
+html[data-hhs-app-mode="true"] body {
+  overscroll-behavior: none;
+}
+

@@ -43,6 +43,15 @@ export default function Nav({ user }: Props) {
     }
   }, [pathname])
 
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search)
+    const nativeApp =
+      params.get('hhs_app') === '1' ||
+      (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__ ||
+      localStorage.getItem('__hhs_native_app__') === '1'
+    if (nativeApp) return null
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
     router.push('/')
@@ -75,7 +84,7 @@ export default function Nav({ user }: Props) {
   if (hideNativeFallbackChrome) return null
 
   return (
-    <nav style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }} className="px-6 py-4">
+    <nav data-hhs-web-nav="true" style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }} className="px-6 py-4">
       <div className="container mx-auto max-w-6xl flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3" onClick={handleTopNavClick('/')}>
           <Image src="/hhs-nav-icon.webp" alt="HHS" width={44} height={26} className="opacity-90" />

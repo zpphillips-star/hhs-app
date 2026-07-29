@@ -9,6 +9,18 @@ import TierSelectionModal from '@/components/TierSelectionModal'
 
 const PAGE_SIZE = 15
 
+function getNativeAppMode() {
+  if (typeof window === 'undefined') return false
+  try {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('hhs_app') === '1' ||
+      (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__ ||
+      localStorage.getItem('__hhs_native_app__') === '1'
+  } catch {
+    return false
+  }
+}
+
 const REACTIONS = [
   { key: 'cheers', emoji: '🍺', label: 'Cheers'   },
   { key: 'dead',   emoji: '💀', label: 'Dead'     },
@@ -356,6 +368,7 @@ const mergeProfiles = (
   }))
 
 export default function WallPage() {
+  const [nativeAppMode] = useState(getNativeAppMode)
   // ── ALL hooks must come before any conditional return ──
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
@@ -458,7 +471,7 @@ export default function WallPage() {
   // 🔒 Secret society gate for unauthenticated visitors
   if (!user) return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
-      <Nav user={null} />
+      {!nativeAppMode && <Nav user={null} />}
       <main style={{ maxWidth: '500px', margin: '0 auto', padding: '6rem 2rem', textAlign: 'center' }}>
         <div style={{ marginBottom: '1.5rem' }}><RavenIcon size={150} /></div>
         <p style={{
@@ -478,7 +491,7 @@ export default function WallPage() {
         }}>
           What&apos;s shared here stays among members. You&apos;ll need to be one to enter.
         </p>
-        <a href="/auth" style={{
+        {!nativeAppMode && <a href="/auth" style={{
           display: 'inline-block',
           padding: '0.8rem 2.5rem',
           background: 'var(--gold)', color: 'var(--bg)',
@@ -486,7 +499,7 @@ export default function WallPage() {
           fontFamily: "'Modern Antiqua', serif",
           fontWeight: 700, fontSize: '0.9rem',
           letterSpacing: '0.1em', textDecoration: 'none',
-        }}>Enter the Society</a>
+        }}>Enter the Society</a>}
         <div style={{ width: '4rem', height: '1px', background: 'rgba(255,140,0,0.3)', margin: '3rem auto 0' }} />
       </main>
     </div>
@@ -609,7 +622,7 @@ export default function WallPage() {
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
-      <Nav user={user} />
+      {!nativeAppMode && <Nav user={user} />}
 
       {/* Tier selection modal — only shows when admin has opened tier selection and member hasn't picked */}
       {showTierModal && user && (

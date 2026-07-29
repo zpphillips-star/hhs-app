@@ -10,6 +10,18 @@ type BeerStat   = { name: string; brewery: string; day_number: number; avg: numb
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
+function getNativeAppMode() {
+  if (typeof window === 'undefined') return false
+  try {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('hhs_app') === '1' ||
+      (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__ ||
+      localStorage.getItem('__hhs_native_app__') === '1'
+  } catch {
+    return false
+  }
+}
+
 function SectionDivider({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
@@ -28,6 +40,7 @@ function SectionDivider({ label }: { label: string }) {
 }
 
 export default function LeaderboardPage() {
+  const [nativeAppMode] = useState(getNativeAppMode)
   const [user,     setUser]     = useState<{ id: string; email?: string } | null>(null)
   const [members,  setMembers]  = useState<MemberStat[]>([])
   const [topBeers, setTopBeers] = useState<BeerStat[]>([])
@@ -131,7 +144,7 @@ export default function LeaderboardPage() {
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
-      <Nav user={user} />
+      {!nativeAppMode && <Nav user={user} />}
 
       <main style={{ maxWidth: '700px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 
@@ -221,7 +234,7 @@ export default function LeaderboardPage() {
               }}>
                 Membership has its privileges. Sign in to see where you rank among the Society.
               </p>
-              <a href="/auth" style={{
+              {!nativeAppMode && <a href="/auth" style={{
                 display: 'inline-block',
                 padding: '0.75rem 2rem',
                 background: 'var(--gold)', color: 'var(--bg)',
@@ -229,7 +242,7 @@ export default function LeaderboardPage() {
                 fontFamily: "'Modern Antiqua', serif",
                 fontWeight: 700, fontSize: '0.875rem',
                 letterSpacing: '0.1em', textDecoration: 'none',
-              }}>Enter the Society</a>
+              }}>Enter the Society</a>}
             </div>
           ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>

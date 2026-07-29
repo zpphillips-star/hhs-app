@@ -28,6 +28,18 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="HHS" />
         <link rel="apple-touch-icon" href="/icon.png" />
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            try {
+              var params = new URLSearchParams(window.location.search);
+              if (params.get('hhs_app') === '1' || localStorage.getItem('__hhs_native_app__') === '1') {
+                document.documentElement.setAttribute('data-hhs-app-mode', 'true');
+                window.__HHS_NATIVE_APP__ = true;
+                localStorage.setItem('__hhs_native_app__', '1');
+              }
+            } catch (_) {}
+          })();
+        `}} />
       </head>
       <body className="min-h-full flex flex-col" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
         {children}

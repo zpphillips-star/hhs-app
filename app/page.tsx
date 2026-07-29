@@ -8,8 +8,23 @@ import StarRating from '@/components/StarRating'
 import Nav from '@/components/Nav'
 import Link from 'next/link'
 
+function getNativeHomeView() {
+  if (typeof window === 'undefined') return { appMode: false, view: '' }
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const appMode =
+      params.get('hhs_app') === '1' ||
+      (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__ ||
+      localStorage.getItem('__hhs_native_app__') === '1'
+    return { appMode, view: params.get('hhs_view') || '' }
+  } catch {
+    return { appMode: false, view: '' }
+  }
+}
+
 export default function HomePage() {
   const router = useRouter()
+  const [nativeView] = useState(getNativeHomeView)
   const [beer, setBeer] = useState<Beer | null>(null)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
@@ -54,14 +69,14 @@ export default function HomePage() {
         if (!setupDone && !nativeApp) { router.replace('/welcome'); return }
       }
       // Logged-in members go straight to the daily ritual during October
-      if (user && isOctober) router.replace('/beers')
+      if (user && isOctober && !nativeView.appMode) router.replace('/beers')
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user && isOctober) router.replace('/beers')
+      if (session?.user && isOctober && !nativeView.appMode) router.replace('/beers')
     })
     return () => subscription.unsubscribe()
-  }, [isOctober, router])
+  }, [isOctober, nativeView.appMode, router])
 
   useEffect(() => {
     const fetchBeer = async () => {
@@ -103,7 +118,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
-      <Nav user={user} />
+      {!nativeView.appMode && <Nav user={user} />}
 
       {/* Hero section — title first, then image floats right with text wrapping on both desktop + mobile */}
       <style>{`
@@ -206,7 +221,7 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-            <div style={{ borderTop: '3px solid var(--gold)', paddingTop: '3rem' }}>
+            {!nativeView.appMode && <div style={{ borderTop: '3px solid var(--gold)', paddingTop: '3rem' }}>
               <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.75rem', marginBottom: '2rem', fontWeight: 700, letterSpacing: '0.1em' }}>
                 WANT TO JOIN THE SOCIETY?
               </h2>
@@ -217,7 +232,7 @@ export default function HomePage() {
               >
                 I Want In
               </Link>
-            </div>
+            </div>}
           </div>
         ) : isOctober && !loading && beer && user ? (
           <div className="max-w-xl mx-auto">
@@ -229,13 +244,13 @@ export default function HomePage() {
         ) : isOctober && !user ? (
           <div className="text-center">
             <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '1.1rem' }}>Sign in to rate today&apos;s beer and track your progress.</p>
-            <Link
+            {!nativeView.appMode && <Link
               href="/auth"
               style={{ border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.75rem 2rem' }}
               className="uppercase inline-block hover:opacity-80 transition-opacity"
             >
               Members Only
-            </Link>
+            </Link>}
           </div>
         ) : null}
       </section>

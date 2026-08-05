@@ -7,6 +7,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase-server'
 
 export type NotificationCategory =
   | 'daily_beer'
@@ -55,10 +56,7 @@ type ExpoResponse = {
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
 
 function getServiceClient(): SupabaseClient {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SECRET_KEY!
-  )
+  return createServiceClient()
 }
 
 /**

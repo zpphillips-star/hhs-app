@@ -9,13 +9,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase-server'
 import { sendExpoPush } from '@/lib/expo-push'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
-)
+const supabase = createServiceClient()
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization')

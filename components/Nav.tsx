@@ -79,6 +79,7 @@ export default function Nav({ user }: Props) {
     { href: '/beers', label: 'The Beer' },
     { href: '/wall', label: 'The Wall' },
     { href: '/leaderboard', label: 'The Rankings' },
+    ...(user ? [{ href: '/membership', label: 'Membership' }] : []),
   ]
 
   if (hideNativeFallbackChrome) return null

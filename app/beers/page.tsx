@@ -6,6 +6,16 @@ import type { Beer, Rating, Post, PostReaction, PostComment } from '@/lib/types'
 import Nav from '@/components/Nav'
 import StarRating from '@/components/StarRating'
 import SetupGuide from '@/components/SetupGuide'
+import {
+  DEFAULT_BEER_VISIBILITY_PROFILE,
+  canInteractWithBeer,
+  canShowBeerDetails,
+  getBeerAccessMessage,
+  getEffectiveBeerVisibilityPreference,
+  normalizeMembershipTier,
+  type BeerVisibilityPreference,
+  type BeerVisibilityProfile,
+} from '@/lib/membership'
 
 // ── Reaction config ───────────────────────────────────────────────────────────
 
@@ -258,6 +268,7 @@ export default function BeersPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [submitting,   setSubmitting]   = useState(false)
   const [loading,      setLoading]      = useState(true)
+  const [beerAccess,   setBeerAccess]   = useState<BeerVisibilityProfile>(DEFAULT_BEER_VISIBILITY_PROFILE)
 
   // Past beer modal
   const [selectedDay,  setSelectedDay]  = useState<number | null>(null)
@@ -274,6 +285,49 @@ export default function BeersPage() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // ── Membership beer visibility ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!user) {
+      void Promise.resolve().then(() => setBeerAccess(DEFAULT_BEER_VISIBILITY_PROFILE))
+      return
+    }
+    let cancelled = false
+    fetch(`/api/beer-visibility-preference?user_id=${encodeURIComponent(user.id)}`)
+      .then(async res => {
+        const json = await res.json().catch(() => ({})) as {
+          tier?: string
+          rawTier?: string | null
+          preference?: BeerVisibilityPreference | null
+          effectivePreference?: BeerVisibilityPreference
+          supported?: boolean
+        }
+        if (!res.ok) throw new Error('membership visibility unavailable')
+        return json
+      })
+      .then(json => {
+        if (cancelled) return
+        const tier = normalizeMembershipTier(json.tier)
+        setBeerAccess({
+          tier,
+          rawTier: json.rawTier ?? null,
+          preference: json.preference ?? null,
+          effectivePreference: json.effectivePreference ?? getEffectiveBeerVisibilityPreference(tier, json.preference ?? null),
+          preferenceColumnAvailable: json.supported ?? null,
+        })
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBeerAccess(current => ({
+            ...current,
+            tier: 'unknown',
+            effectivePreference: 'all',
+            preferenceColumnAvailable: null,
+          }))
+        }
+      })
+    return () => { cancelled = true }
+  }, [user])
+
   // ── Load beers ──────────────────────────────────────────────────────────────
   useEffect(() => {
     supabase.from('beers').select('*').order('day_number').then(({ data }) => {
@@ -286,33 +340,8 @@ export default function BeersPage() {
     })
   }, [todayDay])
 
-  // ── Load ratings + posts for today's beer ───────────────────────────────────
-  useEffect(() => {
-    if (!todayBeer) return
-    // Skip DB calls for preview-only beer (no real UUID in DB)
-    if (todayBeer.id === 'preview-space-dust') return
-    supabase.from('ratings').select('stars').eq('beer_id', todayBeer.id).then(({ data }) => {
-      if (data && data.length > 0) {
-        const avg = data.reduce((s, r) => s + r.stars, 0) / data.length
-        setAvgRating(Math.round(avg * 10) / 10)
-        setRatingCount(data.length)
-      }
-    })
-    loadPosts(todayBeer.id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [todayBeer])
-
-  // ── User's own rating for today ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!user || !todayBeer || todayBeer.id === 'preview-space-dust') return
-    supabase.from('ratings').select('*')
-      .eq('user_id', user.id).eq('beer_id', todayBeer.id)
-      .maybeSingle()
-      .then(({ data }) => setUserRating(data))
-  }, [user, todayBeer])
-
   // ── Load wall posts ─────────────────────────────────────────────────────────
-  const loadPosts = async (beerId: string) => {
+  async function loadPosts(beerId: string) {
     // Fetch posts and profiles separately (no direct FK from posts.user_id to profiles)
     const [{ data: postsData }, { data: profilesData }] = await Promise.all([
       supabase
@@ -337,9 +366,33 @@ export default function BeersPage() {
     setPosts(merged)
   }
 
+  // ── Load ratings + posts for today's beer ───────────────────────────────────
+  useEffect(() => {
+    if (!todayBeer) return
+    // Skip DB calls for preview-only beer (no real UUID in DB)
+    if (todayBeer.id === 'preview-space-dust') return
+    supabase.from('ratings').select('stars').eq('beer_id', todayBeer.id).then(({ data }) => {
+      if (data && data.length > 0) {
+        const avg = data.reduce((s, r) => s + r.stars, 0) / data.length
+        setAvgRating(Math.round(avg * 10) / 10)
+        setRatingCount(data.length)
+      }
+    })
+    void Promise.resolve().then(() => loadPosts(todayBeer.id))
+  }, [todayBeer])
+
+  // ── User's own rating for today ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!user || !todayBeer || todayBeer.id === 'preview-space-dust') return
+    supabase.from('ratings').select('*')
+      .eq('user_id', user.id).eq('beer_id', todayBeer.id)
+      .maybeSingle()
+      .then(({ data }) => setUserRating(data))
+  }, [user, todayBeer])
+
   // ── Rate today's beer ───────────────────────────────────────────────────────
   const handleRate = async (stars: number) => {
-    if (!user || !todayBeer || todayBeer.id === 'preview-space-dust') return
+    if (!user || !todayBeer || todayBeer.id === 'preview-space-dust' || !canInteractWithBeer(beerAccess, todayBeer.day_number)) return
     const { data } = await supabase
       .from('ratings')
       .upsert({ user_id: user.id, beer_id: todayBeer.id, stars }, { onConflict: 'user_id,beer_id' })
@@ -370,7 +423,7 @@ export default function BeersPage() {
 
   // ── Submit post ─────────────────────────────────────────────────────────────
   const handleSubmitPost = async () => {
-    if (!user || !todayBeer || (!postContent.trim() && !postPhoto) || submitting || todayBeer.id === 'preview-space-dust') return
+    if (!user || !todayBeer || (!postContent.trim() && !postPhoto) || submitting || todayBeer.id === 'preview-space-dust' || !canInteractWithBeer(beerAccess, todayBeer.day_number)) return
     setSubmitting(true)
     let photoUrl: string | null = null
     if (postPhoto) {
@@ -414,6 +467,7 @@ export default function BeersPage() {
   const openModal = async (day: number) => {
     if (!todayDay || day >= todayDay) return
     const beer = beers.find(b => b.day_number === day)
+    if (beer && !canShowBeerDetails(beerAccess, beer.day_number)) return
     setSelectedDay(day)
     setModalBeer(beer || null)
     setModalRating(null)
@@ -427,7 +481,7 @@ export default function BeersPage() {
   const closeModal = () => { setSelectedDay(null); setModalBeer(null); setModalRating(null) }
 
   const handleModalRate = async (stars: number) => {
-    if (!user || !modalBeer) return
+    if (!user || !modalBeer || !canInteractWithBeer(beerAccess, modalBeer.day_number)) return
     const { data } = await supabase.from('ratings')
       .upsert({ user_id: user.id, beer_id: modalBeer.id, stars }, { onConflict: 'user_id,beer_id' })
       .select().maybeSingle()
@@ -440,6 +494,9 @@ export default function BeersPage() {
   const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const calendarCells: (number | null)[] = [...Array(oct1DOW).fill(null), ...slots]
   while (calendarCells.length % 7 !== 0) calendarCells.push(null)
+  const todayCanShow = todayBeer ? canShowBeerDetails(beerAccess, todayBeer.day_number) : false
+  const todayCanInteract = todayBeer ? canInteractWithBeer(beerAccess, todayBeer.day_number) : false
+  const todayAccessMessage = todayBeer ? getBeerAccessMessage(beerAccess, todayBeer.day_number) : null
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -457,7 +514,7 @@ export default function BeersPage() {
             {/* ══════════════════════════════════════════════════════════════
                 BEER OF THE DAY
             ══════════════════════════════════════════════════════════════ */}
-            {!calendarOnly && isOctober && todayBeer ? (
+            {!calendarOnly && isOctober && todayBeer && todayCanShow ? (
               <section style={{ marginBottom: '3.5rem' }}>
 
                 {/* TODAY'S BEER label */}
@@ -622,7 +679,11 @@ export default function BeersPage() {
                     }}>
                       Your Rating
                     </div>
-                    {todayBeer.id === 'preview-space-dust' ? (
+                    {!todayCanInteract && todayAccessMessage ? (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, margin: 0 }}>
+                        {todayAccessMessage}
+                      </p>
+                    ) : todayBeer.id === 'preview-space-dust' ? (
                       <StarRating onSubmit={async () => {}} />
                     ) : userRating ? (
                       <StarRating initialStars={userRating.stars} onSubmit={async (stars) => { await handleRate(stars) }} />
@@ -637,7 +698,7 @@ export default function BeersPage() {
                 </div>
 
                 {/* Post to the Wall */}
-                {user && todayBeer.id !== 'preview-space-dust' && (
+                {user && todayBeer.id !== 'preview-space-dust' && todayCanInteract && (
                   <div style={{
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border)',
@@ -704,6 +765,25 @@ export default function BeersPage() {
                   </div>
                 )}
 
+                {user && todayBeer.id !== 'preview-space-dust' && !todayCanInteract && todayAccessMessage && (
+                  <div style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '1rem 1.25rem',
+                    marginBottom: '1rem',
+                  }}>
+                    <div style={{
+                      color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                      fontSize: '0.58rem', letterSpacing: '0.28em',
+                      textTransform: 'uppercase', marginBottom: '0.6rem',
+                    }}>Wall Posting</div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, margin: 0 }}>
+                      {todayAccessMessage}
+                    </p>
+                  </div>
+                )}
+
                 {/* Link to The Wall */}
                 {!nativeView.appMode && <div style={{ textAlign: 'center', paddingBottom: '0.5rem' }}>
                   <a href="/wall" style={{
@@ -719,6 +799,33 @@ export default function BeersPage() {
 
               </section>
 
+            ) : !calendarOnly && isOctober && todayBeer && !todayCanShow ? (
+              <section style={{ textAlign: 'center', padding: '3rem 0', marginBottom: '3rem' }}>
+                <div style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  padding: '1.75rem 2rem',
+                  maxWidth: '480px',
+                  margin: '0 auto',
+                }}>
+                  <div style={{
+                    color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif",
+                    fontSize: '0.58rem', letterSpacing: '0.28em',
+                    textTransform: 'uppercase', marginBottom: '0.75rem',
+                  }}>
+                    Oddballs Day Off
+                  </div>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '1rem' }}>
+                    Oddballs members default to odd-day participating beers. Today&apos;s Full Society beer is hidden unless you choose Show All.
+                  </p>
+                  {!nativeView.appMode && (
+                    <a href="/membership" style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem', letterSpacing: '0.15em', textDecoration: 'none' }}>
+                      Manage beer visibility →
+                    </a>
+                  )}
+                </div>
+              </section>
             ) : !calendarOnly && isOctober && !todayBeer ? (
               <section style={{ textAlign: 'center', padding: '3rem 0', marginBottom: '3rem' }}>
                 <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
@@ -841,12 +948,14 @@ export default function BeersPage() {
 
                 {/* Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
-                  {calendarCells.map((day, idx) => {
-                    if (!day) return <div key={`e-${idx}`} style={{ height: '110px' }} />
-                    const beer       = beerMap[day]
-                    const isToday    = day === todayDay
-                    const isPast     = todayDay ? day < todayDay : false
-                    const clickable  = isPast
+                   {calendarCells.map((day, idx) => {
+                     if (!day) return <div key={`e-${idx}`} style={{ height: '110px' }} />
+                     const beer       = beerMap[day]
+                     const isToday    = day === todayDay
+                     const isPast     = todayDay ? day < todayDay : false
+                     const showBeer   = Boolean(beer && (isPast || isToday) && canShowBeerDetails(beerAccess, day))
+                     const hiddenByTier = Boolean(beer && (isPast || isToday) && !showBeer)
+                     const clickable  = isPast && showBeer
 
                     return (
                       <div
@@ -886,7 +995,7 @@ export default function BeersPage() {
                           )}
                         </div>
 
-                        {beer && (isPast || isToday) ? (
+                        {showBeer && beer ? (
                           <>
                             <div style={{
                               color: 'var(--text)', fontSize: '0.8rem', fontWeight: 600,
@@ -904,6 +1013,10 @@ export default function BeersPage() {
                               {beer.brewery}
                             </div>
                           </>
+                        ) : hiddenByTier ? (
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontStyle: 'italic', marginTop: 'auto' }}>
+                            Oddballs day off
+                          </div>
                         ) : (
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontStyle: 'italic', marginTop: 'auto' }}>
                             To be revealed...
@@ -918,14 +1031,16 @@ export default function BeersPage() {
               {/* ── Mobile list ── */}
               <div className="hhs-list-view">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {slots.map(day => {
-                    const beer    = beerMap[day]
-                    const isToday = day === todayDay
-                    const isPast  = todayDay ? day < todayDay : false
-                    return (
-                      <div
-                        key={day}
-                        onClick={() => isPast && openModal(day)}
+                   {slots.map(day => {
+                     const beer    = beerMap[day]
+                     const isToday = day === todayDay
+                     const isPast  = todayDay ? day < todayDay : false
+                     const showBeer = Boolean(beer && (isPast || isToday) && canShowBeerDetails(beerAccess, day))
+                     const hiddenByTier = Boolean(beer && (isPast || isToday) && !showBeer)
+                     return (
+                       <div
+                         key={day}
+                         onClick={() => isPast && showBeer && openModal(day)}
                         style={{
                           background: 'var(--bg-card)',
                           border: `1px solid ${isToday ? 'var(--gold)' : 'var(--border)'}`,
@@ -934,7 +1049,7 @@ export default function BeersPage() {
                           display: 'flex', alignItems: 'center', gap: '1rem',
                           boxShadow: isToday ? '0 0 0 1px var(--gold)' : 'none',
                           opacity: isPast && !isToday ? 0.65 : 1,
-                          cursor: isPast ? 'pointer' : 'default',
+                          cursor: isPast && showBeer ? 'pointer' : 'default',
                         }}
                       >
                         <div style={{
@@ -944,7 +1059,7 @@ export default function BeersPage() {
                         }}>
                           {day}
                         </div>
-                        {beer && (isPast || isToday) ? (
+                        {showBeer && beer ? (
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{
                               color: 'var(--text)', fontWeight: 600,
@@ -956,6 +1071,10 @@ export default function BeersPage() {
                             <div style={{ color: 'var(--gold)', fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {beer.brewery}
                             </div>
+                          </div>
+                        ) : hiddenByTier ? (
+                          <div style={{ flex: 1, color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                            Oddballs day off
                           </div>
                         ) : (
                           <div style={{ flex: 1, color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.9rem' }}>
@@ -1043,6 +1162,10 @@ export default function BeersPage() {
                   {!user ? (
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                       <a href="/auth" style={{ color: 'var(--gold)' }}>Sign in</a> to rate this beer.
+                    </p>
+                  ) : !canInteractWithBeer(beerAccess, modalBeer.day_number) ? (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                      {getBeerAccessMessage(beerAccess, modalBeer.day_number)}
                     </p>
                   ) : (
                     <div>

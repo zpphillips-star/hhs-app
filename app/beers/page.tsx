@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Beer, Rating, Post, PostReaction, PostComment } from '@/lib/types'
 import Nav from '@/components/Nav'
@@ -215,6 +216,7 @@ function PostCard({
 // TODO: Remove PREVIEW_MODE and PREVIEW_BEER before October launch
 const PREVIEW_MODE = false
 
+const PREVIEW_ACTIVE_MONTH = 7 // August internal preview; October remains launch month.
 const PREVIEW_BEER = {
   id: 'preview-space-dust',
   day_number: 19,
@@ -247,14 +249,21 @@ function getNativeBeerView() {
 
 export default function BeersPage() {
   const [nativeView] = useState(getNativeBeerView)
+  const pathname = usePathname()
   const today    = new Date()
-  // In PREVIEW_MODE, treat today as an active beer day regardless of month
+  // In PREVIEW_MODE, treat today as an active beer day regardless of month.
+  // For internal web preview, August mirrors the active daily beer flow without
+  // changing the canonical October calendar.
+  const isActiveBeerDay = (
+    today.getFullYear() === BEER_YEAR &&
+    (today.getMonth() === 9 || today.getMonth() === PREVIEW_ACTIVE_MONTH)
+  ) || PREVIEW_MODE
   const isOctober = (today.getFullYear() === BEER_YEAR && today.getMonth() === 9) || PREVIEW_MODE
   const year      = BEER_YEAR
-  const todayDay  = isOctober ? today.getDate() : null
+  const todayDay  = isActiveBeerDay ? today.getDate() : null
   const oct1DOW   = new Date(year, 9, 1).getDay()
   const calendarOnly = nativeView.appMode && nativeView.view === 'calendar'
-  const todayOnly = nativeView.appMode && nativeView.view === 'today'
+  const todayOnly = (nativeView.appMode && nativeView.view === 'today') || pathname === '/today'
 
   const [user,         setUser]         = useState<{ id: string; email?: string } | null>(null)
   const [beers,        setBeers]        = useState<Beer[]>([])

@@ -120,6 +120,6 @@ html[data-hhs-app-mode="true"] body {
 
   .hhs-mobile-bottom-nav-spacer {
     display: block;
-    height: calc(4rem + env(safe-area-inset-bottom));
+    height: 0;
   }
 }

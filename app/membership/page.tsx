@@ -5,7 +5,6 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Nav from '@/components/Nav'
-import AboutHHSContent from '@/components/AboutHHSContent'
 import { supabase } from '@/lib/supabase'
 import {
   DEFAULT_BEER_VISIBILITY_PROFILE,
@@ -23,7 +22,7 @@ type ProfileSummary = {
   email: string | null
 }
 
-type SettingsTab = 'account' | 'notifications' | 'about'
+type SettingsTab = 'account' | 'notifications'
 
 type NotifPrefs = {
   daily_beer: boolean
@@ -393,7 +392,6 @@ export default function MembershipPage() {
           <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
             {tabButton('account', 'Account')}
             {tabButton('notifications', 'Notifications')}
-            {tabButton('about', 'About HHS')}
           </div>
 
           <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -470,7 +468,7 @@ export default function MembershipPage() {
                   </button>
                 </Card>
               </>
-            ) : activeTab === 'notifications' ? (
+            ) : (
               <Card eyebrow="Notifications">
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '1rem' }}>
                   These preferences save to your HHS account and are used by supported HHS notification delivery. Browser push registration is not shown here because this settings screen does not verify a working browser subscription for every deployed mobile browser. No broadcast notifications are sent from this screen.
@@ -497,10 +495,6 @@ export default function MembershipPage() {
                 </div>
                 {prefsSaving && <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.75rem' }}>Saving notification preferences...</p>}
                 {prefsError && <p style={{ color: '#e05555', fontSize: '0.82rem', marginTop: '0.75rem' }}>{prefsError}</p>}
-              </Card>
-            ) : (
-              <Card eyebrow="About HHS">
-                <AboutHHSContent />
               </Card>
             )}
           </div>

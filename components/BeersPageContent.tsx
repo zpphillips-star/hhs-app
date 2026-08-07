@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Beer, Rating, Post, PostReaction, PostComment } from '@/lib/types'
 import Nav from '@/components/Nav'
@@ -250,6 +250,7 @@ function getNativeBeerView() {
 export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: boolean } = {}) {
   const [nativeView] = useState(getNativeBeerView)
   const pathname = usePathname()
+  const router = useRouter()
   const today    = new Date()
   // In PREVIEW_MODE, treat today as an active beer day regardless of month.
   // For internal web preview, August mirrors the active daily beer flow without
@@ -283,9 +284,17 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
   const [selectedDay,  setSelectedDay]  = useState<number | null>(null)
   const [modalBeer,    setModalBeer]    = useState<Beer | null>(null)
   const [modalRating,  setModalRating]  = useState<Rating | null>(null)
+  const [modalAvgRating, setModalAvgRating] = useState<number | null>(null)
+  const [modalRatingCount, setModalRatingCount] = useState(0)
+  const [modalPostContent, setModalPostContent] = useState('')
+  const [modalPostPhoto, setModalPostPhoto] = useState<File | null>(null)
+  const [modalPhotoPreview, setModalPhotoPreview] = useState<string | null>(null)
+  const [modalSubmitting, setModalSubmitting] = useState(false)
 
   const fileRef   = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
+  const modalFileRef = useRef<HTMLInputElement>(null)
+  const modalCameraRef = useRef<HTMLInputElement>(null)
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -375,17 +384,27 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
     setPosts(merged)
   }
 
+  async function loadRatingStats(
+    beerId: string,
+    apply: (avg: number | null, count: number) => void,
+  ) {
+    const { data: ratings } = await supabase.from('ratings').select('stars').eq('beer_id', beerId)
+    if (ratings && ratings.length > 0) {
+      const avg = ratings.reduce((s, r) => s + r.stars, 0) / ratings.length
+      apply(Math.round(avg * 10) / 10, ratings.length)
+    } else {
+      apply(null, 0)
+    }
+  }
+
   // ── Load ratings + posts for today's beer ───────────────────────────────────
   useEffect(() => {
     if (!todayBeer) return
     // Skip DB calls for preview-only beer (no real UUID in DB)
     if (todayBeer.id === 'preview-space-dust') return
-    supabase.from('ratings').select('stars').eq('beer_id', todayBeer.id).then(({ data }) => {
-      if (data && data.length > 0) {
-        const avg = data.reduce((s, r) => s + r.stars, 0) / data.length
-        setAvgRating(Math.round(avg * 10) / 10)
-        setRatingCount(data.length)
-      }
+    void loadRatingStats(todayBeer.id, (avg, count) => {
+      setAvgRating(avg)
+      setRatingCount(count)
     })
     void Promise.resolve().then(() => loadPosts(todayBeer.id))
   }, [todayBeer])
@@ -407,12 +426,10 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
       .upsert({ user_id: user.id, beer_id: todayBeer.id, stars }, { onConflict: 'user_id,beer_id' })
       .select().maybeSingle()
     setUserRating(data)
-    const { data: ratings } = await supabase.from('ratings').select('stars').eq('beer_id', todayBeer.id)
-    if (ratings && ratings.length > 0) {
-      const avg = ratings.reduce((s, r) => s + r.stars, 0) / ratings.length
-      setAvgRating(Math.round(avg * 10) / 10)
-      setRatingCount(ratings.length)
-    }
+    await loadRatingStats(todayBeer.id, (avg, count) => {
+      setAvgRating(avg)
+      setRatingCount(count)
+    })
   }
 
   // ── Photo select ────────────────────────────────────────────────────────────
@@ -423,6 +440,13 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
     setPhotoPreview(URL.createObjectURL(file))
   }
 
+  const handleModalPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setModalPostPhoto(file)
+    setModalPhotoPreview(URL.createObjectURL(file))
+  }
+
   const clearPhoto = () => {
     setPostPhoto(null)
     setPhotoPreview(null)
@@ -430,35 +454,81 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
     if (cameraRef.current) cameraRef.current.value = ''
   }
 
+  const clearModalPhoto = () => {
+    setModalPostPhoto(null)
+    setModalPhotoPreview(null)
+    if (modalFileRef.current) modalFileRef.current.value = ''
+    if (modalCameraRef.current) modalCameraRef.current.value = ''
+  }
+
   // ── Submit post ─────────────────────────────────────────────────────────────
-  const handleSubmitPost = async () => {
-    if (!user || !todayBeer || (!postContent.trim() && !postPhoto) || submitting || todayBeer.id === 'preview-space-dust' || !canInteractWithBeer(beerAccess, todayBeer.day_number)) return
-    setSubmitting(true)
+  const submitBeerPost = async ({
+    beer,
+    content,
+    photo,
+    setBusy,
+    reset,
+  }: {
+    beer: Beer | null
+    content: string
+    photo: File | null
+    setBusy: (busy: boolean) => void
+    reset: () => void
+  }) => {
+    if (!user || !beer || (!content.trim() && !photo) || beer.id === 'preview-space-dust' || !canInteractWithBeer(beerAccess, beer.day_number)) return
+    setBusy(true)
     let photoUrl: string | null = null
-    if (postPhoto) {
-      const ext = postPhoto.name.split('.').pop()
-      const path = `${user.id}/${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from('post-photos').upload(path, postPhoto)
-      if (error) { alert('Photo upload error: ' + error.message); setSubmitting(false); return }
+    if (photo) {
+      const safeName = photo.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+      const path = `${user.id}/${photo.lastModified}-${safeName}`
+      const { error } = await supabase.storage.from('post-photos').upload(path, photo)
+      if (error) { alert('Photo upload error: ' + error.message); setBusy(false); return }
       const { data: { publicUrl } } = supabase.storage.from('post-photos').getPublicUrl(path)
       photoUrl = publicUrl
     }
     const { error: postError } = await supabase.from('posts').insert({
       user_id: user.id,
-      beer_id: todayBeer.id,
-      content: postContent.trim(),
+      beer_id: beer.id,
+      content: content.trim(),
       photo_url: photoUrl,
     })
     if (postError) {
       console.error('Post insert error:', postError)
       alert('Failed to post: ' + postError.message)
-      setSubmitting(false)
+      setBusy(false)
       return
     }
-    setPostContent('')
-    clearPhoto()
-    await loadPosts(todayBeer.id)
-    setSubmitting(false)
+    reset()
+    if (todayBeer?.id === beer.id) await loadPosts(beer.id)
+    setBusy(false)
+  }
+
+  const handleSubmitPost = async () => {
+    if (submitting) return
+    await submitBeerPost({
+      beer: todayBeer,
+      content: postContent,
+      photo: postPhoto,
+      setBusy: setSubmitting,
+      reset: () => {
+        setPostContent('')
+        clearPhoto()
+      },
+    })
+  }
+
+  const handleSubmitModalPost = async () => {
+    if (modalSubmitting) return
+    await submitBeerPost({
+      beer: modalBeer,
+      content: modalPostContent,
+      photo: modalPostPhoto,
+      setBusy: setModalSubmitting,
+      reset: () => {
+        setModalPostContent('')
+        clearModalPhoto()
+      },
+    })
   }
 
   // ── Reactions ───────────────────────────────────────────────────────────────
@@ -473,6 +543,14 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
   }
 
   // ── Past beer modal ─────────────────────────────────────────────────────────
+  const openCalendarDay = (day: number) => {
+    if (todayDay && day === todayDay) {
+      router.push('/')
+      return
+    }
+    void openModal(day)
+  }
+
   const openModal = async (day: number) => {
     if (!todayDay || day >= todayDay) return
     const beer = beers.find(b => b.day_number === day)
@@ -480,14 +558,32 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
     setSelectedDay(day)
     setModalBeer(beer || null)
     setModalRating(null)
+    setModalAvgRating(null)
+    setModalRatingCount(0)
+    setModalPostContent('')
+    clearModalPhoto()
     if (user && beer) {
       const { data } = await supabase.from('ratings').select('*')
         .eq('user_id', user.id).eq('beer_id', beer.id).maybeSingle()
       setModalRating(data)
     }
+    if (beer) {
+      await loadRatingStats(beer.id, (avg, count) => {
+        setModalAvgRating(avg)
+        setModalRatingCount(count)
+      })
+    }
   }
 
-  const closeModal = () => { setSelectedDay(null); setModalBeer(null); setModalRating(null) }
+  const closeModal = () => {
+    setSelectedDay(null)
+    setModalBeer(null)
+    setModalRating(null)
+    setModalAvgRating(null)
+    setModalRatingCount(0)
+    setModalPostContent('')
+    clearModalPhoto()
+  }
 
   const handleModalRate = async (stars: number) => {
     if (!user || !modalBeer || !canInteractWithBeer(beerAccess, modalBeer.day_number)) return
@@ -495,7 +591,21 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
       .upsert({ user_id: user.id, beer_id: modalBeer.id, stars }, { onConflict: 'user_id,beer_id' })
       .select().maybeSingle()
     setModalRating(data)
+    await loadRatingStats(modalBeer.id, (avg, count) => {
+      setModalAvgRating(avg)
+      setModalRatingCount(count)
+    })
   }
+
+  useEffect(() => {
+    if (loading || todayOnly || !todayDay) return
+    const scrollId = window.setTimeout(() => {
+      const todayCells = Array.from(document.querySelectorAll<HTMLElement>('[data-hhs-today-cell="true"]'))
+      const visibleTodayCell = todayCells.find(el => el.offsetParent !== null) ?? todayCells[0]
+      visibleTodayCell?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 175)
+    return () => window.clearTimeout(scrollId)
+  }, [loading, todayOnly, todayDay, beers.length])
 
   // ── Calendar helpers ────────────────────────────────────────────────────────
   const beerMap = Object.fromEntries(beers.map(b => [b.day_number, b]))
@@ -523,7 +633,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
             {/* ══════════════════════════════════════════════════════════════
                 BEER OF THE DAY
             ══════════════════════════════════════════════════════════════ */}
-            {!calendarOnly && isActiveBeerDay && todayBeer && todayCanShow ? (
+            {todayOnly && !calendarOnly && isActiveBeerDay && todayBeer && todayCanShow ? (
               <section style={{ marginBottom: '3.5rem' }}>
 
                 {/* TODAY'S BEER label */}
@@ -808,7 +918,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
 
               </section>
 
-            ) : !calendarOnly && isActiveBeerDay && todayBeer && !todayCanShow ? (
+            ) : todayOnly && !calendarOnly && isActiveBeerDay && todayBeer && !todayCanShow ? (
               <section style={{ textAlign: 'center', padding: '3rem 0', marginBottom: '3rem' }}>
                 <div style={{
                   background: 'var(--bg-card)',
@@ -835,14 +945,14 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                   )}
                 </div>
               </section>
-            ) : !calendarOnly && isActiveBeerDay && !todayBeer ? (
+            ) : todayOnly && !calendarOnly && isActiveBeerDay && !todayBeer ? (
               <section style={{ textAlign: 'center', padding: '3rem 0', marginBottom: '3rem' }}>
                 <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
                   Today&apos;s beer hasn&apos;t been added yet. Check back soon.
                 </p>
               </section>
-            ) : !todayOnly ? (
-              <section style={{ textAlign: 'center', padding: '4rem 0 3rem', marginBottom: '3rem' }}>
+            ) : !todayOnly && !calendarOnly ? (
+              <section style={{ textAlign: 'center', padding: '2.5rem 0 2rem', marginBottom: '2rem' }}>
 
                 {/* Divider line + label */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '3rem' }}>
@@ -851,48 +961,17 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                     fontFamily: "'Modern Antiqua', serif",
                     fontSize: '0.6rem', letterSpacing: '0.4em',
                     textTransform: 'uppercase', color: 'var(--gold)', whiteSpace: 'nowrap',
-                  }}>The Calendar Is Being Set</span>
+                  }}>The Beer Ledger</span>
                   <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
                 </div>
 
-                {/* Countdown */}
-                {(() => {
-                  const now = new Date()
-                  const oct1 = new Date(BEER_YEAR, 9, 1)
-                  const diff = Math.max(0, oct1.getTime() - now.getTime())
-                  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-                  const hrs  = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-                  return (
-                    <div style={{ marginBottom: '2.5rem' }}>
-                      <div style={{
-                        fontFamily: "'Modern Antiqua', serif",
-                        color: 'var(--text-muted)', fontSize: '0.65rem',
-                        letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: '0.75rem',
-                      }}>
-                        October 1st begins in
-                      </div>
-                      <div style={{
-                        fontFamily: "'Modern Antiqua', serif",
-                        color: 'var(--gold)',
-                        fontSize: 'clamp(2.5rem, 8vw, 4.5rem)',
-                        lineHeight: 1,
-                        letterSpacing: '0.05em',
-                      }}>
-                        {days}<span style={{ fontSize: '0.4em', color: 'var(--text-muted)', marginLeft: '0.3em' }}>days</span>
-                        <span style={{ color: 'var(--border)', margin: '0 0.4em' }}>·</span>
-                        {hrs}<span style={{ fontSize: '0.4em', color: 'var(--text-muted)', marginLeft: '0.3em' }}>hrs</span>
-                      </div>
-                    </div>
-                  )
-                })()}
-
-                {/* Manifesto */}
+                {/* Intro */}
                 <div style={{
-                  maxWidth: '480px', margin: '0 auto 2.5rem',
+                  maxWidth: '520px', margin: '0 auto 1rem',
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border)',
                   borderRadius: '12px',
-                  padding: '1.75rem 2rem',
+                  padding: '1.5rem 1.75rem',
                 }}>
                   <p style={{
                     fontFamily: "'Modern Antiqua', serif",
@@ -902,20 +981,22 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                     fontStyle: 'italic',
                     margin: 0,
                   }}>
-                    Every October, the Society convenes. Thirty-one days. Thirty-one beers.
-                    The deliberation is underway — each selection debated, contested, and earned.
-                    The calendar isn&apos;t set yet. But it will be.
+                    The next pour is still being argued over in the shadows. Today&apos;s revealed beer lives on the Today page; the October calendar waits below.
                   </p>
                 </div>
 
                 {/* CTA hint */}
-                <p style={{
+                <button onClick={() => router.push('/')} style={{
+                  background: 'transparent',
+                  border: 'none',
                   color: 'var(--text-muted)', fontSize: '0.8rem',
                   fontFamily: "'Modern Antiqua', serif",
                   letterSpacing: '0.1em',
+                  textDecoration: 'none',
+                  cursor: 'pointer',
                 }}>
-                  The 31 slots below are reserved. The beers have yet to be named.
-                </p>
+                  Open Today&apos;s Beer →
+                </button>
 
               </section>
             ) : null}
@@ -964,13 +1045,14 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                      const isPast     = todayDay ? day < todayDay : false
                      const showBeer   = Boolean(beer && (isPast || isToday) && canShowBeerDetails(beerAccess, day))
                      const hiddenByTier = Boolean(beer && (isPast || isToday) && !showBeer)
-                     const clickable  = isPast && showBeer
+                      const clickable  = (isToday && Boolean(beer)) || (isPast && showBeer)
 
                     return (
                       <div
-                        key={day}
-                        className="hhs-cal-cell"
-                        onClick={() => clickable && openModal(day)}
+                         key={day}
+                         className="hhs-cal-cell"
+                         data-hhs-today-cell={isToday ? 'true' : undefined}
+                         onClick={() => clickable && openCalendarDay(day)}
                         style={{
                           background: 'var(--bg-card)',
                           border: `1px solid ${isToday ? 'var(--gold)' : 'var(--border)'}`,
@@ -982,7 +1064,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                           flexDirection: 'column',
                           boxShadow: isToday ? '0 0 0 1px var(--gold)' : 'none',
                           opacity: isPast && !isToday ? 0.6 : 1,
-                          cursor: clickable ? 'pointer' : 'default',
+                           cursor: clickable ? 'pointer' : 'default',
                         }}
                       >
                         {/* Day number */}
@@ -1044,12 +1126,14 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                      const beer    = beerMap[day]
                      const isToday = day === todayDay
                      const isPast  = todayDay ? day < todayDay : false
-                     const showBeer = Boolean(beer && (isPast || isToday) && canShowBeerDetails(beerAccess, day))
-                     const hiddenByTier = Boolean(beer && (isPast || isToday) && !showBeer)
-                     return (
-                       <div
-                         key={day}
-                         onClick={() => isPast && showBeer && openModal(day)}
+                      const showBeer = Boolean(beer && (isPast || isToday) && canShowBeerDetails(beerAccess, day))
+                      const hiddenByTier = Boolean(beer && (isPast || isToday) && !showBeer)
+                      const clickable = (isToday && Boolean(beer)) || (isPast && showBeer)
+                      return (
+                        <div
+                          key={day}
+                          data-hhs-today-cell={isToday ? 'true' : undefined}
+                          onClick={() => clickable && openCalendarDay(day)}
                         style={{
                           background: 'var(--bg-card)',
                           border: `1px solid ${isToday ? 'var(--gold)' : 'var(--border)'}`,
@@ -1058,7 +1142,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                           display: 'flex', alignItems: 'center', gap: '1rem',
                           boxShadow: isToday ? '0 0 0 1px var(--gold)' : 'none',
                           opacity: isPast && !isToday ? 0.65 : 1,
-                          cursor: isPast && showBeer ? 'pointer' : 'default',
+                           cursor: clickable ? 'pointer' : 'default',
                         }}
                       >
                         <div style={{
@@ -1166,25 +1250,160 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                   </p>
                 )}
 
+                {(modalBeer.beer_fact || modalBeer.brewery_fact) && (
+                  <div style={{
+                    background: 'rgba(25, 23, 38, 0.45)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '1rem 1.15rem',
+                    marginBottom: '1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.85rem',
+                  }}>
+                    {modalBeer.beer_fact && (
+                      <div>
+                        <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                          The Beer
+                        </div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, margin: 0 }}>
+                          {modalBeer.beer_fact}
+                        </p>
+                      </div>
+                    )}
+                    {modalBeer.beer_fact && modalBeer.brewery_fact && (
+                      <div style={{ borderTop: '1px solid var(--border)' }} />
+                    )}
+                    {modalBeer.brewery_fact && (
+                      <div>
+                        <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                          The Brewery
+                        </div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, margin: 0 }}>
+                          {modalBeer.brewery_fact}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Rating section */}
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                  {!user ? (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                      <a href="/auth" style={{ color: 'var(--gold)' }}>Sign in</a> to rate this beer.
-                    </p>
-                  ) : !canInteractWithBeer(beerAccess, modalBeer.day_number) ? (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                <div style={{
+                  background: 'rgba(25, 23, 38, 0.45)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  padding: '1rem 1.15rem',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                }}>
+                  <div>
+                    <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                      Society Rating
+                    </div>
+                    {modalAvgRating !== null ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ color: 'var(--gold)', fontSize: '1.15rem' }}>
+                          {'★'.repeat(Math.round(modalAvgRating))}{'☆'.repeat(5 - Math.round(modalAvgRating))}
+                        </span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                          {modalAvgRating} / 5 · {modalRatingCount} {modalRatingCount === 1 ? 'rating' : 'ratings'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No ratings yet</span>
+                    )}
+                  </div>
+                  <div style={{ height: '1px', background: 'var(--border)' }} />
+                  <div>
+                    <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                      Your Rating
+                    </div>
+                    {!user ? (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                        <a href="/auth" style={{ color: 'var(--gold)' }}>Sign in</a> to rate this beer.
+                      </p>
+                    ) : !canInteractWithBeer(beerAccess, modalBeer.day_number) ? (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
+                        {getBeerAccessMessage(beerAccess, modalBeer.day_number)}
+                      </p>
+                    ) : (
+                      <StarRating initialStars={modalRating?.stars} onSubmit={async (stars) => { await handleModalRate(stars) }} />
+                    )}
+                  </div>
+                </div>
+
+                {user && canInteractWithBeer(beerAccess, modalBeer.day_number) ? (
+                  <div style={{
+                    background: 'rgba(25, 23, 38, 0.45)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '12px',
+                    padding: '1rem 1.15rem',
+                  }}>
+                    <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
+                      Post to the Wall
+                    </div>
+                    <textarea
+                      value={modalPostContent}
+                      onChange={e => setModalPostContent(e.target.value)}
+                      placeholder={`Share your thoughts on ${modalBeer.name}...`}
+                      rows={3}
+                      style={{
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        resize: 'none',
+                        color: 'var(--text)',
+                        fontFamily: "'Modern Antiqua', serif",
+                        fontSize: '0.9rem',
+                        lineHeight: 1.6,
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    {modalPhotoPreview && (
+                      <div style={{ position: 'relative', marginTop: '0.5rem', display: 'inline-block' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={modalPhotoPreview} alt="preview" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', objectFit: 'cover' }} />
+                        <button onClick={clearModalPhoto} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '0.7rem' }}>✕</button>
+                      </div>
+                    )}
+                    <input ref={modalFileRef} type="file" accept="image/*" onChange={handleModalPhotoSelect} style={{ display: 'none' }} />
+                    <input ref={modalCameraRef} type="file" accept="image/*" capture="environment" onChange={handleModalPhotoSelect} style={{ display: 'none' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={() => modalFileRef.current?.click()} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: '8px', padding: '0.35rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', fontFamily: "'Modern Antiqua', serif" }}>📎 Photo</button>
+                        <button onClick={() => modalCameraRef.current?.click()} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: '8px', padding: '0.35rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', fontFamily: "'Modern Antiqua', serif" }}>📷 Camera</button>
+                      </div>
+                      <button
+                        onClick={handleSubmitModalPost}
+                        disabled={modalSubmitting || (!modalPostContent.trim() && !modalPostPhoto)}
+                        style={{
+                          background: (modalPostContent.trim() || modalPostPhoto) ? 'var(--gold)' : 'transparent',
+                          border: (modalPostContent.trim() || modalPostPhoto) ? 'none' : '1px solid var(--border)',
+                          color: (modalPostContent.trim() || modalPostPhoto) ? 'var(--bg)' : 'var(--text-muted)',
+                          padding: '0.45rem 1.25rem',
+                          borderRadius: '8px',
+                          cursor: (modalPostContent.trim() || modalPostPhoto) ? 'pointer' : 'default',
+                          fontFamily: "'Modern Antiqua', serif",
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          letterSpacing: '0.08em',
+                        }}
+                      >{modalSubmitting ? 'Posting...' : 'Post'}</button>
+                    </div>
+                  </div>
+                ) : user && getBeerAccessMessage(beerAccess, modalBeer.day_number) ? (
+                  <div style={{ background: 'rgba(25, 23, 38, 0.45)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1rem 1.15rem' }}>
+                    <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
+                      Wall Posting
+                    </div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
                       {getBeerAccessMessage(beerAccess, modalBeer.day_number)}
                     </p>
-                  ) : (
-                    <div>
-                      <div style={{ color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.62rem', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                        {modalRating ? 'Your Rating' : 'Rate This Beer'}
-                      </div>
-                      <StarRating initialStars={modalRating?.stars} onSubmit={async (stars) => { await handleModalRate(stars) }} />
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : null}
               </>
             ) : (
               <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>

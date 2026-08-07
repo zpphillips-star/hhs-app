@@ -179,10 +179,10 @@ export default function Nav({ user }: Props) {
                   {link.isHomeLogo ? (
                     <span className="hhs-mobile-bottom-nav-logo-ring" aria-hidden="true">
                       <Image
-                        src="/hhs-nav-icon.webp"
+                        src="/hhs-logo-8.25-1.png"
                         alt=""
-                        width={44}
-                        height={26}
+                        width={56}
+                        height={51}
                         className="hhs-mobile-bottom-nav-logo"
                       />
                     </span>

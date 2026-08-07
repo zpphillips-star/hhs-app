@@ -88,7 +88,7 @@ html[data-hhs-app-mode="true"] body {
     z-index: 50;
     display: flex;
     align-items: center;
-    justify-content: space-around;
+    justify-content: center;
     gap: 0.25rem;
     padding: 0.65rem max(0.65rem, env(safe-area-inset-left)) calc(0.65rem + env(safe-area-inset-bottom)) max(0.65rem, env(safe-area-inset-right));
     border-top: 1px solid var(--border);
@@ -101,7 +101,7 @@ html[data-hhs-app-mode="true"] body {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 1;
+    flex: 0 0 20%;
     min-width: 0;
     text-align: center;
     font-size: clamp(0.58rem, 2.6vw, 0.7rem);
@@ -114,15 +114,16 @@ html[data-hhs-app-mode="true"] body {
     align-self: stretch;
     position: relative;
     overflow: visible;
+    z-index: 1;
   }
 
   .hhs-mobile-bottom-nav-logo-ring {
     position: absolute;
-    top: -1.85rem;
+    top: -2.05rem;
     left: 50%;
     transform: translateX(-50%);
-    width: 3.75rem;
-    height: 3.75rem;
+    width: 4rem;
+    height: 4rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -133,7 +134,7 @@ html[data-hhs-app-mode="true"] body {
   }
 
   .hhs-mobile-bottom-nav-logo {
-    width: 2.75rem;
+    width: 3.15rem;
     height: auto;
     opacity: 0.94;
   }

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Nav from '@/components/Nav'
+import { supabase } from '@/lib/supabase'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type FeedbackStatus = 'submitted' | 'backlog' | 'in_progress' | 'live'
@@ -269,6 +271,7 @@ function StageSection({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function FeedbackPage() {
   const mountedRef = useRef(true)
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [items, setItems] = useState<FeedbackItem[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [token, setToken] = useState<string | null>(null)
@@ -291,14 +294,19 @@ export default function FeedbackPage() {
   useEffect(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     if (!url || url.includes('placeholder')) return
-    import('@/lib/supabase').then(({ supabase }) => {
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session) {
-          setIsAdmin(true)
-          setToken(data.session.access_token)
-        }
-      })
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null)
+      if (data.session) {
+        setIsAdmin(true)
+        setToken(data.session.access_token)
+      }
     })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null)
+      setIsAdmin(Boolean(session))
+      setToken(session?.access_token ?? null)
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   // Fetch feedback items
@@ -316,7 +324,7 @@ export default function FeedbackPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetchItems(controller.signal)
+    void Promise.resolve().then(() => fetchItems(controller.signal))
     const iv = setInterval(() => fetchItems(), 30_000)
     return () => {
       controller.abort()
@@ -399,6 +407,7 @@ export default function FeedbackPage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--text)', paddingBottom: '4rem' }}>
+      <Nav user={user} />
 
       {/* Header */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center',

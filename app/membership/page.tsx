@@ -340,6 +340,30 @@ export default function MembershipPage() {
     </button>
   )
 
+  const settingsLink = (href: string, label: string) => (
+    <Link
+      href={href}
+      style={{
+        flex: 1,
+        minWidth: '7rem',
+        border: '1px solid var(--border)',
+        background: 'rgba(255,255,255,0.03)',
+        color: 'var(--text-muted)',
+        padding: '0.65rem 0.75rem',
+        borderRadius: '999px',
+        cursor: 'pointer',
+        fontFamily: "'Modern Antiqua', serif",
+        fontSize: '0.72rem',
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        textAlign: 'center',
+        textDecoration: 'none',
+      }}
+    >
+      {label}
+    </Link>
+  )
+
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       {!nativeAppMode && <Nav user={user} />}
@@ -392,6 +416,8 @@ export default function MembershipPage() {
           <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
             {tabButton('account', 'Account')}
             {tabButton('notifications', 'Notifications')}
+            {settingsLink('/about', 'About HHS')}
+            {settingsLink('/feedback', 'Feedback')}
           </div>
 
           <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>

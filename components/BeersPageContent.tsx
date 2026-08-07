@@ -712,6 +712,12 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                   )}
                 </div>
 
+                {todayBeer.description && (
+                  <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.75, fontStyle: 'italic', borderTop: '1px solid var(--border)', paddingTop: '1rem', marginBottom: '1rem' }}>
+                    {todayBeer.description}
+                  </p>
+                )}
+
                 {/* ── BEER INFO CARD ─────────────────────────────────────── */}
                 {(todayBeer.beer_fact || todayBeer.brewery_fact) && (
                 <div style={{

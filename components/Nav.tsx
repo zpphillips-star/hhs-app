@@ -174,16 +174,17 @@ export default function Nav({ user }: Props) {
                     fontFamily: "'Modern Antiqua', serif",
                     color: isActive ? 'var(--gold)' : 'var(--text-muted)',
                   }}
-                  className={`hhs-mobile-bottom-nav-link uppercase tracking-wider transition-colors hover:text-[var(--gold)]${link.isHomeLogo ? ' hhs-mobile-bottom-nav-home' : ''}`}
+                  className={`hhs-mobile-bottom-nav-link uppercase tracking-wider transition-colors hover:text-[var(--gold)]${link.isHomeLogo ? ' hhs-mobile-bottom-nav-home' : ''}${isActive ? ' hhs-mobile-bottom-nav-active' : ''}`}
                 >
                   {link.isHomeLogo ? (
-                    <span className="hhs-mobile-bottom-nav-logo-ring" aria-hidden="true">
+                    <span className="hhs-mobile-bottom-nav-logo-ring" aria-label="Today">
                       <Image
-                        src="/hhs-logo-8.25-1.png"
-                        alt=""
-                        width={56}
-                        height={51}
+                        src="/hhs-nav-icon.webp"
+                        alt="HHS Today"
+                        width={67}
+                        height={39}
                         className="hhs-mobile-bottom-nav-logo"
+                        priority
                       />
                     </span>
                   ) : link.label.startsWith('The ') ? (

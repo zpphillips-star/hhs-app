@@ -127,16 +127,27 @@ html[data-hhs-app-mode="true"] body {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid var(--gold);
+    border: 2px solid rgba(217, 124, 43, 0.78);
     border-radius: 999px;
     background: var(--bg);
     box-shadow: 0 0 0 4px rgba(25, 23, 38, 0.86), 0 10px 24px rgba(0, 0, 0, 0.34);
+    overflow: hidden;
+    line-height: 0;
+  }
+
+  .hhs-mobile-bottom-nav-active .hhs-mobile-bottom-nav-logo-ring {
+    border-width: 4px;
+    border-color: var(--gold);
   }
 
   .hhs-mobile-bottom-nav-logo {
-    width: 3.15rem;
+    width: 3.78rem;
     height: auto;
     opacity: 0.94;
+    max-width: none;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.22));
   }
 
   .hhs-mobile-bottom-nav-stack {

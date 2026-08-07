@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Beer, Rating } from '@/lib/types'
 import StarRating from '@/components/StarRating'
 import Nav from '@/components/Nav'
 import Link from 'next/link'
 import AboutHHSContent from '@/components/AboutHHSContent'
+import { BeersPageContent } from '@/components/BeersPageContent'
 
 function getNativeHomeView() {
   if (typeof window === 'undefined') return { appMode: false, view: '' }
@@ -24,11 +24,11 @@ function getNativeHomeView() {
 }
 
 export default function HomePage() {
-  const router = useRouter()
   const [nativeView] = useState(getNativeHomeView)
   const [beer, setBeer] = useState<Beer | null>(null)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
   const [userRating, setUserRating] = useState<Rating | null>(null)
   const [avgRating, setAvgRating] = useState<number | null>(null)
   const [ratingCount, setRatingCount] = useState(0)
@@ -60,24 +60,14 @@ export default function HomePage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
-      if (user) {
-        const setupDone = typeof window !== 'undefined' && localStorage.getItem('hhs_setup_done')
-        // In native app: skip the webapp welcome/install flow entirely
-        const nativeApp = typeof window !== 'undefined' && (
-          !!(window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__ ||
-          localStorage.getItem('__hhs_native_app__') === '1'
-        )
-        if (!setupDone && !nativeApp) { router.replace('/welcome'); return }
-      }
-      // Logged-in members go straight to the daily ritual during October
-      if (user && isOctober && !nativeView.appMode) router.replace('/beers')
+      setAuthChecked(true)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user && isOctober && !nativeView.appMode) router.replace('/beers')
+      setAuthChecked(true)
     })
     return () => subscription.unsubscribe()
-  }, [isOctober, nativeView.appMode, router])
+  }, [])
 
   useEffect(() => {
     const fetchBeer = async () => {
@@ -116,6 +106,10 @@ export default function HomePage() {
   }
 
   const pad = (n: number) => String(n).padStart(2, '0')
+
+  if (authChecked && user && !nativeView.appMode) {
+    return <BeersPageContent forceTodayOnly />
+  }
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>

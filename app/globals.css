@@ -70,3 +70,45 @@ html[data-hhs-app-mode="true"] body {
   overscroll-behavior: none;
 }
 
+.hhs-mobile-bottom-nav,
+.hhs-mobile-bottom-nav-spacer {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .hhs-desktop-nav {
+    display: none;
+  }
+
+  .hhs-mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 0.25rem;
+    padding: 0.65rem max(0.65rem, env(safe-area-inset-left)) calc(0.65rem + env(safe-area-inset-bottom)) max(0.65rem, env(safe-area-inset-right));
+    border-top: 1px solid var(--border);
+    background: rgba(25, 23, 38, 0.96);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(10px);
+  }
+
+  .hhs-mobile-bottom-nav-link {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    font-size: clamp(0.58rem, 2.6vw, 0.7rem);
+    line-height: 1.15;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+  }
+
+  .hhs-mobile-bottom-nav-spacer {
+    display: block;
+    height: calc(4rem + env(safe-area-inset-bottom));
+  }
+}

@@ -91,13 +91,7 @@ export default function Nav({ user }: Props) {
         { href: '/leaderboard', label: 'The Rankings' },
         { href: '/membership', label: 'The Settings' },
       ]
-    : [
-        { href: '/beers', label: 'The Beer' },
-        { href: '/wall', label: 'The Wall' },
-        { href: '/', label: 'Today' },
-        { href: '/leaderboard', label: 'The Rankings' },
-        { href: '/auth', label: 'Members Only' },
-      ]
+    : []
 
   if (hideNativeFallbackChrome) return null
 
@@ -162,37 +156,41 @@ export default function Nav({ user }: Props) {
         </div>
       </nav>
 
-      <nav
-        data-hhs-web-nav="true"
-        aria-label="Primary mobile navigation"
-        className="hhs-mobile-bottom-nav"
-      >
-        {mobileLinks.map(link => {
-          const isActive = link.href === '/' ? pathname === '/' : pathname === link.href
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={handleTopNavClick(link.href)}
-              style={{
-                fontFamily: "'Modern Antiqua', serif",
-                color: isActive ? 'var(--gold)' : 'var(--text-muted)',
-              }}
-              className="hhs-mobile-bottom-nav-link uppercase tracking-wider transition-colors hover:text-[var(--gold)]"
-            >
-              {link.label.startsWith('The ') ? (
-                <span className="hhs-mobile-bottom-nav-stack">
-                  <span>The</span>
-                  <span>{link.label.slice(4)}</span>
-                </span>
-              ) : (
-                link.label
-              )}
-            </Link>
-          )
-        })}
-      </nav>
-      <div className="hhs-mobile-bottom-nav-spacer" aria-hidden="true" />
+      {user ? (
+        <>
+          <nav
+            data-hhs-web-nav="true"
+            aria-label="Primary mobile navigation"
+            className="hhs-mobile-bottom-nav"
+          >
+            {mobileLinks.map(link => {
+              const isActive = link.href === '/' ? pathname === '/' : pathname === link.href
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={handleTopNavClick(link.href)}
+                  style={{
+                    fontFamily: "'Modern Antiqua', serif",
+                    color: isActive ? 'var(--gold)' : 'var(--text-muted)',
+                  }}
+                  className="hhs-mobile-bottom-nav-link uppercase tracking-wider transition-colors hover:text-[var(--gold)]"
+                >
+                  {link.label.startsWith('The ') ? (
+                    <span className="hhs-mobile-bottom-nav-stack">
+                      <span>The</span>
+                      <span>{link.label.slice(4)}</span>
+                    </span>
+                  ) : (
+                    link.label
+                  )}
+                </Link>
+              )
+            })}
+          </nav>
+          <div className="hhs-mobile-bottom-nav-spacer" aria-hidden="true" />
+        </>
+      ) : null}
     </>
   )
 }

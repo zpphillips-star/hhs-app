@@ -87,7 +87,7 @@ export default function Nav({ user }: Props) {
     ? [
         { href: '/beers', label: 'The Beer' },
         { href: '/wall', label: 'The Wall' },
-        { href: '/', label: 'Today' },
+        { href: '/', label: 'HHS', isHomeLogo: true },
         { href: '/leaderboard', label: 'The Rankings' },
         { href: '/membership', label: 'The Settings' },
       ]
@@ -174,9 +174,19 @@ export default function Nav({ user }: Props) {
                     fontFamily: "'Modern Antiqua', serif",
                     color: isActive ? 'var(--gold)' : 'var(--text-muted)',
                   }}
-                  className="hhs-mobile-bottom-nav-link uppercase tracking-wider transition-colors hover:text-[var(--gold)]"
+                  className={`hhs-mobile-bottom-nav-link uppercase tracking-wider transition-colors hover:text-[var(--gold)]${link.isHomeLogo ? ' hhs-mobile-bottom-nav-home' : ''}`}
                 >
-                  {link.label.startsWith('The ') ? (
+                  {link.isHomeLogo ? (
+                    <span className="hhs-mobile-bottom-nav-logo-ring" aria-hidden="true">
+                      <Image
+                        src="/hhs-nav-icon.webp"
+                        alt=""
+                        width={44}
+                        height={26}
+                        className="hhs-mobile-bottom-nav-logo"
+                      />
+                    </span>
+                  ) : link.label.startsWith('The ') ? (
                     <span className="hhs-mobile-bottom-nav-stack">
                       <span>The</span>
                       <span>{link.label.slice(4)}</span>

@@ -110,6 +110,34 @@ html[data-hhs-app-mode="true"] body {
     text-decoration: none;
   }
 
+  .hhs-mobile-bottom-nav-home {
+    align-self: stretch;
+    position: relative;
+    overflow: visible;
+  }
+
+  .hhs-mobile-bottom-nav-logo-ring {
+    position: absolute;
+    top: -1.85rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3.75rem;
+    height: 3.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--gold);
+    border-radius: 999px;
+    background: var(--bg);
+    box-shadow: 0 0 0 4px rgba(25, 23, 38, 0.86), 0 10px 24px rgba(0, 0, 0, 0.34);
+  }
+
+  .hhs-mobile-bottom-nav-logo {
+    width: 2.75rem;
+    height: auto;
+    opacity: 0.94;
+  }
+
   .hhs-mobile-bottom-nav-stack {
     display: flex;
     flex-direction: column;

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Nav from '@/components/Nav'
+import AboutHHSContent from '@/components/AboutHHSContent'
 import { supabase } from '@/lib/supabase'
 import {
   DEFAULT_BEER_VISIBILITY_PROFILE,
@@ -15,6 +16,14 @@ import {
 } from '@/lib/membership'
 
 type User = { id: string; email?: string }
+
+type ProfileSummary = {
+  username: string | null
+  displayName: string | null
+  email: string | null
+}
+
+type SettingsTab = 'account' | 'notifications' | 'about'
 
 type NotifPrefs = {
   daily_beer: boolean
@@ -53,28 +62,6 @@ function isNativeApp() {
   }
 }
 
-function canUseWebPush() {
-  if (typeof window === 'undefined') return false
-  return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window && Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY)
-}
-
-function isPWA() {
-  if (typeof window === 'undefined') return false
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
-  )
-}
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = window.atob(base64)
-  const outputArray = new Uint8Array(rawData.length)
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i)
-  return outputArray
-}
-
 function Toggle({
   checked,
   disabled,
@@ -100,6 +87,7 @@ function Toggle({
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.55 : 1,
         transition: 'all 0.15s',
+        flex: '0 0 auto',
       }}
     >
       <span
@@ -146,17 +134,27 @@ function Row({
   )
 }
 
+function Card({ eyebrow, children }: { eyebrow: string; children: ReactNode }) {
+  return (
+    <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.4rem 1.5rem' }}>
+      <div style={{ color: 'var(--gold)', fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+        {eyebrow}
+      </div>
+      {children}
+    </section>
+  )
+}
+
 export default function MembershipPage() {
   const router = useRouter()
   const [nativeAppMode] = useState(isNativeApp)
+  const [activeTab, setActiveTab] = useState<SettingsTab>('account')
   const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<ProfileSummary>({ username: null, displayName: null, email: null })
   const [loading, setLoading] = useState(true)
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_NOTIF_PREFS)
   const [prefsSaving, setPrefsSaving] = useState(false)
   const [prefsError, setPrefsError] = useState<string | null>(null)
-  const [pushSupported, setPushSupported] = useState(false)
-  const [pushEnabled, setPushEnabled] = useState(false)
-  const [pushStatus, setPushStatus] = useState<string | null>(null)
   const [visibility, setVisibility] = useState<BeerVisibilityProfile>(DEFAULT_BEER_VISIBILITY_PROFILE)
   const [visibilitySaving, setVisibilitySaving] = useState(false)
   const [visibilityError, setVisibilityError] = useState<string | null>(null)
@@ -166,6 +164,9 @@ export default function MembershipPage() {
     const json = await res.json().catch(() => ({})) as {
       tier?: string
       rawTier?: string | null
+      username?: string | null
+      displayName?: string | null
+      email?: string | null
       preference?: BeerVisibilityPreference | null
       effectivePreference?: BeerVisibilityPreference
       supported?: boolean
@@ -173,6 +174,11 @@ export default function MembershipPage() {
     }
     if (!res.ok) throw new Error(json.error || 'Could not load membership settings.')
     const tier = normalizeMembershipTier(json.tier)
+    setProfile({
+      username: json.username ?? null,
+      displayName: json.displayName ?? null,
+      email: json.email ?? null,
+    })
     setVisibility({
       tier,
       rawTier: json.rawTier ?? null,
@@ -190,8 +196,9 @@ export default function MembershipPage() {
   }, [])
 
   useEffect(() => {
-    void Promise.resolve().then(() => setPushSupported(canUseWebPush()))
+    let cancelled = false
     supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (cancelled) return
       setUser(user)
       if (!user) {
         setLoading(false)
@@ -199,18 +206,17 @@ export default function MembershipPage() {
       }
       try {
         await Promise.all([loadMembership(user.id), loadNotificationPrefs(user)])
-        if (canUseWebPush()) {
-          const reg = await navigator.serviceWorker.ready
-          setPushEnabled(Boolean(await reg.pushManager.getSubscription()))
-        }
       } catch (err) {
         setPrefsError(err instanceof Error ? err.message : 'Could not load settings.')
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => setUser(session?.user ?? null))
-    return () => subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [loadMembership, loadNotificationPrefs])
 
   const tierLabel = useMemo(() => {
@@ -219,23 +225,37 @@ export default function MembershipPage() {
     return 'Not selected yet'
   }, [visibility.tier])
 
-  const savePrefs = async (next: NotifPrefs) => {
+  const visibilityLabel = visibility.effectivePreference === 'participating_only'
+    ? 'Participating beers only'
+    : 'Full 31-day calendar'
+
+  const displayUsername = profile.displayName || profile.username || user?.email || 'Member'
+
+  const savePrefs = async (next: NotifPrefs, previous: NotifPrefs) => {
     if (!user) return
     setPrefsSaving(true)
     setPrefsError(null)
-    const res = await fetch('/api/notification-preferences', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: user.id, email: user.email, ...next }),
-    })
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({})) as { error?: string }
-      setPrefsError(json.error || 'Could not save notification preferences.')
+    try {
+      const res = await fetch('/api/notification-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, email: user.email, ...next }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({})) as { error?: string }
+        setPrefs(previous)
+        setPrefsError(json.error || 'Could not save notification preferences.')
+      }
+    } catch (err) {
+      setPrefs(previous)
+      setPrefsError(err instanceof Error ? err.message : 'Could not save notification preferences.')
+    } finally {
+      setPrefsSaving(false)
     }
-    setPrefsSaving(false)
   }
 
   const updateNotifPref = (key: keyof NotifPrefs, value: boolean) => {
+    const previous = prefs
     let next: NotifPrefs
     if (key === 'social_all') {
       next = {
@@ -253,85 +273,41 @@ export default function MembershipPage() {
       }
     }
     setPrefs(next)
-    void savePrefs(next)
-  }
-
-  const enableWebPush = async () => {
-    if (!user || !pushSupported) return
-    setPushStatus(null)
-    try {
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') {
-        setPushStatus(permission === 'denied'
-          ? 'Notifications are blocked in this browser. Use browser settings to re-enable them.'
-          : 'Notifications were not enabled.')
-        return
-      }
-      const reg = await navigator.serviceWorker.ready
-      const existing = await reg.pushManager.getSubscription()
-      const subscription = existing || await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
-      })
-      const res = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: subscription.toJSON(), user_id: user.id }),
-      })
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({})) as { error?: string }
-        throw new Error(json.error || 'Could not save this browser subscription.')
-      }
-      setPushEnabled(true)
-      setPushStatus('Web notifications are enabled for this browser.')
-    } catch (err) {
-      setPushStatus(err instanceof Error ? err.message : 'Could not enable web notifications.')
-    }
-  }
-
-  const disableWebPush = async () => {
-    if (!user || !pushSupported) return
-    setPushStatus(null)
-    try {
-      const reg = await navigator.serviceWorker.ready
-      const existing = await reg.pushManager.getSubscription()
-      if (existing) await existing.unsubscribe()
-      await fetch('/api/subscribe', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user.id }),
-      })
-      setPushEnabled(false)
-      setPushStatus('Web notifications are disabled for this browser.')
-    } catch (err) {
-      setPushStatus(err instanceof Error ? err.message : 'Could not disable web notifications.')
-    }
+    void savePrefs(next, previous)
   }
 
   const saveBeerVisibility = async (preference: BeerVisibilityPreference) => {
     if (!user || visibility.preferenceColumnAvailable === false) return
     setVisibilitySaving(true)
     setVisibilityError(null)
-    const res = await fetch('/api/beer-visibility-preference', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: user.id, preference }),
-    })
-    const json = await res.json().catch(() => ({})) as { error?: string; supported?: boolean }
-    if (!res.ok) {
-      setVisibilityError(json.error || 'Could not save beer visibility.')
-      if (json.supported === false) {
-        setVisibility(v => ({ ...v, preferenceColumnAvailable: false }))
+    const previous = visibility
+    setVisibility(v => ({
+      ...v,
+      preference,
+      effectivePreference: getEffectiveBeerVisibilityPreference(v.tier, preference),
+    }))
+    try {
+      const res = await fetch('/api/beer-visibility-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, preference }),
+      })
+      const json = await res.json().catch(() => ({})) as { error?: string; supported?: boolean }
+      if (!res.ok) {
+        setVisibility(previous)
+        setVisibilityError(json.error || 'Could not save beer visibility.')
+        if (json.supported === false) {
+          setVisibility(v => ({ ...v, preferenceColumnAvailable: false }))
+        }
+      } else {
+        setVisibility(v => ({ ...v, preferenceColumnAvailable: true }))
       }
-    } else {
-      setVisibility(v => ({
-        ...v,
-        preference,
-        effectivePreference: getEffectiveBeerVisibilityPreference(v.tier, preference),
-        preferenceColumnAvailable: true,
-      }))
+    } catch (err) {
+      setVisibility(previous)
+      setVisibilityError(err instanceof Error ? err.message : 'Could not save beer visibility.')
+    } finally {
+      setVisibilitySaving(false)
     }
-    setVisibilitySaving(false)
   }
 
   const signOut = async () => {
@@ -340,141 +316,196 @@ export default function MembershipPage() {
     router.refresh()
   }
 
+  const closeSettings = () => router.push('/')
+
+  const tabButton = (tab: SettingsTab, label: string) => (
+    <button
+      type="button"
+      onClick={() => setActiveTab(tab)}
+      style={{
+        flex: 1,
+        minWidth: '7rem',
+        border: `1px solid ${activeTab === tab ? 'rgba(217,124,43,0.55)' : 'var(--border)'}`,
+        background: activeTab === tab ? 'rgba(217,124,43,0.16)' : 'rgba(255,255,255,0.03)',
+        color: activeTab === tab ? 'var(--gold)' : 'var(--text-muted)',
+        padding: '0.65rem 0.75rem',
+        borderRadius: '999px',
+        cursor: 'pointer',
+        fontFamily: "'Modern Antiqua', serif",
+        fontSize: '0.72rem',
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+      }}
+    >
+      {label}
+    </button>
+  )
+
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       {!nativeAppMode && <Nav user={user} />}
-      <main style={{ maxWidth: '760px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
-          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(255,140,0,0.35))' }} />
-          <span style={{ fontFamily: "'Modern Antiqua', serif", fontSize: '0.6rem', letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--gold)', whiteSpace: 'nowrap' }}>
-            The Settings
-          </span>
-          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
-        </div>
 
-        {loading ? (
-          <p style={{ color: 'var(--gold)', textAlign: 'center', padding: '4rem 0' }}>Loading membership settings...</p>
-        ) : !user ? (
-          <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '2rem', textAlign: 'center' }}>
-            <h1 style={{ color: 'var(--text)', fontSize: '1.4rem', marginBottom: '0.75rem' }}>Members Only</h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '1.5rem' }}>
-              Sign in to view membership and notification settings.
-            </p>
-            <Link href="/auth" style={{ display: 'inline-block', background: 'var(--gold)', color: 'var(--bg)', padding: '0.75rem 2rem', borderRadius: '8px', fontFamily: "'Modern Antiqua', serif", fontWeight: 700, letterSpacing: '0.1em', textDecoration: 'none' }}>
-              Sign In
-            </Link>
-          </section>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.4rem 1.5rem' }}>
-              <div style={{ color: 'var(--gold)', fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                Account
+      <div
+        role="presentation"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 80,
+          background: 'rgba(7, 6, 12, 0.72)',
+          backdropFilter: 'blur(8px)',
+          padding: 'min(5vh, 2rem) 1rem calc(min(5vh, 2rem) + env(safe-area-inset-bottom))',
+          overflowY: 'auto',
+        }}
+      >
+        <main
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="hhs-settings-title"
+          style={{
+            maxWidth: '820px',
+            margin: '0 auto',
+            background: 'rgba(25, 23, 38, 0.98)',
+            border: '1px solid var(--border)',
+            borderRadius: '18px',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ padding: '1.2rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: 'var(--gold)', fontSize: '0.58rem', letterSpacing: '0.32em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                Hallowed Hop Society
               </div>
-              <h1 style={{ color: 'var(--text)', fontSize: '1.35rem', marginBottom: '0.2rem' }}>{tierLabel}</h1>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', margin: 0 }}>{user.email}</p>
-            </section>
+              <h1 id="hhs-settings-title" style={{ color: 'var(--text)', fontSize: '1.55rem', margin: 0 }}>
+                The Settings
+              </h1>
+            </div>
+            <button
+              type="button"
+              aria-label="Close settings"
+              onClick={closeSettings}
+              style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', width: '2.2rem', height: '2.2rem', borderRadius: '999px', cursor: 'pointer', fontSize: '1.25rem', lineHeight: 1 }}
+            >
+              ×
+            </button>
+          </div>
 
-            <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.4rem 1.5rem' }}>
-              <div style={{ color: 'var(--gold)', fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                Beer Calendar Visibility
-              </div>
-              {visibility.tier === 'oddballs' ? (
-                <>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '0.75rem' }}>
-                    Oddballs defaults to participating odd-day beers. Show all is a peek view; even-day Full Society beers remain read-only for rating and beer-specific Wall posting.
-                  </p>
-                  <Row label="Participating beers only" sub="Default Oddballs view: odd days only.">
-                    <Toggle
-                      disabled={visibilitySaving || visibility.preferenceColumnAvailable === false}
-                      checked={visibility.effectivePreference === 'participating_only'}
-                      onChange={() => void saveBeerVisibility('participating_only')}
-                    />
+          <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+            {tabButton('account', 'Account')}
+            {tabButton('notifications', 'Notifications')}
+            {tabButton('about', 'About HHS')}
+          </div>
+
+          <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {loading ? (
+              <p style={{ color: 'var(--gold)', textAlign: 'center', padding: '3rem 0' }}>Loading settings...</p>
+            ) : !user ? (
+              <Card eyebrow="Account">
+                <h2 style={{ color: 'var(--text)', fontSize: '1.4rem', marginBottom: '0.75rem' }}>Members Only</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '1.5rem' }}>
+                  Sign in to view membership, notification, and HHS account settings.
+                </p>
+                <Link href="/auth" style={{ display: 'inline-block', background: 'var(--gold)', color: 'var(--bg)', padding: '0.75rem 2rem', borderRadius: '8px', fontFamily: "'Modern Antiqua', serif", fontWeight: 700, letterSpacing: '0.1em', textDecoration: 'none' }}>
+                  Sign In
+                </Link>
+              </Card>
+            ) : activeTab === 'account' ? (
+              <>
+                <Card eyebrow="Account">
+                  <h2 style={{ color: 'var(--text)', fontSize: '1.35rem', marginBottom: '0.2rem' }}>{displayUsername}</h2>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', margin: 0 }}>{user.email}</p>
+                  <Row label="Subscription" sub="Your current HHS membership tier.">
+                    <span style={{ color: 'var(--gold)', textAlign: 'right' }}>{tierLabel}</span>
                   </Row>
-                  <Row label="Show all beers" sub="Peek at the full calendar without changing your Oddballs participation.">
-                    <Toggle
-                      disabled={visibilitySaving || visibility.preferenceColumnAvailable === false}
-                      checked={visibility.effectivePreference === 'all'}
-                      onChange={() => void saveBeerVisibility('all')}
-                    />
+                  <Row label="Username" sub="Shown on the Wall and Rankings.">
+                    <span style={{ color: 'var(--text)', textAlign: 'right' }}>{profile.username ? `@${profile.username}` : 'Not set'}</span>
                   </Row>
-                  {visibility.preferenceColumnAvailable === false && (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, marginTop: '0.75rem' }}>
-                      Saving this preference is not available in the current web schema yet. The safe default is participating beers only.
+                  <Row label="Beer Calendar Visibility" sub={visibility.tier === 'oddballs' ? 'Oddballs defaults to odd-day participating beers.' : 'Hallowed members see the full 31-day calendar.'}>
+                    <span style={{ color: 'var(--gold)', textAlign: 'right' }}>{visibilityLabel}</span>
+                  </Row>
+                </Card>
+
+                <Card eyebrow="Beer Calendar Visibility">
+                  {visibility.tier === 'oddballs' ? (
+                    <>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '0.75rem' }}>
+                        Oddballs defaults to participating odd-day beers. Show all is a peek view; even-day Full Society beers remain read-only for rating and beer-specific Wall posting.
+                      </p>
+                      <Row label="Participating beers only" sub="Default Oddballs view: odd days only.">
+                        <Toggle
+                          disabled={visibilitySaving || visibility.preferenceColumnAvailable === false}
+                          checked={visibility.effectivePreference === 'participating_only'}
+                          onChange={() => void saveBeerVisibility('participating_only')}
+                        />
+                      </Row>
+                      <Row label="Show all beers" sub="Peek at the full calendar without changing your Oddballs participation.">
+                        <Toggle
+                          disabled={visibilitySaving || visibility.preferenceColumnAvailable === false}
+                          checked={visibility.effectivePreference === 'all'}
+                          onChange={() => void saveBeerVisibility('all')}
+                        />
+                      </Row>
+                      {visibility.preferenceColumnAvailable === false && (
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, marginTop: '0.75rem' }}>
+                          Saving this preference is not available in the current web schema yet. The safe default is participating beers only.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, margin: 0 }}>
+                      Hallowed members see the full 31-day calendar. Oddballs members default to odd-day participating beers.
                     </p>
                   )}
-                </>
-              ) : (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, margin: 0 }}>
-                  Hallowed members see the full 31-day calendar. Oddballs members default to odd-day participating beers.
-                </p>
-              )}
-              {visibilityError && <p style={{ color: '#e05555', fontSize: '0.82rem', marginTop: '0.75rem' }}>{visibilityError}</p>}
-            </section>
+                  {visibilitySaving && <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.75rem' }}>Saving beer visibility...</p>}
+                  {visibilityError && <p style={{ color: '#e05555', fontSize: '0.82rem', marginTop: '0.75rem' }}>{visibilityError}</p>}
+                </Card>
 
-            <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.4rem 1.5rem' }}>
-              <div style={{ color: 'var(--gold)', fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                Notifications
-              </div>
-              {!pushSupported ? (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '1rem' }}>
-                  This browser cannot enable HHS web push notifications here. Preferences below still save for supported web/PWA or native notification delivery.
-                </p>
-              ) : (
-                <>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '0.75rem' }}>
-                    Web notifications use this browser&apos;s push permission. Expo push tokens are native-only, so the web app uses its existing web subscription endpoint.
-                    {!isPWA() ? ' On mobile, install HHS to your home screen for the most reliable web notification behavior.' : ''}
-                  </p>
+                <Card eyebrow="Sign In / Out">
                   <button
                     type="button"
-                    onClick={pushEnabled ? disableWebPush : enableWebPush}
-                    style={{ background: pushEnabled ? 'transparent' : 'var(--gold)', border: pushEnabled ? '1px solid var(--border)' : 'none', color: pushEnabled ? 'var(--text-muted)' : 'var(--bg)', padding: '0.55rem 1.1rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem', fontFamily: "'Modern Antiqua', serif", fontWeight: 700, letterSpacing: '0.08em', marginBottom: '0.75rem' }}
+                    onClick={signOut}
+                    style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', padding: '0.55rem 1.1rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem', fontFamily: "'Modern Antiqua', serif", letterSpacing: '0.08em' }}
                   >
-                    {pushEnabled ? 'Disable Web Notifications' : 'Enable Web Notifications'}
+                    Sign Out
                   </button>
-                </>
-              )}
-              {pushStatus && <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, marginBottom: '0.75rem' }}>{pushStatus}</p>}
-
-              <Row label="Daily Beer" sub="Get notified each day your next beer is ready.">
-                <Toggle disabled={prefsSaving} checked={prefs.daily_beer} onChange={v => updateNotifPref('daily_beer', v)} />
-              </Row>
-              <Row label="All Social Notifications" sub="Enable or disable all Wall social alerts at once.">
-                <Toggle disabled={prefsSaving} checked={prefs.social_all} onChange={v => updateNotifPref('social_all', v)} />
-              </Row>
-              <div style={{ paddingLeft: '0.75rem', borderLeft: '1px solid var(--border)' }}>
-                <Row label="New Comment" sub="When someone comments on any post.">
-                  <Toggle disabled={prefsSaving} checked={prefs.social_new_comment} onChange={v => updateNotifPref('social_new_comment', v)} />
+                </Card>
+              </>
+            ) : activeTab === 'notifications' ? (
+              <Card eyebrow="Notifications">
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '1rem' }}>
+                  These preferences save to your HHS account and are used by supported HHS notification delivery. Browser push registration is not shown here because this settings screen does not verify a working browser subscription for every deployed mobile browser. No broadcast notifications are sent from this screen.
+                </p>
+                <Row label="Daily Beer" sub="Get notified each day your next beer is ready.">
+                  <Toggle disabled={prefsSaving} checked={prefs.daily_beer} onChange={v => updateNotifPref('daily_beer', v)} />
                 </Row>
-                <Row label="New Reaction" sub="When someone reacts to any post.">
-                  <Toggle disabled={prefsSaving} checked={prefs.social_new_reaction} onChange={v => updateNotifPref('social_new_reaction', v)} />
+                <Row label="All Social Notifications" sub="Enable or disable all Wall social alerts at once.">
+                  <Toggle disabled={prefsSaving} checked={prefs.social_all} onChange={v => updateNotifPref('social_all', v)} />
                 </Row>
-                <Row label="Reaction to Your Items" sub="When someone reacts to your post.">
-                  <Toggle disabled={prefsSaving} checked={prefs.social_reaction_to_your_items} onChange={v => updateNotifPref('social_reaction_to_your_items', v)} />
-                </Row>
-                <Row label="Comment on Your Items" sub="When someone comments on your post.">
-                  <Toggle disabled={prefsSaving} checked={prefs.social_comment_on_your_items} onChange={v => updateNotifPref('social_comment_on_your_items', v)} />
-                </Row>
-              </div>
-              {prefsSaving && <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.75rem' }}>Saving...</p>}
-              {prefsError && <p style={{ color: '#e05555', fontSize: '0.82rem', marginTop: '0.75rem' }}>{prefsError}</p>}
-            </section>
-
-            <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.4rem 1.5rem' }}>
-              <div style={{ color: 'var(--gold)', fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                Auth
-              </div>
-              <button
-                type="button"
-                onClick={signOut}
-                style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', padding: '0.55rem 1.1rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem', fontFamily: "'Modern Antiqua', serif", letterSpacing: '0.08em' }}
-              >
-                Sign Out
-              </button>
-            </section>
+                <div style={{ paddingLeft: '0.75rem', borderLeft: '1px solid var(--border)' }}>
+                  <Row label="New Comment" sub="When someone comments on any post.">
+                    <Toggle disabled={prefsSaving} checked={prefs.social_new_comment} onChange={v => updateNotifPref('social_new_comment', v)} />
+                  </Row>
+                  <Row label="New Reaction" sub="When someone reacts to any post.">
+                    <Toggle disabled={prefsSaving} checked={prefs.social_new_reaction} onChange={v => updateNotifPref('social_new_reaction', v)} />
+                  </Row>
+                  <Row label="Reaction to Your Items" sub="When someone reacts to your post.">
+                    <Toggle disabled={prefsSaving} checked={prefs.social_reaction_to_your_items} onChange={v => updateNotifPref('social_reaction_to_your_items', v)} />
+                  </Row>
+                  <Row label="Comment on Your Items" sub="When someone comments on your post.">
+                    <Toggle disabled={prefsSaving} checked={prefs.social_comment_on_your_items} onChange={v => updateNotifPref('social_comment_on_your_items', v)} />
+                  </Row>
+                </div>
+                {prefsSaving && <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.75rem' }}>Saving notification preferences...</p>}
+                {prefsError && <p style={{ color: '#e05555', fontSize: '0.82rem', marginTop: '0.75rem' }}>{prefsError}</p>}
+              </Card>
+            ) : (
+              <Card eyebrow="About HHS">
+                <AboutHHSContent />
+              </Card>
+            )}
           </div>
-        )}
-      </main>
+        </main>
+      </div>
     </div>
   )
 }

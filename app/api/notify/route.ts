@@ -3,11 +3,17 @@ import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { sendExpoPush } from '@/lib/expo-push'
 
-webpush.setVapidDetails(
-  process.env.VAPID_EMAIL!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+function configureWebPush() {
+  const subject = process.env.VAPID_EMAIL
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+
+  if (!subject || !publicKey || !privateKey) {
+    throw new Error('Web push is not configured. Set VAPID_EMAIL, NEXT_PUBLIC_VAPID_PUBLIC_KEY, and VAPID_PRIVATE_KEY.')
+  }
+
+  webpush.setVapidDetails(subject, publicKey, privateKey)
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +21,8 @@ const supabase = createClient(
 )
 
 async function broadcast(title: string, body: string, url = '/', tiers?: string[]) {
+  configureWebPush()
+
   // Get all push subscriptions
   const { data: subs } = await supabase
     .from('push_subscriptions')

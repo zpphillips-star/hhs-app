@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const { data: tierRow, error: tierError } = await supabase
     .from('profiles')
-    .select('tier')
+    .select('tier, username, display_name')
     .eq('id', userId)
     .maybeSingle()
 
@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
         supported: false,
         tier,
         rawTier: tierRow?.tier ?? null,
+        username: tierRow?.username ?? null,
+        displayName: tierRow?.display_name ?? null,
         preference: null,
         effectivePreference: getEffectiveBeerVisibilityPreference(tier, null),
       })
@@ -59,6 +61,8 @@ export async function GET(req: NextRequest) {
     supported: true,
     tier,
     rawTier: tierRow?.tier ?? null,
+    username: tierRow?.username ?? null,
+    displayName: tierRow?.display_name ?? null,
     preference,
     effectivePreference: getEffectiveBeerVisibilityPreference(tier, preference),
   })

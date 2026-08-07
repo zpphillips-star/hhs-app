@@ -83,11 +83,21 @@ export default function Nav({ user }: Props) {
     { href: '/leaderboard', label: 'The Rankings' },
     ...(user ? [{ href: '/membership', label: 'The Settings' }] : []),
   ]
-  const mobileLinks = [
-    { href: '/', label: 'Today' },
-    ...links,
-    ...(!user ? [{ href: '/auth', label: 'Members Only' }] : []),
-  ]
+  const mobileLinks = user
+    ? [
+        { href: '/beers', label: 'The Beer' },
+        { href: '/wall', label: 'The Wall' },
+        { href: '/', label: 'Today' },
+        { href: '/leaderboard', label: 'The Rankings' },
+        { href: '/membership', label: 'The Settings' },
+      ]
+    : [
+        { href: '/beers', label: 'The Beer' },
+        { href: '/wall', label: 'The Wall' },
+        { href: '/', label: 'Today' },
+        { href: '/leaderboard', label: 'The Rankings' },
+        { href: '/auth', label: 'Members Only' },
+      ]
 
   if (hideNativeFallbackChrome) return null
 
@@ -170,7 +180,14 @@ export default function Nav({ user }: Props) {
               }}
               className="hhs-mobile-bottom-nav-link uppercase tracking-wider transition-colors hover:text-[var(--gold)]"
             >
-              {link.label}
+              {link.label.startsWith('The ') ? (
+                <span className="hhs-mobile-bottom-nav-stack">
+                  <span>The</span>
+                  <span>{link.label.slice(4)}</span>
+                </span>
+              ) : (
+                link.label
+              )}
             </Link>
           )
         })}

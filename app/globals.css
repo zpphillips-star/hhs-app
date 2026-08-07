@@ -98,6 +98,9 @@ html[data-hhs-app-mode="true"] body {
   }
 
   .hhs-mobile-bottom-nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex: 1;
     min-width: 0;
     text-align: center;
@@ -105,6 +108,14 @@ html[data-hhs-app-mode="true"] body {
     line-height: 1.15;
     letter-spacing: 0.08em;
     text-decoration: none;
+  }
+
+  .hhs-mobile-bottom-nav-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.03rem;
   }
 
   .hhs-mobile-bottom-nav-spacer {

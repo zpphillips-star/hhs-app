@@ -163,4 +163,10 @@ html[data-hhs-app-mode="true"] body {
     display: block;
     height: 0;
   }
+
+  .hhs-settings-overlay-with-mobile-nav {
+    bottom: calc(4.85rem + env(safe-area-inset-bottom)) !important;
+    z-index: 40 !important;
+    padding-bottom: min(5vh, 2rem) !important;
+  }
 }

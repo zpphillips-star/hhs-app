@@ -370,6 +370,7 @@ export default function MembershipPage() {
 
       <div
         role="presentation"
+        className={user ? 'hhs-settings-overlay hhs-settings-overlay-with-mobile-nav' : 'hhs-settings-overlay'}
         style={{
           position: 'fixed',
           inset: 0,

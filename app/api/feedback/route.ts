@@ -3,16 +3,23 @@
 //
 // GET  /api/feedback          → returns all feedback items (public)
 // POST /api/feedback          → submit new feedback item (public)
-// PATCH /api/feedback?id=...  → update status (admin: requires auth token)
+// GET  /api/feedback?adminStatus=1 → returns whether the bearer token can manage feedback
+// PATCH /api/feedback?id=...        → update status (admin only)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import type { User } from '@supabase/supabase-js'
 
 function getSupabaseAdmin() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY
+  if (!serviceKey) {
+    throw new Error('Supabase service key is not configured')
+  }
+
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SECRET_KEY!,
+    serviceKey,
   )
 }
 
@@ -24,6 +31,49 @@ function getSupabaseAnon() {
 }
 
 const VALID_STATUSES = new Set(['submitted', 'backlog', 'in_progress', 'live'])
+
+function getFeedbackAdminEmails() {
+  return new Set(
+    (process.env.HHS_FEEDBACK_ADMIN_EMAILS ?? process.env.HHS_ADMIN_EMAILS ?? process.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map(email => email.trim().toLowerCase())
+      .filter(Boolean)
+  )
+}
+
+function hasAdminClaim(user: User) {
+  const appMetadata = user.app_metadata ?? {}
+  const userMetadata = user.user_metadata ?? {}
+  const roles = [
+    appMetadata.role,
+    appMetadata.roles,
+    userMetadata.role,
+    userMetadata.roles,
+  ].flat()
+
+  return appMetadata.admin === true ||
+    appMetadata.hhs_admin === true ||
+    userMetadata.admin === true ||
+    userMetadata.hhs_admin === true ||
+    roles.some(role => typeof role === 'string' && ['admin', 'hhs_admin', 'feedback_admin'].includes(role.toLowerCase()))
+}
+
+function isFeedbackAdmin(user: User) {
+  const email = user.email?.trim().toLowerCase()
+  return Boolean(email && getFeedbackAdminEmails().has(email)) || hasAdminClaim(user)
+}
+
+async function getBearerUser(req: NextRequest) {
+  const authHeader = req.headers.get('authorization') ?? ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  if (!token) return { user: null, error: 'missing_token' as const }
+
+  const anonClient = getSupabaseAnon()
+  const { data: { user }, error } = await anonClient.auth.getUser(token)
+  if (error || !user) return { user: null, error: 'invalid_token' as const }
+
+  return { user, error: null }
+}
 
 function normalizeFeedbackItem(item: Record<string, unknown>) {
   const rawImages = item.image_urls
@@ -37,8 +87,13 @@ function normalizeFeedbackItem(item: Record<string, unknown>) {
 }
 
 // ── GET ───────────────────────────────────────────────────────────────────────
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    if (req.nextUrl.searchParams.get('adminStatus') === '1') {
+      const { user } = await getBearerUser(req)
+      return NextResponse.json({ isAdmin: Boolean(user && isFeedbackAdmin(user)) })
+    }
+
     const supabase = getSupabaseAnon()
     const { data, error } = await supabase
       .from('feedback_items')
@@ -101,18 +156,12 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 })
     }
 
-    // Require admin auth: Bearer token must belong to an authenticated user
-    const authHeader = req.headers.get('authorization') ?? ''
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
-    if (!token) {
+    const { user } = await getBearerUser(req)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    // Verify token against Supabase
-    const anonClient = getSupabaseAnon()
-    const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!isFeedbackAdmin(user)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await req.json()

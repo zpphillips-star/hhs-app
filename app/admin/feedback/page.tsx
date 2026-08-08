@@ -61,12 +61,12 @@ function FeedbackCard({
   const next = NEXT_STATUS[item.status]
 
   async function move(status: FeedbackStatus) {
-    onStatusChange(item.id, status)
-    await fetch(`/api/feedback?id=${item.id}`, {
+    const res = await fetch(`/api/feedback?id=${item.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ status }),
     })
+    if (res.ok) onStatusChange(item.id, status)
   }
 
   return (
@@ -167,15 +167,30 @@ export default function AdminFeedbackPage() {
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
 
+  const checkAdminStatus = useCallback(async (accessToken?: string | null) => {
+    if (!accessToken) {
+      setIsAdmin(false)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/feedback?adminStatus=1', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      const data = await res.json()
+      setIsAdmin(Boolean(res.ok && data.isAdmin))
+    } catch {
+      setIsAdmin(false)
+    }
+  }, [])
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setIsAdmin(true)
-        setToken(data.session.access_token)
-      }
+    supabase.auth.getSession().then(async ({ data }) => {
+      setToken(data.session?.access_token ?? '')
+      await checkAdminStatus(data.session?.access_token)
       setAuthChecked(true)
     })
-  }, [])
+  }, [checkAdminStatus])
 
   const fetchItems = useCallback(async () => {
     setError(null)
@@ -192,7 +207,7 @@ export default function AdminFeedbackPage() {
   }, [])
 
   useEffect(() => {
-    if (authChecked) fetchItems()
+    if (authChecked) void Promise.resolve().then(() => fetchItems())
   }, [authChecked, fetchItems])
 
   function handleStatusChange(id: string, status: FeedbackStatus) {
@@ -358,12 +373,12 @@ export default function AdminFeedbackPage() {
                       value={item.status}
                       onChange={async e => {
                         const newStatus = e.target.value as FeedbackStatus
-                        handleStatusChange(item.id, newStatus)
-                        await fetch(`/api/feedback?id=${item.id}`, {
+                        const res = await fetch(`/api/feedback?id=${item.id}`, {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                           body: JSON.stringify({ status: newStatus }),
                         })
+                        if (res.ok) handleStatusChange(item.id, newStatus)
                       }}
                       style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, cursor: 'pointer',
                         background: 'rgba(217,124,43,0.08)', border: '1px solid rgba(217,124,43,0.2)',

@@ -290,24 +290,39 @@ export default function FeedbackPage() {
     return () => { mountedRef.current = false }
   }, [])
 
-  // Check auth (admin detection)
+  const checkAdminStatus = useCallback(async (accessToken?: string | null) => {
+    if (!accessToken) {
+      setIsAdmin(false)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/feedback?adminStatus=1', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      const data = await res.json()
+      setIsAdmin(Boolean(res.ok && data.isAdmin))
+    } catch {
+      setIsAdmin(false)
+    }
+  }, [])
+
+  // Check auth and ask the server whether this session can manage feedback.
   useEffect(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     if (!url || url.includes('placeholder')) return
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null)
-      if (data.session) {
-        setIsAdmin(true)
-        setToken(data.session.access_token)
-      }
+      setToken(data.session?.access_token ?? null)
+      void checkAdminStatus(data.session?.access_token)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null)
-      setIsAdmin(Boolean(session))
       setToken(session?.access_token ?? null)
+      void checkAdminStatus(session?.access_token)
     })
     return () => subscription.unsubscribe()
-  }, [])
+  }, [checkAdminStatus])
 
   // Fetch feedback items
   const fetchItems = useCallback(async (signal?: AbortSignal) => {
@@ -364,14 +379,15 @@ export default function FeedbackPage() {
 
   // Admin status change
   async function handleStatusChange(id: string, status: FeedbackStatus) {
-    if (!token) return
+    if (!token || !isAdmin) return
     setItems(prev => prev.map(i => i.id === id ? { ...i, status } : i))
     try {
-      await fetch(`/api/feedback?id=${id}`, {
+      const res = await fetch(`/api/feedback?id=${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status }),
       })
+      if (!res.ok) fetchItems()
     } catch { fetchItems() }
   }
 

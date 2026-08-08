@@ -65,15 +65,18 @@ drop policy if exists "HHS feedback public insert" on feedback_items;
 create policy "HHS feedback public insert"
   on feedback_items for insert with check (true);
 
--- Admin only: authenticated users can update status
+-- Status moves are performed only through /api/feedback after the server
+-- verifies the user is an HHS feedback admin. Do not allow direct client
+-- updates with the public Supabase key; the API uses the service role, which
+-- bypasses RLS after its own admin check.
 drop policy if exists "HHS feedback admin update" on feedback_items;
 create policy "HHS feedback admin update"
-  on feedback_items for update using (auth.role() = 'authenticated');
+  on feedback_items for update using (false) with check (false);
 
--- Admin only: authenticated users can delete
+-- Deletes are also intentionally blocked for direct clients.
 drop policy if exists "HHS feedback admin delete" on feedback_items;
 create policy "HHS feedback admin delete"
-  on feedback_items for delete using (auth.role() = 'authenticated');
+  on feedback_items for delete using (false);
 
 -- 6. Storage bucket for feedback images (public)
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -103,4 +106,4 @@ create policy "HHS feedback image public read"
 drop policy if exists "HHS feedback image admin delete" on storage.objects;
 create policy "HHS feedback image admin delete"
   on storage.objects for delete
-  using (bucket_id = 'feedback-images' and auth.role() = 'authenticated');
+  using (false);

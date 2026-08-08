@@ -1250,12 +1250,6 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                     {modalBeer.style}{modalBeer.style && modalBeer.abv ? ' · ' : ''}{modalBeer.abv ? `${modalBeer.abv}% ABV` : ''}
                   </p>
                 )}
-                {modalBeer.description && (
-                  <p style={{ color: 'var(--text)', fontSize: '0.9rem', lineHeight: 1.75, fontStyle: 'italic', borderTop: '1px solid var(--border)', paddingTop: '1rem', marginBottom: '1rem' }}>
-                    {modalBeer.description}
-                  </p>
-                )}
-
                 {(modalBeer.beer_fact || modalBeer.brewery_fact) && (
                   <div style={{
                     background: 'rgba(25, 23, 38, 0.45)',

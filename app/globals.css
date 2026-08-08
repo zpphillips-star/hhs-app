@@ -143,10 +143,10 @@ html[data-hhs-app-mode="true"] body {
   .hhs-mobile-bottom-nav-logo {
     width: 3.78rem;
     height: auto;
+    display: block;
+    object-fit: contain;
     opacity: 0.94;
     max-width: none;
-    object-fit: contain;
-    display: block;
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.22));
   }
 

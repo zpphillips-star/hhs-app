@@ -147,10 +147,39 @@ export default function HomePage() {
               <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
                 {beer.style}{beer.style && beer.abv ? ' · ' : ''}{beer.abv ? `${beer.abv}% ABV` : ''}
               </div>
-              {beer.description && (
-                <p style={{ color: 'var(--text)', fontSize: '1rem', lineHeight: 1.7, borderTop: '1px solid var(--border)', paddingTop: '1rem', marginBottom: '1rem' }}>
-                  {beer.description}
-                </p>
+              {(beer.beer_fact || beer.brewery_fact) && (
+                <div style={{
+                  borderTop: '1px solid var(--border)',
+                  paddingTop: '1rem',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.85rem',
+                }}>
+                  {beer.beer_fact && (
+                    <div>
+                      <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                        The Beer
+                      </div>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.7, margin: 0 }}>
+                        {beer.beer_fact}
+                      </p>
+                    </div>
+                  )}
+                  {beer.beer_fact && beer.brewery_fact && (
+                    <div style={{ borderTop: '1px solid var(--border)' }} />
+                  )}
+                  {beer.brewery_fact && (
+                    <div>
+                      <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.58rem', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                        The Brewery
+                      </div>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.7, margin: 0 }}>
+                        {beer.brewery_fact}
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
               {avgRating !== null && (
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>

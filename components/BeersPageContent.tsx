@@ -468,12 +468,14 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
     photo,
     setBusy,
     reset,
+    onSuccess,
   }: {
     beer: Beer | null
     content: string
     photo: File | null
     setBusy: (busy: boolean) => void
     reset: () => void
+    onSuccess?: () => void
   }) => {
     if (!user || !beer || (!content.trim() && !photo) || beer.id === 'preview-space-dust' || !canInteractWithBeer(beerAccess, beer.day_number)) return
     setBusy(true)
@@ -501,6 +503,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
     reset()
     if (todayBeer?.id === beer.id) await loadPosts(beer.id)
     setBusy(false)
+    onSuccess?.()
   }
 
   const handleSubmitPost = async () => {
@@ -514,6 +517,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
         setPostContent('')
         clearPhoto()
       },
+      onSuccess: () => router.push('/wall'),
     })
   }
 
@@ -528,6 +532,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
         setModalPostContent('')
         clearModalPhoto()
       },
+      onSuccess: () => router.push('/wall'),
     })
   }
 

@@ -6,8 +6,10 @@ import type { Beer, Rating } from '@/lib/types'
 import StarRating from '@/components/StarRating'
 import Nav from '@/components/Nav'
 import Link from 'next/link'
-import AboutHHSContent from '@/components/AboutHHSContent'
 import { BeersPageContent } from '@/components/BeersPageContent'
+import HomeHeroIntro from '@/components/HomeHeroIntro'
+import HomeCountdownJoin from '@/components/HomeCountdownJoin'
+import HomeMemberSignIn from '@/components/HomeMemberSignIn'
 
 function getNativeHomeView() {
   if (typeof window === 'undefined') return { appMode: false, view: '' }
@@ -105,8 +107,6 @@ export default function HomePage() {
     setUserRating(data)
   }
 
-  const pad = (n: number) => String(n).padStart(2, '0')
-
   if (authChecked && user && !nativeView.appMode) {
     return <BeersPageContent forceTodayOnly />
   }
@@ -115,26 +115,8 @@ export default function HomePage() {
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       {!nativeView.appMode && <Nav user={user} />}
 
-      {/* Hero section — title first, then image floats right with text wrapping on both desktop + mobile */}
-      <style>{`
-        .hhs-hero { max-width: 860px; margin: 0 auto; padding: 4rem 2rem 2rem; }
-        .hhs-hero-img { float: right; width: 44%; height: auto; opacity: 0.9; margin-left: 2rem; margin-bottom: 1rem; }
-        .hhs-hero-imgwrap { float: right; width: 42%; margin-left: 2rem; margin-bottom: 1.5rem; }
-        @media (max-width: 767px) {
-          .hhs-hero { padding: 2rem 1.25rem 1.5rem; }
-          .hhs-hero-img { float: right; width: 50%; margin-left: 1rem; margin-bottom: 0.75rem; }
-          .hhs-hero-imgwrap { float: right; width: 50%; margin-left: 1rem; margin-bottom: 0.75rem; }
-        }
-      `}</style>
-      <section className="hhs-hero">
-
-        {/* Title renders first — full width above the float */}
-        <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', lineHeight: 1.05, fontWeight: 900, marginBottom: '1.5rem' }}>
-          HALLOWED<br />HOP SOCIETY
-        </h2>
-
-        {/* Image floats right — paragraphs wrap around it */}
-        {isOctober && beer ? (
+      <HomeHeroIntro
+        media={isOctober && beer ? (
           <div className="hhs-hero-imgwrap">
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', borderRadius: '16px' }}>
               <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">
@@ -198,56 +180,22 @@ export default function HomePage() {
             style={{ opacity: 0.9 }}
           />
         )}
-        <AboutHHSContent />
-        {/* Clear float */}
-        <div style={{ clear: 'both' }} />
-      </section>
+      />
 
       {/* Countdown or rating section */}
-      <section className="container mx-auto max-w-6xl px-6 py-16">
-        {!isOctober ? (
-          <div className="text-center">
-            <p style={{ color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.3em', marginBottom: '2rem' }} className="uppercase">
-              The ritual begins in
-            </p>
-            <div className="flex justify-center gap-8 mb-8">
-              {[
-                { val: countdown.days, label: 'Days' },
-                { val: countdown.hours, label: 'Hours' },
-                { val: countdown.minutes, label: 'Minutes' },
-                { val: countdown.seconds, label: 'Seconds' },
-              ].map(({ val, label }) => (
-                <div key={label} className="text-center">
-                  <div style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', fontWeight: 700, lineHeight: 1 }}>
-                    {pad(val)}
-                  </div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.15em', marginTop: '0.5rem' }} className="uppercase">
-                    {label}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {!nativeView.appMode && <div style={{ borderTop: '3px solid var(--gold)', paddingTop: '3rem' }}>
-              <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.75rem', marginBottom: '2rem', fontWeight: 700, letterSpacing: '0.1em' }}>
-                WANT TO JOIN THE SOCIETY?
-              </h2>
-              <Link
-                href="/auth"
-                style={{ background: 'var(--gold)', color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.2em', padding: '0.875rem 2.5rem', fontWeight: 700, borderRadius: '8px' }}
-                className="uppercase tracking-widest inline-block hover:opacity-80 transition-opacity"
-              >
-                I Want In
-              </Link>
-            </div>}
-          </div>
-        ) : isOctober && !loading && beer && user ? (
+      {!isOctober ? (
+        <HomeCountdownJoin countdown={countdown} showJoinCta={!nativeView.appMode} />
+      ) : isOctober && !loading && beer && user ? (
+        <section className="container mx-auto max-w-6xl px-6 py-16">
           <div className="max-w-xl mx-auto">
             <h2 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.25rem', marginBottom: '1.5rem', letterSpacing: '0.1em' }}>
               {userRating ? 'Your Rating' : 'Rate Today&apos;s Beer'}
             </h2>
             <StarRating initialStars={userRating?.stars} initialNotes={userRating?.notes || ''} onSubmit={handleRate} />
           </div>
-        ) : isOctober && !user ? (
+        </section>
+      ) : isOctober && !user ? (
+        <section className="container mx-auto max-w-6xl px-6 py-16">
           <div className="text-center">
             <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '1.1rem' }}>Sign in to rate today&apos;s beer and track your progress.</p>
             {!nativeView.appMode && <Link
@@ -258,28 +206,11 @@ export default function HomePage() {
               Members Only
             </Link>}
           </div>
-        ) : null}
-      </section>
+        </section>
+      ) : null}
 
       {!user && !nativeView.appMode && (
-        <section className="container mx-auto max-w-6xl px-6 pb-12 text-center">
-          <Link
-            href="/auth"
-            style={{
-              border: '1px solid var(--gold)',
-              color: 'var(--gold)',
-              fontFamily: "'Modern Antiqua', serif",
-              fontSize: '0.75rem',
-              letterSpacing: '0.18em',
-              padding: '0.8rem 1.75rem',
-              borderRadius: '999px',
-              background: 'rgba(217, 124, 43, 0.08)',
-            }}
-            className="uppercase inline-block hover:opacity-80 transition-opacity"
-          >
-            Already a member? Sign in
-          </Link>
-        </section>
+        <HomeMemberSignIn />
       )}
     </div>
   )

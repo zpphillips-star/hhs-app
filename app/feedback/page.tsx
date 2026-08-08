@@ -159,15 +159,24 @@ function ImageUploader({
 function StageSection({
   stage,
   items,
+  defaultOpen,
   isAdmin,
   onStatusChange,
 }: {
   stage: typeof STAGES[number]
   items: FeedbackItem[]
+  defaultOpen: boolean
   isAdmin: boolean
   onStatusChange: (id: string, status: FeedbackStatus) => void
 }) {
-  const [open, setOpen] = useState(stage.id === 'submitted' || stage.id === 'in_progress')
+  const [open, setOpen] = useState(defaultOpen)
+  const previousDefaultOpen = useRef(defaultOpen)
+
+  useEffect(() => {
+    if (previousDefaultOpen.current === defaultOpen) return
+    previousDefaultOpen.current = defaultOpen
+    setOpen(defaultOpen)
+  }, [defaultOpen])
 
   return (
     <div style={{ borderRadius: 16, overflow: 'hidden', border: `1px solid ${stage.borderColor}`,
@@ -395,6 +404,16 @@ export default function FeedbackPage() {
     (acc, s) => { acc[s.id] = items.filter(i => i.status === s.id); return acc },
     { submitted: [], backlog: [], in_progress: [], live: [] }
   )
+  const shouldOpenLiveByDefault =
+    grouped.live.length > 0 &&
+    grouped.submitted.length === 0 &&
+    grouped.backlog.length === 0 &&
+    grouped.in_progress.length === 0
+
+  function getDefaultOpenStage(stageId: FeedbackStatus) {
+    if (shouldOpenLiveByDefault) return stageId === 'live'
+    return stageId === 'submitted' || stageId === 'in_progress'
+  }
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
@@ -562,6 +581,7 @@ export default function FeedbackPage() {
               key={stage.id}
               stage={stage}
               items={grouped[stage.id]}
+              defaultOpen={getDefaultOpenStage(stage.id)}
               isAdmin={isAdmin}
               onStatusChange={handleStatusChange}
             />

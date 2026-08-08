@@ -147,6 +147,7 @@ html[data-hhs-app-mode="true"] body {
     object-fit: contain;
     opacity: 0.94;
     max-width: none;
+    transform: translateY(-0.32rem);
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.22));
   }
 

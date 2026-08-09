@@ -3,8 +3,8 @@ self.addEventListener('push', function (event) {
   const title = data.title || 'Hallowed Hop Society'
   const options = {
     body: data.body || 'A new beer awaits.',
-    icon: '/icon.png',
-    badge: '/icon.png',
+    icon: '/pwa-icon-192.png',
+    badge: '/pwa-icon-192.png',
     data: {
       url: data.url || '/beers',
       notificationId: data.notificationId || null,

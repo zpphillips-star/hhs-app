@@ -24,6 +24,11 @@ const DEFAULT_PREFS: NotificationPrefs = {
   social_comment_on_yours: true,
 }
 
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -41,9 +46,7 @@ export default function SettingsPage() {
       setUser({ id: data.user.id, email: data.user.email })
 
       try {
-        const res = await fetch('/api/notification-prefs', {
-          headers: { 'x-user-id': data.user.id },
-        })
+        const res = await fetch('/api/notification-prefs', { headers: await getAuthHeaders() })
         if (res.ok) {
           const fetched = await res.json()
           if (fetched && typeof fetched === 'object') {
@@ -163,42 +166,20 @@ export default function SettingsPage() {
 
             {/* ── Social Notifications ── */}
             <Section title="Social">
-              <ToggleRow
-                label="Social Notifications"
-                description="Master toggle for all social activity."
-                checked={prefs.social_enabled}
-                onChange={() => toggle('social_enabled')}
-                master
-              />
-              <div style={{ marginTop: 2, opacity: prefs.social_enabled ? 1 : 0.4, pointerEvents: prefs.social_enabled ? 'auto' : 'none', transition: 'opacity 0.2s' }}>
-                <ToggleRow
-                  label="New Comment"
-                  description="Someone leaves a comment on any beer."
-                  checked={prefs.social_new_comment}
-                  onChange={() => toggle('social_new_comment')}
-                  indent
-                />
-                <ToggleRow
-                  label="New Reaction"
-                  description="Someone adds a reaction to any beer."
-                  checked={prefs.social_new_reaction}
-                  onChange={() => toggle('social_new_reaction')}
-                  indent
-                />
-                <ToggleRow
-                  label="Reaction on Your Items"
-                  description="Someone reacts to your comment or rating."
-                  checked={prefs.social_reaction_to_yours}
-                  onChange={() => toggle('social_reaction_to_yours')}
-                  indent
-                />
-                <ToggleRow
-                  label="Comment on Your Items"
-                  description="Someone replies to your comment or rating."
-                  checked={prefs.social_comment_on_yours}
-                  onChange={() => toggle('social_comment_on_yours')}
-                  indent
-                />
+              <div style={{ padding: '0.9rem 1rem', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ color: 'var(--text)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.92rem', fontWeight: 800, letterSpacing: '0.04em' }}>
+                      Wall/social alerts
+                    </div>
+                    <div style={{ color: 'var(--text-muted)', fontFamily: "'Crimson Text', serif", fontSize: '0.88rem', lineHeight: 1.55, marginTop: 4 }}>
+                      Native-app push only for now. Web/PWA Daily Beer is the only browser notification path that is fully wired, so web social toggles are hidden until Wall push delivery is supported.
+                    </div>
+                  </div>
+                  <span style={{ border: '1px solid var(--border)', borderRadius: 999, color: 'var(--text-muted)', fontSize: '0.65rem', letterSpacing: '0.09em', padding: '0.25rem 0.55rem', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                    Native only
+                  </span>
+                </div>
               </div>
             </Section>
 
@@ -262,8 +243,7 @@ export default function SettingsPage() {
                 <span style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
                   🔔 Push Notifications
                 </span>
-                Push notification tokens are registered automatically when you grant notification permission.
-                These preferences control which categories of notifications the Society sends to your device.
+                Browser push subscriptions are registered when you grant notification permission. On web/PWA, HHS currently sends Daily Beer browser reminders only; Wall/social push alerts are native-app only until the web delivery path is wired.
               </p>
             </div>
           </>

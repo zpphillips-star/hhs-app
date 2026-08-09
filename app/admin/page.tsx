@@ -45,6 +45,11 @@ type Member = {
   native_source: string | null
 }
 
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
 export default function AdminPage() {
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [beers, setBeers] = useState<Beer[]>([])
@@ -99,7 +104,7 @@ export default function AdminPage() {
         })
         await fetch('/api/subscribe', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
           body: JSON.stringify({ subscription: sub.toJSON(), user_id: user.id }),
         })
         fetchMembers() // refresh the table

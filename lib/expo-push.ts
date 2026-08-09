@@ -6,7 +6,7 @@
  * All errors are surfaced/logged — no silent failures.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { SupabaseClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase-server'
 
 export type NotificationCategory =
@@ -61,11 +61,18 @@ function getServiceClient(): SupabaseClient {
 
 /**
  * Returns the Supabase column name that controls this category.
- * social_all is NOT a gate — it is a UI convenience toggle only.
- * Delivery is controlled exclusively by each category's own column.
+ * Daily Beer is controlled by daily_beer.
+ * Social native pushes are controlled by both social_all and the category column.
  */
 function prefColumn(category: NotificationCategory): string {
-  return category // column names match category names 1:1
+  const columnMap: Record<NotificationCategory, string> = {
+    daily_beer: 'daily_beer',
+    social_new_comment: 'social_new_comment',
+    social_new_reaction: 'social_new_reaction',
+    social_reaction_to_your_items: 'social_reaction_to_your_items',
+    social_comment_on_your_items: 'social_comment_on_your_items',
+  }
+  return columnMap[category]
 }
 
 /**
@@ -129,10 +136,11 @@ export async function sendExpoPush(opts: SendPushOptions): Promise<{
     }
     const prefs = prefMap[row.user_id]
     if (prefs) {
-      // User has explicit preferences — check only the category's own toggle.
-      // social_all is a UI select-all convenience; it does NOT gate delivery.
+      // User has explicit preferences — check the category toggle.
+      // For social native pushes, the master social_enabled toggle also gates delivery.
       const catEnabled = prefs[col] !== false
-      if (!catEnabled) {
+      const socialEnabled = opts.category === 'daily_beer' || prefs.social_all !== false
+      if (!catEnabled || !socialEnabled) {
         skipped++
         continue
       }

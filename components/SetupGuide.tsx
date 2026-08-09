@@ -55,6 +55,11 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)))
 }
 
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let deferredInstallPrompt: any = null
 
@@ -149,7 +154,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
       })
       await fetch('/api/subscribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify({ subscription: sub.toJSON(), user_id: uid }),
       })
     } catch { /* silent fail */ }

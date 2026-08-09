@@ -21,13 +21,23 @@ const supabase = createClient(
 )
 
 async function broadcast(title: string, body: string, url = '/', tiers?: string[]) {
-  configureWebPush()
+  try {
+    configureWebPush()
+  } catch (err) {
+    return {
+      sent: 0,
+      failed: [err instanceof Error ? err.message : String(err)],
+      skipped: 0,
+      notificationId: null,
+      configured: false,
+    }
+  }
 
   // Get all push subscriptions
   const { data: subs } = await supabase
     .from('push_subscriptions')
     .select('subscription, user_id')
-  if (!subs || subs.length === 0) return { sent: 0, failed: [], notificationId: null }
+  if (!subs || subs.length === 0) return { sent: 0, failed: [], skipped: 0, notificationId: null, configured: true }
 
   // If tiers specified, filter to only those members
   let filteredSubs = subs
@@ -47,12 +57,34 @@ async function broadcast(title: string, body: string, url = '/', tiers?: string[
     })
   }
 
-  if (filteredSubs.length === 0) return { sent: 0, failed: [], notificationId: null }
+  if (filteredSubs.length === 0) return { sent: 0, failed: [], skipped: 0, notificationId: null, configured: true }
+
+  const filteredUserIds = filteredSubs.map(s => s.user_id).filter(Boolean)
+  const { data: prefRows, error: prefErr } = await supabase
+    .from('notification_preferences')
+    .select('user_id, daily_beer')
+    .in('user_id', filteredUserIds)
+  if (prefErr) {
+    return {
+      sent: 0,
+      failed: [`notification_preferences lookup failed: ${prefErr.message}`],
+      skipped: filteredSubs.length,
+      notificationId: null,
+      configured: true,
+    }
+  }
+
+  const prefMap: Record<string, { daily_beer?: boolean }> = {}
+  for (const pref of prefRows ?? []) prefMap[pref.user_id] = pref
+  const eligibleSubs = filteredSubs.filter(row => prefMap[row.user_id]?.daily_beer !== false)
+  const skipped = filteredSubs.length - eligibleSubs.length
+
+  if (eligibleSubs.length === 0) return { sent: 0, failed: [], skipped, notificationId: null, configured: true }
 
   // Log the broadcast
   const { data: logEntry } = await supabase
     .from('notification_log')
-    .insert({ title, body, url, total_sent: 0 })
+      .insert({ title, body, url, total_sent: 0 })
     .select('id')
     .single()
 
@@ -62,7 +94,7 @@ async function broadcast(title: string, body: string, url = '/', tiers?: string[
   const failed: string[] = []
 
   await Promise.allSettled(
-    filteredSubs.map(async (row) => {
+    eligibleSubs.map(async (row) => {
       try {
         const sub = JSON.parse(row.subscription)
         const payload = JSON.stringify({ title, body, url, notificationId, userId: row.user_id })
@@ -87,7 +119,7 @@ async function broadcast(title: string, body: string, url = '/', tiers?: string[
       .eq('id', notificationId)
   }
 
-  return { sent, failed, notificationId }
+  return { sent, failed, skipped, notificationId, configured: true }
 }
 
 // GET — cron-triggered beer notification (tier-aware by day)

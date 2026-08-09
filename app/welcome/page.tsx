@@ -99,6 +99,11 @@ export default function WelcomePage() {
     await supabase.from('profiles').update({ has_pwa: true }).eq('id', uid)
   }
 
+  const getAuthHeaders = async (): Promise<HeadersInit> => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+  }
+
   const subscribeNotifications = async () => {
     setSubscribing(true)
     try {
@@ -113,7 +118,7 @@ export default function WelcomePage() {
         })
         await fetch('/api/subscribe', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
           body: JSON.stringify({ subscription: sub.toJSON(), user_id: userId }),
         })
       }

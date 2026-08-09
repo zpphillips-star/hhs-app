@@ -37,6 +37,11 @@ function getBrowserName() {
   return 'Chrome'
 }
 
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let deferredPrompt: any = null
 
@@ -151,7 +156,7 @@ export default function SetupBanner() {
           })
           await fetch('/api/subscribe', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
             body: JSON.stringify({ subscription: sub.toJSON(), user_id: userId }),
           })
           setStep('done')

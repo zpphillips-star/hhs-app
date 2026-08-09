@@ -49,6 +49,11 @@ const SOCIAL_KEYS: (keyof NotifPrefs)[] = [
   'social_comment_on_your_items',
 ]
 
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
 function isNativeApp() {
   if (typeof window === 'undefined') return false
   try {
@@ -188,7 +193,9 @@ export default function MembershipPage() {
   }, [])
 
   const loadNotificationPrefs = useCallback(async (currentUser: User) => {
-    const res = await fetch(`/api/notification-preferences?user_id=${encodeURIComponent(currentUser.id)}`)
+    const res = await fetch(`/api/notification-preferences?user_id=${encodeURIComponent(currentUser.id)}`, {
+      headers: await getAuthHeaders(),
+    })
     const json = await res.json().catch(() => ({})) as { prefs?: Partial<NotifPrefs>; error?: string }
     if (!res.ok) throw new Error(json.error || 'Could not load notification preferences.')
     setPrefs({ ...DEFAULT_NOTIF_PREFS, ...(json.prefs ?? {}) })
@@ -237,7 +244,7 @@ export default function MembershipPage() {
     try {
       const res = await fetch('/api/notification-preferences', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify({ user_id: user.id, email: user.email, ...next }),
       })
       if (!res.ok) {
@@ -498,28 +505,50 @@ export default function MembershipPage() {
             ) : (
               <Card eyebrow="Notifications">
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '1rem' }}>
-                  These preferences save to your HHS account and are used by supported HHS notification delivery. Browser push registration is not shown here because this settings screen does not verify a working browser subscription for every deployed mobile browser. No broadcast notifications are sent from this screen.
+                  {nativeAppMode
+                    ? 'These preferences save to your HHS account and are checked before supported native notifications are sent. Daily Beer also controls any registered web/PWA beer reminders.'
+                    : 'Web/PWA notifications are only wired for Daily Beer today. This switch saves to your HHS account and is checked before browser beer reminders are sent.'}
                 </p>
                 <Row label="Daily Beer" sub="Get notified each day your next beer is ready.">
                   <Toggle disabled={prefsSaving} checked={prefs.daily_beer} onChange={v => updateNotifPref('daily_beer', v)} />
                 </Row>
-                <Row label="All Social Notifications" sub="Enable or disable all Wall social alerts at once.">
-                  <Toggle disabled={prefsSaving} checked={prefs.social_all} onChange={v => updateNotifPref('social_all', v)} />
-                </Row>
-                <div style={{ paddingLeft: '0.75rem', borderLeft: '1px solid var(--border)' }}>
-                  <Row label="New Comment" sub="When someone comments on any post.">
-                    <Toggle disabled={prefsSaving} checked={prefs.social_new_comment} onChange={v => updateNotifPref('social_new_comment', v)} />
-                  </Row>
-                  <Row label="New Reaction" sub="When someone reacts to any post.">
-                    <Toggle disabled={prefsSaving} checked={prefs.social_new_reaction} onChange={v => updateNotifPref('social_new_reaction', v)} />
-                  </Row>
-                  <Row label="Reaction to Your Items" sub="When someone reacts to your post.">
-                    <Toggle disabled={prefsSaving} checked={prefs.social_reaction_to_your_items} onChange={v => updateNotifPref('social_reaction_to_your_items', v)} />
-                  </Row>
-                  <Row label="Comment on Your Items" sub="When someone comments on your post.">
-                    <Toggle disabled={prefsSaving} checked={prefs.social_comment_on_your_items} onChange={v => updateNotifPref('social_comment_on_your_items', v)} />
-                  </Row>
-                </div>
+                {nativeAppMode ? (
+                  <>
+                    <Row label="All Social Notifications" sub="Enable or disable all Wall social alerts at once.">
+                      <Toggle disabled={prefsSaving} checked={prefs.social_all} onChange={v => updateNotifPref('social_all', v)} />
+                    </Row>
+                    <div style={{ paddingLeft: '0.75rem', borderLeft: '1px solid var(--border)' }}>
+                      <Row label="New Comment" sub="When someone comments on any post.">
+                        <Toggle disabled={prefsSaving} checked={prefs.social_new_comment} onChange={v => updateNotifPref('social_new_comment', v)} />
+                      </Row>
+                      <Row label="New Reaction" sub="When someone reacts to any post.">
+                        <Toggle disabled={prefsSaving} checked={prefs.social_new_reaction} onChange={v => updateNotifPref('social_new_reaction', v)} />
+                      </Row>
+                      <Row label="Reaction to Your Items" sub="When someone reacts to your post.">
+                        <Toggle disabled={prefsSaving} checked={prefs.social_reaction_to_your_items} onChange={v => updateNotifPref('social_reaction_to_your_items', v)} />
+                      </Row>
+                      <Row label="Comment on Your Items" sub="When someone comments on your post.">
+                        <Toggle disabled={prefsSaving} checked={prefs.social_comment_on_your_items} onChange={v => updateNotifPref('social_comment_on_your_items', v)} />
+                      </Row>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.9rem', marginTop: '0.15rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ color: 'var(--text)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.95rem', fontWeight: 700 }}>
+                          Wall/social alerts
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                          Native-app push only for now. Web/PWA Wall notification toggles are hidden until that path is fully wired.
+                        </div>
+                      </div>
+                      <span style={{ border: '1px solid var(--border)', borderRadius: '999px', color: 'var(--text-muted)', fontSize: '0.68rem', letterSpacing: '0.08em', padding: '0.25rem 0.55rem', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                        Native only
+                      </span>
+                    </div>
+                  </div>
+                )}
                 {prefsSaving && <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.75rem' }}>Saving notification preferences...</p>}
                 {prefsError && <p style={{ color: '#e05555', fontSize: '0.82rem', marginTop: '0.75rem' }}>{prefsError}</p>}
               </Card>

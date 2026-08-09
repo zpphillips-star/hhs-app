@@ -6,20 +6,36 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+const API_TO_DB = {
+  daily_beer_enabled: 'daily_beer',
+  social_enabled: 'social_all',
+  social_new_comment: 'social_new_comment',
+  social_new_reaction: 'social_new_reaction',
+  social_reaction_to_yours: 'social_reaction_to_your_items',
+  social_comment_on_yours: 'social_comment_on_your_items',
+} as const
+
 // GET /api/notification-prefs
-// Header: x-user-id: <uuid>  OR Authorization: Bearer <token>
+// Header: Authorization: Bearer <token>
 export async function GET(req: NextRequest) {
   const userId = await resolveUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data, error } = await supabase
     .from('notification_preferences')
-    .select('daily_beer_enabled,social_enabled,social_new_comment,social_new_reaction,social_reaction_to_yours,social_comment_on_yours')
+    .select('daily_beer,social_all,social_new_comment,social_new_reaction,social_reaction_to_your_items,social_comment_on_your_items')
     .eq('user_id', userId)
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? null)
+  return NextResponse.json(data ? {
+    daily_beer_enabled: data.daily_beer,
+    social_enabled: data.social_all,
+    social_new_comment: data.social_new_comment,
+    social_new_reaction: data.social_new_reaction,
+    social_reaction_to_yours: data.social_reaction_to_your_items,
+    social_comment_on_yours: data.social_comment_on_your_items,
+  } : null)
 }
 
 // POST /api/notification-prefs — upsert preferences
@@ -40,7 +56,7 @@ export async function POST(req: NextRequest) {
   const patch: Record<string, unknown> = { user_id: userId }
   for (const key of allowed) {
     if (key in body && typeof body[key] === 'boolean') {
-      patch[key] = body[key]
+      patch[API_TO_DB[key as keyof typeof API_TO_DB]] = body[key]
     }
   }
 
@@ -54,18 +70,12 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(data)
 }
 
-// ── Helper ────────────────────────────────────────────────────────────────────
-
 async function resolveUserId(req: NextRequest): Promise<string | null> {
-  // Option 1: Bearer token
   const auth = req.headers.get('authorization') ?? ''
   const token = auth.replace(/^Bearer\s+/i, '').trim()
   if (token) {
     const { data, error } = await supabase.auth.getUser(token)
     if (!error && data.user) return data.user.id
   }
-  // Option 2: x-user-id header (only trusted if caller is server-side / same-origin)
-  const userId = req.headers.get('x-user-id')
-  if (userId) return userId
   return null
 }

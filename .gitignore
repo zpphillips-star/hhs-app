@@ -45,3 +45,11 @@ next-env.d.ts
 # Data files
 *.xlsx
 *.csv
+
+
+# Local dev artifacts
+hhs.db
+*.db
+
+# AI-generated / scratch images (commit assets intentionally, not by accident)
+public/ChatGPT*

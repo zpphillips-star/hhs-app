@@ -1,109 +1,47 @@
--- ─────────────────────────────────────────────────────────────────────────────
--- HHS Feedback Feature Migration  (idempotent — safe to run multiple times)
--- Run once in the Supabase SQL editor for hallowedhopsociety.com
--- ─────────────────────────────────────────────────────────────────────────────
+-- ============================================================
+-- HHS Feedback Migration
+-- Run idempotently in Supabase SQL Editor
+-- ============================================================
 
--- 1. Feedback items table
-create table if not exists feedback_items (
-  id          uuid        default gen_random_uuid() primary key,
-  title       text        not null,
+-- 1. feedback table
+create table if not exists feedback (
+  id          uuid default gen_random_uuid() primary key,
+  title       text not null,
   description text,
   name        text,
-  email       text,
-  status      text        not null default 'submitted',
-  image_urls  text[]      not null default '{}',
-  created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
+  status      text not null default 'submitted'
+                check (status in ('submitted','backlog','in_progress','live')),
+  image_urls  text[],                -- array of Supabase Storage public URLs
+  created_at  timestamp with time zone default timezone('utc', now())
 );
 
--- 2. Add image_urls column if table already existed without it (idempotent)
-do $$
-begin
-  if not exists (
-    select 1 from information_schema.columns
-    where table_name = 'feedback_items' and column_name = 'image_urls'
-  ) then
-    alter table feedback_items add column image_urls text[] not null default '{}';
-  end if;
-end $$;
+-- 2. Row Level Security
+alter table feedback enable row level security;
 
--- 3. Add email column if missing (idempotent)
-do $$
-begin
-  if not exists (
-    select 1 from information_schema.columns
-    where table_name = 'feedback_items' and column_name = 'email'
-  ) then
-    alter table feedback_items add column email text;
-  end if;
-end $$;
+-- Anyone can read feedback (public roadmap)
+create policy if not exists "Feedback readable by all"
+  on feedback for select using (true);
 
--- 4. Auto-update updated_at trigger
-create or replace function update_feedback_updated_at()
-returns trigger language plpgsql as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
+-- Anyone can submit feedback
+create policy if not exists "Anyone can submit feedback"
+  on feedback for insert with check (true);
 
-drop trigger if exists feedback_items_updated_at on feedback_items;
-create trigger feedback_items_updated_at
-  before update on feedback_items
-  for each row execute procedure update_feedback_updated_at();
+-- Only service role (used by API routes with SUPABASE_SECRET_KEY) can update
+create policy if not exists "Service role manages feedback"
+  on feedback for update using (true);
 
--- 5. Row Level Security
-alter table feedback_items enable row level security;
+create policy if not exists "Service role deletes feedback"
+  on feedback for delete using (true);
 
--- Public: anyone can read all items (for the roadmap/feedback board)
-drop policy if exists "HHS feedback public read" on feedback_items;
-create policy "HHS feedback public read"
-  on feedback_items for select using (true);
-
--- Public: anyone can submit feedback
-drop policy if exists "HHS feedback public insert" on feedback_items;
-create policy "HHS feedback public insert"
-  on feedback_items for insert with check (true);
-
--- Status moves are performed only through /api/feedback after the server
--- verifies the user is an HHS feedback admin. Do not allow direct client
--- updates with the public Supabase key; the API uses the service role, which
--- bypasses RLS after its own admin check.
-drop policy if exists "HHS feedback admin update" on feedback_items;
-create policy "HHS feedback admin update"
-  on feedback_items for update using (false) with check (false);
-
--- Deletes are also intentionally blocked for direct clients.
-drop policy if exists "HHS feedback admin delete" on feedback_items;
-create policy "HHS feedback admin delete"
-  on feedback_items for delete using (false);
-
--- 6. Storage bucket for feedback images (public)
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'feedback-images',
-  'feedback-images',
-  true,
-  5242880,  -- 5 MB per image
-  array['image/jpeg','image/png','image/gif','image/webp','image/heic']
-)
-on conflict (id) do update set
-  public = true,
-  file_size_limit = 5242880,
-  allowed_mime_types = array['image/jpeg','image/png','image/gif','image/webp','image/heic'];
-
--- 7. Storage policies for feedback images
-drop policy if exists "HHS feedback image public upload" on storage.objects;
-create policy "HHS feedback image public upload"
-  on storage.objects for insert
-  with check (bucket_id = 'feedback-images');
-
-drop policy if exists "HHS feedback image public read" on storage.objects;
-create policy "HHS feedback image public read"
-  on storage.objects for select
-  using (bucket_id = 'feedback-images');
-
-drop policy if exists "HHS feedback image admin delete" on storage.objects;
-create policy "HHS feedback image admin delete"
-  on storage.objects for delete
-  using (false);
+-- ============================================================
+-- Storage bucket for feedback images
+-- Run in Supabase Dashboard > Storage OR via API
+-- ============================================================
+-- bucket name: hhs-feedback (public)
+-- Policy: allow public reads, allow authenticated uploads up to 5 MB
+-- This cannot be created via SQL; add via Dashboard or use the
+-- Supabase Management API. Bucket config reference:
+--   name:       hhs-feedback
+--   public:     true
+--   fileSizeLimit: 5242880  (5 MB)
+--   allowedMimeTypes: image/*

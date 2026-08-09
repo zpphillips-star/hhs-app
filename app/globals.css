@@ -13,6 +13,8 @@
   --radius: 12px;
   --radius-sm: 8px;
   --radius-lg: 16px;
+  --font-display: var(--font-modern-antiqua), 'Modern Antiqua', Georgia, serif;
+  --font-body: var(--font-crimson-text), 'Crimson Text', Georgia, serif;
 }
 
 * { box-sizing: border-box; }
@@ -20,18 +22,25 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Modern Antiqua', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 17px;
   line-height: 1.7;
 }
 
 h1, h2, h3, h4, .font-display {
-  font-family: 'Modern Antiqua', serif;
+  font-family: var(--font-display);
   letter-spacing: 0.03em;
 }
 
+/* Crimson Text for body copy — readable serif for longer text */
+p, li, .font-body, label, .text-body {
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.65;
+}
+
 input, textarea, button {
-  font-family: 'Modern Antiqua', Georgia, serif;
+  font-family: var(--font-display);
   border-radius: var(--radius-sm);
 }
 

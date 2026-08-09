@@ -3,19 +3,20 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-function isNativeApp() {
-  if (typeof window === 'undefined') return false
-  if ((window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__) return true
-  try { if (localStorage.getItem('__hhs_native_app__') === '1') return true } catch { /* ignore */ }
-  return false
-}
-
 function isPWA() {
   if (typeof window === 'undefined') return false
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
     ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
   )
+}
+
+// FIX 2: Detect native app via injected flag or localStorage — suppress entire
+// install/setup UI when running inside the HHS React Native WebView.
+function isNativeApp() {
+  if (typeof window === 'undefined') return false
+  if ((window as unknown as Record<string, unknown>).__HHS_NATIVE_APP__) return true
+  try { return localStorage.getItem('__hhs_native_app__') === '1' } catch { return false }
 }
 function isIOS() {
   if (typeof navigator === 'undefined') return false
@@ -49,8 +50,10 @@ export default function SetupBanner() {
   const [subscribing, setSubscribing] = useState(false)
   const [notifBlocked, setNotifBlocked] = useState(false)
 
-  // Don't render at all in the native app — install/PWA prompts are not applicable
-  if (isNativeApp()) return null
+  // FIX 2: Never show install/setup prompts inside the native app wrapper.
+  // The native app handles onboarding via its own React Native overlay.
+  const [isNative, setIsNative] = useState(false)
+  useEffect(() => { setIsNative(isNativeApp()) }, [])
 
   // Capture native install prompt (Android/desktop Chrome/Edge)
   useEffect(() => {
@@ -65,12 +68,6 @@ export default function SetupBanner() {
 
   // On every page load: check real state from Supabase + browser
   useEffect(() => {
-    // Skip entirely when running inside the HHS native Android app.
-    // The native app manages its own membership onboarding overlay and sets
-    // window.__HHS_NATIVE_APP__ via injectedJavaScriptBeforeContentLoaded.
-    if (typeof window !== 'undefined' && (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__) {
-      return
-    }
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       setUserId(user.id)
@@ -121,8 +118,8 @@ export default function SetupBanner() {
     })
   }, [])
 
-  // Don't render until we know what to show
-  if (!userId || !step || step === 'done') return null
+  // Don't render until we know what to show; never render inside native app
+  if (isNative || !userId || !step || step === 'done') return null
 
   const markInstalled = async () => {
     if (!userId) return

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Modern_Antiqua } from "next/font/google";
+import { Modern_Antiqua, Crimson_Text } from "next/font/google";
 import "./globals.css";
 import SetupBanner from "@/components/SetupBanner";
 
@@ -7,6 +7,13 @@ const modernAntiqua = Modern_Antiqua({
   variable: "--font-modern-antiqua",
   subsets: ["latin"],
   weight: "400",
+});
+
+const crimsonText = Crimson_Text({
+  variable: "--font-crimson-text",
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -20,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${modernAntiqua.variable} h-full`}>
+    <html lang="en" className={`${modernAntiqua.variable} ${crimsonText.variable} h-full`}>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#191726" />

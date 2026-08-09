@@ -7,6 +7,8 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+const FEEDBACK_TABLE = 'feedback_items'
+
 // GET /api/feedback — list all feedback (public) or report admin status.
 export async function GET(req: NextRequest) {
   if (req.nextUrl.searchParams.get('adminStatus') === '1') {
@@ -15,8 +17,8 @@ export async function GET(req: NextRequest) {
   }
 
   const { data, error } = await supabase
-    .from('feedback')
-    .select('id, title, description, name, status, image_urls, created_at')
+    .from(FEEDBACK_TABLE)
+    .select('id, title, description, name, email, status, image_urls, created_at, updated_at')
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = await supabase
-    .from('feedback')
+    .from(FEEDBACK_TABLE)
     .insert({
       title: title.trim().slice(0, 200),
       description: typeof description === 'string' ? description.trim().slice(0, 2000) || null : null,
@@ -64,7 +66,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { data, error } = await supabase
-    .from('feedback')
+    .from(FEEDBACK_TABLE)
     .update({ status })
     .eq('id', id)
     .select('id, status')

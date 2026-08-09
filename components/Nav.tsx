@@ -85,11 +85,11 @@ export default function Nav({ user }: Props) {
 
   const mobileLinks = user
     ? [
-        { href: '/beers', label: 'Calendar' },
-        { href: '/wall', label: 'Wall' },
+        { href: '/beers', label: 'The Beer', labelLines: ['The', 'Beer'] },
+        { href: '/wall', label: 'The Wall', labelLines: ['The', 'Wall'] },
         { href: '/', label: 'Your Beer', isHomeLogo: true },
-        { href: '/leaderboard', label: 'Rankings' },
-        { href: '/membership', label: 'Settings', activePaths: ['/membership', '/settings'] },
+        { href: '/leaderboard', label: 'The Rankings', labelLines: ['The', 'Rankings'] },
+        { href: '/membership', label: 'The Settings', labelLines: ['The', 'Settings'], activePaths: ['/membership', '/settings'] },
       ]
     : []
 
@@ -188,7 +188,11 @@ export default function Nav({ user }: Props) {
                       />
                     </span>
                   ) : (
-                    link.label
+                    <span className="hhs-mobile-bottom-nav-stack">
+                      {'labelLines' in link && link.labelLines
+                        ? link.labelLines.map(line => <span key={line}>{line}</span>)
+                        : link.label}
+                    </span>
                   )}
                 </Link>
               )

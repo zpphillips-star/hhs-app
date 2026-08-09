@@ -7,6 +7,8 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+const FEEDBACK_TABLE = 'feedback_items'
+
 // PATCH /api/feedback/[id] — admin: update status
 // Requires a valid Supabase session token in the Authorization header.
 export async function PATCH(
@@ -25,7 +27,7 @@ export async function PATCH(
   }
 
   const { data, error } = await supabase
-    .from('feedback')
+    .from(FEEDBACK_TABLE)
     .update({ status })
     .eq('id', id)
     .select('id, status')

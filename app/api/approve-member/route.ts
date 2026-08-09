@@ -8,7 +8,12 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not configured')
+  }
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,7 +42,7 @@ export async function POST(req: NextRequest) {
 
       // Send rejection email
       const rejectTpl = rejectionEmail({ first_name: memberReq.first_name })
-      await resend.emails.send({
+      await getResend().emails.send({
         from: 'HHS <notifications@hallowedhopsociety.com>',
         to: memberReq.email,
         ...rejectTpl,
@@ -152,7 +157,7 @@ export async function POST(req: NextRequest) {
     const setupLink = linkData?.properties?.action_link || 'https://hallowedhopsociety.com/auth'
 
     const welcomeTpl = welcomeEmail({ first_name: memberReq.first_name, setup_link: setupLink })
-    await resend.emails.send({
+    await getResend().emails.send({
       from: 'HHS <notifications@hallowedhopsociety.com>',
       to: memberReq.email,
       ...welcomeTpl,

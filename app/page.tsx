@@ -100,11 +100,18 @@ export default function HomePage() {
 
   const handleRate = async (stars: number, notes?: string) => {
     if (!user || !beer) return
-    const { data } = await supabase
-      .from('ratings')
-      .upsert({ user_id: user.id, beer_id: beer.id, stars, notes: notes || null }, { onConflict: 'user_id,beer_id' })
-      .select().maybeSingle()
-    setUserRating(data)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/beer-rating', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ beer_id: beer.id, stars, notes: notes || null }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) { alert(json.error ?? 'Failed to save rating'); return }
+    setUserRating(json.rating)
   }
 
   if (authChecked && user && !nativeView.appMode) {

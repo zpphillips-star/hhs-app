@@ -421,11 +421,18 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
   // ── Rate today's beer ───────────────────────────────────────────────────────
   const handleRate = async (stars: number) => {
     if (!user || !todayBeer || todayBeer.id === 'preview-space-dust' || !canInteractWithBeer(beerAccess, todayBeer.day_number)) return
-    const { data } = await supabase
-      .from('ratings')
-      .upsert({ user_id: user.id, beer_id: todayBeer.id, stars }, { onConflict: 'user_id,beer_id' })
-      .select().maybeSingle()
-    setUserRating(data)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/beer-rating', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ beer_id: todayBeer.id, stars }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) { alert(json.error ?? 'Failed to save rating'); return }
+    setUserRating(json.rating)
     await loadRatingStats(todayBeer.id, (avg, count) => {
       setAvgRating(avg)
       setRatingCount(count)
@@ -488,15 +495,18 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
       const { data: { publicUrl } } = supabase.storage.from('post-photos').getPublicUrl(path)
       photoUrl = publicUrl
     }
-    const { error: postError } = await supabase.from('posts').insert({
-      user_id: user.id,
-      beer_id: beer.id,
-      content: content.trim(),
-      photo_url: photoUrl,
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/beer-post', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ beer_id: beer.id, content: content.trim(), photo_url: photoUrl }),
     })
-    if (postError) {
-      console.error('Post insert error:', postError)
-      alert('Failed to post: ' + postError.message)
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert('Failed to post: ' + (json.error ?? 'Unknown error'))
       setBusy(false)
       return
     }
@@ -592,10 +602,18 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
 
   const handleModalRate = async (stars: number) => {
     if (!user || !modalBeer || !canInteractWithBeer(beerAccess, modalBeer.day_number)) return
-    const { data } = await supabase.from('ratings')
-      .upsert({ user_id: user.id, beer_id: modalBeer.id, stars }, { onConflict: 'user_id,beer_id' })
-      .select().maybeSingle()
-    setModalRating(data)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/beer-rating', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ beer_id: modalBeer.id, stars }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) { alert(json.error ?? 'Failed to save rating'); return }
+    setModalRating(json.rating)
     await loadRatingStats(modalBeer.id, (avg, count) => {
       setModalAvgRating(avg)
       setModalRatingCount(count)

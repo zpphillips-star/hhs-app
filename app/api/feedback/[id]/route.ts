@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdminUser } from '@/lib/access'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,17 +14,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const authHeader = req.headers.get('authorization') ?? ''
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
-
-  // Verify the caller is an authenticated user (any member can reorder for now;
-  // tighten to admin email check once admin role is formalized).
-  if (token) {
-    const { error: authError } = await supabase.auth.getUser(token)
-    if (authError) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
+  const auth = await requireAdminUser(supabase, req.headers.get('authorization'))
+  if ('error' in auth) return auth.error
 
   const body = await req.json()
   const { status } = body

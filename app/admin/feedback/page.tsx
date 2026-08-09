@@ -61,7 +61,7 @@ function FeedbackCard({
   const next = NEXT_STATUS[item.status]
 
   async function move(status: FeedbackStatus) {
-    const res = await fetch(`/api/feedback?id=${item.id}`, {
+    const res = await fetch(`/api/feedback/${item.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ status }),
@@ -198,7 +198,7 @@ export default function AdminFeedbackPage() {
       const res = await fetch('/api/feedback')
       if (!res.ok) { setError('Failed to load feedback'); return }
       const data = await res.json()
-      setItems(data.items ?? [])
+      setItems(Array.isArray(data) ? data : data.items ?? [])
     } catch {
       setError('Failed to load feedback')
     } finally {
@@ -373,7 +373,7 @@ export default function AdminFeedbackPage() {
                       value={item.status}
                       onChange={async e => {
                         const newStatus = e.target.value as FeedbackStatus
-                        const res = await fetch(`/api/feedback?id=${item.id}`, {
+                        const res = await fetch(`/api/feedback/${item.id}`, {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                           body: JSON.stringify({ status: newStatus }),

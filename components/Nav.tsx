@@ -23,6 +23,11 @@ export default function Nav({ user }: Props) {
     router.refresh()
   }
 
+  const navigateFromMenu = (href: string) => {
+    setMenuOpen(false)
+    router.push(href)
+  }
+
   // Close menu on outside click
   useEffect(() => {
     if (!menuOpen) return
@@ -34,9 +39,6 @@ export default function Nav({ user }: Props) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpen])
-
-  // Close menu on route change
-  useEffect(() => { setMenuOpen(false) }, [pathname])
 
   const menuLinks = [
     { href: '/beers', label: 'The Beer' },
@@ -121,7 +123,10 @@ export default function Nav({ user }: Props) {
                   <Link
                     key={link.href}
                     href={link.href}
-                    onClick={() => setMenuOpen(false)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      navigateFromMenu(link.href)
+                    }}
                     style={{
                       display: 'block',
                       padding: '10px 18px',
@@ -139,8 +144,8 @@ export default function Nav({ user }: Props) {
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
               </div>
 
-              <MenuRow href="/feedback" label="Feedback" onClick={() => setMenuOpen(false)} />
-              <MenuRow href="/settings" label="Settings" onClick={() => setMenuOpen(false)} />
+              <MenuRow href="/feedback" label="Feedback" onNavigate={navigateFromMenu} />
+              <MenuRow href="/settings" label="Settings" onNavigate={navigateFromMenu} />
               <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
               {user ? (
                 <button
@@ -163,7 +168,7 @@ export default function Nav({ user }: Props) {
                   Sign Out
                 </button>
               ) : (
-                <MenuRow href="/auth" label="Sign In" gold onClick={() => setMenuOpen(false)} />
+                <MenuRow href="/auth" label="Sign In" gold onNavigate={navigateFromMenu} />
               )}
             </div>
           )}
@@ -177,17 +182,21 @@ function MenuRow({
   href,
   label,
   gold,
-  onClick,
+  onNavigate,
 }: {
   href: string
   label: string
   gold?: boolean
-  onClick?: () => void
+  onNavigate?: (href: string) => void
 }) {
   return (
     <Link
       href={href}
-      onClick={onClick}
+      onClick={(e) => {
+        if (!onNavigate) return
+        e.preventDefault()
+        onNavigate(href)
+      }}
       style={{
         display: 'block',
         padding: '10px 18px',

@@ -8,7 +8,12 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not configured')
+  }
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,7 +60,7 @@ export async function POST(req: NextRequest) {
       email,
       requested_at: new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }),
     })
-    await resend.emails.send({
+    await getResend().emails.send({
       from: 'HHS <notifications@hallowedhopsociety.com>',
       to: 'hallowedhopsociety@gmail.com',
       ...requestTpl,

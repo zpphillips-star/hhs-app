@@ -62,13 +62,6 @@ const STAGES: {
   },
 ]
 
-const STATUS_OPTIONS: { value: FeedbackStatus; label: string }[] = [
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'backlog', label: 'Planned' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'live', label: 'Live' },
-]
-
 function formatDate(iso: string) {
   try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
   catch { return '' }
@@ -110,13 +103,17 @@ export default function FeedbackPage() {
       if (!res.ok) return
       const data = await res.json()
       if (Array.isArray(data)) setItems(data)
+      else if (Array.isArray(data.items)) setItems(data.items)
     } catch { /* silent */ }
   }, [])
 
   useEffect(() => {
-    fetchItems()
+    const firstLoad = window.setTimeout(() => { void fetchItems() }, 0)
     const iv = setInterval(fetchItems, 30_000)
-    return () => clearInterval(iv)
+    return () => {
+      window.clearTimeout(firstLoad)
+      clearInterval(iv)
+    }
   }, [fetchItems])
 
   // Image selection
@@ -191,23 +188,6 @@ export default function FeedbackPage() {
       fetchItems()
     } catch { setSubmitError('Something went wrong. Please try again.') }
     finally { setSubmitting(false) }
-  }
-
-  // Admin status change
-  async function handleStatusChange(id: string, status: FeedbackStatus) {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, status } : i))
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(`/api/feedback/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ status }),
-      })
-      if (!res.ok) fetchItems()
-    } catch { fetchItems() }
   }
 
   function toggleStage(id: FeedbackStatus) {
@@ -591,31 +571,6 @@ export default function FeedbackPage() {
                             </div>
                           )}
 
-                          {/* Admin: status change dropdown */}
-                          {user && (
-                            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                              <select
-                                value={item.status}
-                                onChange={e => handleStatusChange(item.id, e.target.value as FeedbackStatus)}
-                                style={{
-                                  width: '100%',
-                                  background: 'var(--bg)',
-                                  border: '1px solid var(--border)',
-                                  borderRadius: 8,
-                                  color: 'var(--text-muted)',
-                                  padding: '6px 10px',
-                                  fontSize: '0.8rem',
-                                  fontFamily: "'Modern Antiqua', serif",
-                                  cursor: 'pointer',
-                                  outline: 'none',
-                                }}
-                              >
-                                {STATUS_OPTIONS.map(opt => (
-                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
                         </div>
                       ))
                     )}

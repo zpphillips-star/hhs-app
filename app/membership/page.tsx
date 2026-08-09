@@ -384,7 +384,7 @@ export default function MembershipPage() {
           zIndex: 80,
           background: 'rgba(7, 6, 12, 0.72)',
           backdropFilter: 'blur(8px)',
-          padding: 'min(5vh, 2rem) 1rem calc(min(5vh, 2rem) + env(safe-area-inset-bottom))',
+          padding: '0.85rem 1rem calc(5.5rem + env(safe-area-inset-bottom))',
           overflowY: 'auto',
         }}
       >

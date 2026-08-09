@@ -632,7 +632,7 @@ export default function WallPage() {
         />
       )}
 
-      <main style={{ maxWidth: '700px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
+      <main style={{ maxWidth: '700px', margin: '0 auto', padding: '1.25rem 1.5rem 5.5rem' }}>
 
         {/* Quick post box */}
         {user && (

@@ -1,10 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { usePathname } from 'next/navigation'
 import Image from 'next/image'
-import { useState, useEffect, useRef } from 'react'
+import { MouseEvent, useEffect, useState } from 'react'
+
+declare global {
+  interface Window {
+    __HHS_NATIVE_APP__?: boolean
+    ReactNativeWebView?: { postMessage: (msg: string) => void }
+  }
+}
 
 type Props = {
   user: { id: string; email?: string } | null
@@ -12,204 +18,185 @@ type Props = {
 
 export default function Nav({ user }: Props) {
   const pathname = usePathname()
-  const router = useRouter()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const [isNativeApp, setIsNativeApp] = useState(false)
+  const [hideNativeFallbackChrome, setHideNativeFallbackChrome] = useState(false)
 
-  const signOut = async () => {
-    setMenuOpen(false)
-    await supabase.auth.signOut()
-    router.push('/')
-    router.refresh()
-  }
-
-  const navigateFromMenu = (href: string) => {
-    setMenuOpen(false)
-    router.push(href)
-  }
-
-  // Close menu on outside click
   useEffect(() => {
-    if (!menuOpen) return
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [menuOpen])
+    let cancelled = false
 
-  const menuLinks = [
+    queueMicrotask(() => {
+      if (cancelled) return
+
+      try {
+        const nativeFallbackRoute = pathname === '/wall' || pathname === '/leaderboard'
+        const nativeFallbackMarker =
+          new URLSearchParams(window.location.search).get('hhs_native_fallback') === '1' ||
+          sessionStorage.getItem('__hhs_native_fallback__') === '1'
+
+        setIsNativeApp(
+          Boolean(
+            window.__HHS_NATIVE_APP__ ||
+            localStorage.getItem('__hhs_native_app__') === '1'
+          )
+        )
+        setHideNativeFallbackChrome(nativeFallbackRoute && nativeFallbackMarker)
+      } catch {
+        // storage or window not available — stay false
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [pathname])
+
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search)
+    const nativeApp =
+      params.get('hhs_app') === '1' ||
+      window.__HHS_NATIVE_APP__ ||
+      localStorage.getItem('__hhs_native_app__') === '1'
+    if (nativeApp) return null
+  }
+
+  const openNativeMenu = () => {
+    try {
+      window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'HHS_OPEN_MENU' }))
+    } catch {
+      // bridge not available
+    }
+  }
+
+  const handleTopNavClick = (href: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isNativeApp) return
+
+    // Android WebView has been more reliable with document-level navigation
+    // than with Next client transitions for the persistent top nav.
+    event.preventDefault()
+    window.location.assign(href)
+  }
+
+  const links = [
     { href: '/beers', label: 'The Beer' },
     { href: '/wall', label: 'The Wall' },
     { href: '/leaderboard', label: 'The Rankings' },
+    ...(user ? [{ href: '/membership', label: 'The Settings' }] : []),
   ]
 
+  const mobileLinks = user
+    ? [
+        { href: '/beers', label: 'Calendar' },
+        { href: '/wall', label: 'Wall' },
+        { href: '/', label: 'Your Beer', isHomeLogo: true },
+        { href: '/leaderboard', label: 'Rankings' },
+        { href: '/membership', label: 'Settings', activePaths: ['/membership', '/settings'] },
+      ]
+    : []
+
+  if (hideNativeFallbackChrome) return null
+
   return (
-    <nav style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }} className="px-6 py-4">
-      {/* FIX 3: relative container so logo can be absolutely centered */}
-      <div className="container mx-auto max-w-6xl relative flex items-center justify-between" style={{ minHeight: 44 }}>
-
-        {/* Left: nav links (hidden on small screens or push to left) */}
-        <div className="flex items-center gap-6">
-          {menuLinks.map(link => (
-            <Link
-              key={link.href}
-              href={link.href}
-              style={{
-                fontFamily: "'Modern Antiqua', serif",
-                color: pathname === link.href ? 'var(--gold)' : 'var(--text-muted)',
-                fontSize: '0.75rem',
-                letterSpacing: '0.15em',
-              }}
-              className="uppercase tracking-wider transition-colors hover:text-[var(--gold)] hidden sm:inline-block"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-
-        {/* FIX 3: HHS logo — absolutely centered in the nav bar */}
-        <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <Link href="/" style={{ pointerEvents: 'auto' }} aria-label="Hallowed Hop Society home">
+    <>
+      <nav data-hhs-web-nav="true" style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }} className="hhs-desktop-nav px-6 py-4">
+        <div className="container mx-auto max-w-6xl flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3" onClick={handleTopNavClick('/')}>
             <Image src="/hhs-nav-icon.webp" alt="HHS" width={44} height={26} className="opacity-90" />
           </Link>
-        </div>
 
-        {/* Right: FEATURE 1 — hamburger menu */}
-        <div className="flex items-center" ref={menuRef} style={{ position: 'relative', zIndex: 50 }}>
-          <button
-            onClick={() => setMenuOpen(v => !v)}
-            aria-label="Open menu"
-            aria-expanded={menuOpen}
-            style={{
-              background: 'none',
-              border: menuOpen ? '1px solid var(--border)' : 'none',
-              borderRadius: 8,
-              padding: '6px 8px',
-              cursor: 'pointer',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+          <div className="flex items-center gap-6">
+            {links.map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={handleTopNavClick(link.href)}
+                style={{
+                  fontFamily: "'Modern Antiqua', serif",
+                  color: pathname === link.href ? 'var(--gold)' : 'var(--text-muted)',
+                  fontSize: '0.75rem',
+                  letterSpacing: '0.15em',
+                }}
+                className="uppercase tracking-wider transition-colors hover:text-[var(--gold)]"
+              >
+                {link.label}
+              </Link>
+            ))}
+
+            {isNativeApp ? (
+              <button
+                onClick={openNativeMenu}
+                aria-label="Open menu"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '5px',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px 2px',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <span style={{ display: 'block', width: '20px', height: '2px', background: 'var(--gold)', borderRadius: '1px' }} />
+                <span style={{ display: 'block', width: '20px', height: '2px', background: 'var(--gold)', borderRadius: '1px' }} />
+                <span style={{ display: 'block', width: '20px', height: '2px', background: 'var(--gold)', borderRadius: '1px' }} />
+              </button>
+            ) : !user ? (
+              <Link
+                href="/auth"
+                onClick={handleTopNavClick('/auth')}
+                style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: '0.75rem', letterSpacing: '0.15em' }}
+                className="uppercase tracking-wider"
+              >
+                Members Only
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      </nav>
+
+      {user ? (
+        <>
+          <nav
+            data-hhs-web-nav="true"
+            aria-label="Primary mobile navigation"
+            className="hhs-mobile-bottom-nav"
           >
-            {/* Hamburger icon */}
-            <span style={{ display: 'block', width: 20, height: 2, background: menuOpen ? 'var(--gold)' : 'var(--text-muted)', borderRadius: 2, transition: 'background 0.2s' }} />
-            <span style={{ display: 'block', width: 20, height: 2, background: menuOpen ? 'var(--gold)' : 'var(--text-muted)', borderRadius: 2, transition: 'background 0.2s' }} />
-            <span style={{ display: 'block', width: 20, height: 2, background: menuOpen ? 'var(--gold)' : 'var(--text-muted)', borderRadius: 2, transition: 'background 0.2s' }} />
-          </button>
-
-          {/* Dropdown menu */}
-          {menuOpen && (
-            <div style={{
-              position: 'absolute',
-              top: 'calc(100% + 8px)',
-              right: 0,
-              minWidth: 180,
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              borderRadius: 12,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
-              padding: '6px 0',
-              zIndex: 100,
-            }}>
-              {/* Mobile nav links */}
-              <div className="sm:hidden">
-                {menuLinks.map(link => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      navigateFromMenu(link.href)
-                    }}
-                    style={{
-                      display: 'block',
-                      padding: '10px 18px',
-                      fontFamily: "'Modern Antiqua', serif",
-                      color: pathname === link.href ? 'var(--gold)' : 'var(--text)',
-                      fontSize: '0.78rem',
-                      letterSpacing: '0.15em',
-                      textDecoration: 'none',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-              </div>
-
-              <MenuRow href="/feedback" label="Feedback" onNavigate={navigateFromMenu} />
-              <MenuRow href="/settings" label="Settings" onNavigate={navigateFromMenu} />
-              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-              {user ? (
-                <button
-                  onClick={signOut}
+            {mobileLinks.map(link => {
+              const activePaths = 'activePaths' in link && link.activePaths ? link.activePaths : [link.href]
+              const isActive = link.href === '/' ? pathname === '/' : activePaths.includes(pathname)
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={handleTopNavClick(link.href)}
                   style={{
-                    display: 'block',
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '10px 18px',
                     fontFamily: "'Modern Antiqua', serif",
-                    color: 'var(--text-muted)',
-                    fontSize: '0.78rem',
-                    letterSpacing: '0.15em',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    textTransform: 'uppercase',
+                    color: isActive ? 'var(--gold)' : 'var(--text-muted)',
                   }}
+                  className={`hhs-mobile-bottom-nav-link uppercase tracking-wider transition-colors hover:text-[var(--gold)]${link.isHomeLogo ? ' hhs-mobile-bottom-nav-home' : ''}${isActive ? ' hhs-mobile-bottom-nav-active' : ''}`}
                 >
-                  Sign Out
-                </button>
-              ) : (
-                <MenuRow href="/auth" label="Sign In" gold onNavigate={navigateFromMenu} />
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </nav>
+                  {link.isHomeLogo ? (
+                    <span className="hhs-mobile-bottom-nav-logo-ring" aria-label={link.label}>
+                      <Image
+                        src="/hhs-nav-icon.webp"
+                        alt={link.label}
+                        width={67}
+                        height={39}
+                        className="hhs-mobile-bottom-nav-logo"
+                        priority
+                      />
+                    </span>
+                  ) : (
+                    link.label
+                  )}
+                </Link>
+              )
+            })}
+          </nav>
+          <div className="hhs-mobile-bottom-nav-spacer" aria-hidden="true" />
+        </>
+      ) : null}
+    </>
   )
 }
-
-function MenuRow({
-  href,
-  label,
-  gold,
-  onNavigate,
-}: {
-  href: string
-  label: string
-  gold?: boolean
-  onNavigate?: (href: string) => void
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={(e) => {
-        if (!onNavigate) return
-        e.preventDefault()
-        onNavigate(href)
-      }}
-      style={{
-        display: 'block',
-        padding: '10px 18px',
-        fontFamily: "'Modern Antiqua', serif",
-        color: gold ? 'var(--gold)' : 'var(--text)',
-        fontSize: '0.78rem',
-        letterSpacing: '0.15em',
-        textDecoration: 'none',
-        textTransform: 'uppercase',
-      }}
-    >
-      {label}
-    </Link>
-  )
-}
-

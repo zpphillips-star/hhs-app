@@ -133,7 +133,7 @@ export default function SettingsPage() {
     <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
       <Nav user={user} />
 
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: '2rem 1.25rem 5rem' }}>
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: '1.25rem 1.25rem 5.5rem' }}>
 
         <h1 style={{
           fontFamily: "'Modern Antiqua', serif",

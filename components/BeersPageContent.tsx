@@ -645,7 +645,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       {!nativeView.appMode && <Nav user={user} />}
 
-      <main style={{ maxWidth: '900px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
+      <main style={{ maxWidth: '900px', margin: '0 auto', padding: '1.25rem 1.5rem 5.5rem' }}>
         {loading ? (
           <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", textAlign: 'center', padding: '4rem 0' }}>
             Loading the sacred list...

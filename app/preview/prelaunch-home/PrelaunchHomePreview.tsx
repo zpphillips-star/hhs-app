@@ -1,7 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import HomeHeroIntro from '@/components/HomeHeroIntro'
+import HomeCountdownJoin from '@/components/HomeCountdownJoin'
+import { supabase } from '@/lib/supabase'
+import { normalizeMembershipTier } from '@/lib/membership'
 
 type Countdown = {
   days: number
@@ -10,15 +14,38 @@ type Countdown = {
   seconds: number
 }
 
+type PreviewProfile = {
+  username: string | null
+  displayName: string | null
+  email: string | null
+  tier: string | null
+  status: string | null
+  hasPwa: boolean | null
+  venmoClickedAt: string | null
+  nativeMembershipAmount: number | null
+}
+
+type ChecklistKey = 'username' | 'membership' | 'install' | 'notifications' | 'paid'
+
+type ChecklistRow = {
+  key: ChecklistKey
+  label: string
+  value: string
+  done: boolean
+  source: 'real' | 'preview'
+  summary: string
+}
+
 const displayFont = 'var(--font-display), "Modern Antiqua", Georgia, serif'
 const bodyFont = 'var(--font-body), "Crimson Text", Georgia, serif'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let deferredPrompt: any = null
 
 function getOctFirstTarget() {
   const now = new Date()
   const target = new Date(now.getFullYear(), 9, 1, 0, 0, 0, 0)
-  if (now.getTime() >= target.getTime()) {
-    target.setFullYear(target.getFullYear() + 1)
-  }
+  if (now.getTime() >= target.getTime()) target.setFullYear(target.getFullYear() + 1)
   return target
 }
 
@@ -32,91 +59,87 @@ function buildCountdown(): Countdown {
   }
 }
 
-function CountdownTile({ label, value }: { label: string; value: number | string }) {
+function isPWA() {
+  if (typeof window === 'undefined') return false
   return (
-    <div
+    window.matchMedia('(display-mode: standalone)').matches ||
+    ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
+  )
+}
+
+function isIOS() {
+  if (typeof navigator === 'undefined') return false
+  return /iphone|ipad|ipod/i.test(navigator.userAgent)
+}
+
+function isAndroid() {
+  if (typeof navigator === 'undefined') return false
+  return /android/i.test(navigator.userAgent)
+}
+
+function getBrowserName() {
+  if (typeof navigator === 'undefined') return 'your browser'
+  const ua = navigator.userAgent
+  if (/Edg\/|EdgA\//.test(ua)) return 'Edge'
+  if (/SamsungBrowser/.test(ua)) return 'Samsung Internet'
+  if (/OPR\/|Opera/.test(ua)) return 'Opera'
+  if (/Firefox/.test(ua)) return 'Firefox'
+  if (/CriOS|Chrome/.test(ua)) return 'Chrome'
+  if (/Safari/.test(ua)) return 'Safari'
+  return 'your browser'
+}
+
+function notificationSupported() {
+  return typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window
+}
+
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
+function tierLabel(tier: string | null | undefined) {
+  const normalized = normalizeMembershipTier(tier)
+  if (normalized === 'hallowed') return 'The Hallowed'
+  if (normalized === 'oddballs') return 'Oddballs'
+  if (tier) return tier
+  return 'Not selected'
+}
+
+function CheckIcon({ done }: { done: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
       style={{
-        border: '1px solid rgba(217, 124, 43, 0.28)',
-        background: 'rgba(32, 29, 48, 0.78)',
-        borderRadius: '18px',
-        padding: '1rem 0.85rem',
-        textAlign: 'center',
-        minWidth: 82,
-        boxShadow: '0 16px 36px rgba(0, 0, 0, 0.18)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '2rem',
+        height: '2rem',
+        borderRadius: 999,
+        flex: '0 0 auto',
+        border: done ? '1px solid rgba(74, 222, 128, 0.55)' : '1px solid rgba(248, 113, 113, 0.55)',
+        background: done ? 'rgba(34, 197, 94, 0.13)' : 'rgba(239, 68, 68, 0.12)',
+        color: done ? '#4ade80' : '#f87171',
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '1.05rem',
+        fontWeight: 900,
+        lineHeight: 1,
       }}
     >
-      <div
-        style={{
-          color: 'var(--gold)',
-          fontFamily: displayFont,
-          fontSize: 'clamp(2rem, 8vw, 4.25rem)',
-          lineHeight: 0.95,
-          letterSpacing: '0.03em',
-        }}
-      >
-        {value}
-      </div>
-      <div
-        className="uppercase"
-        style={{
-          color: 'var(--text-muted)',
-          fontFamily: displayFont,
-          fontSize: '0.64rem',
-          letterSpacing: '0.22em',
-          marginTop: '0.45rem',
-        }}
-      >
-        {label}
-      </div>
-    </div>
+      {done ? '✓' : '×'}
+    </span>
   )
 }
 
-function SectionHeading({ eyebrow, title, intro }: { eyebrow: string; title: string; intro?: string }) {
-  return (
-    <div style={{ marginBottom: '1.5rem' }}>
-      <div
-        className="uppercase"
-        style={{
-          color: 'var(--gold)',
-          fontFamily: displayFont,
-          fontSize: '0.7rem',
-          letterSpacing: '0.28em',
-          marginBottom: '0.55rem',
-        }}
-      >
-        {eyebrow}
-      </div>
-      <h2
-        style={{
-          color: 'var(--text)',
-          fontFamily: displayFont,
-          fontSize: 'clamp(1.75rem, 4vw, 2.7rem)',
-          lineHeight: 1.08,
-          margin: 0,
-        }}
-      >
-        {title}
-      </h2>
-      {intro ? (
-        <p
-          style={{
-            color: 'var(--text-muted)',
-            fontFamily: bodyFont,
-            fontSize: '1.06rem',
-            lineHeight: 1.7,
-            marginTop: '0.75rem',
-            maxWidth: 720,
-          }}
-        >
-          {intro}
-        </p>
-      ) : null}
-    </div>
-  )
-}
+function StatusPill({ children, tone = 'gold' }: { children: ReactNode; tone?: 'gold' | 'green' | 'red' | 'muted' }) {
+  const palette = {
+    gold: ['rgba(217, 124, 43, 0.42)', 'rgba(217, 124, 43, 0.12)', 'var(--gold)'],
+    green: ['rgba(74, 222, 128, 0.42)', 'rgba(34, 197, 94, 0.12)', '#4ade80'],
+    red: ['rgba(248, 113, 113, 0.42)', 'rgba(239, 68, 68, 0.12)', '#f87171'],
+    muted: ['rgba(217, 124, 43, 0.18)', 'rgba(255, 255, 255, 0.035)', 'var(--text-muted)'],
+  }[tone]
 
-function StatusPill({ children, tone = 'gold' }: { children: ReactNode; tone?: 'gold' | 'muted' }) {
   return (
     <span
       className="uppercase"
@@ -124,9 +147,9 @@ function StatusPill({ children, tone = 'gold' }: { children: ReactNode; tone?: '
         display: 'inline-flex',
         alignItems: 'center',
         width: 'fit-content',
-        border: tone === 'gold' ? '1px solid rgba(217, 124, 43, 0.42)' : '1px solid rgba(217, 124, 43, 0.18)',
-        background: tone === 'gold' ? 'rgba(217, 124, 43, 0.12)' : 'rgba(255, 255, 255, 0.035)',
-        color: tone === 'gold' ? 'var(--gold)' : 'var(--text-muted)',
+        border: `1px solid ${palette[0]}`,
+        background: palette[1],
+        color: palette[2],
         borderRadius: 999,
         padding: '0.35rem 0.7rem',
         fontFamily: displayFont,
@@ -140,17 +163,21 @@ function StatusPill({ children, tone = 'gold' }: { children: ReactNode; tone?: '
   )
 }
 
-function Panel({ children, accent = false }: { children: ReactNode; accent?: boolean }) {
+function Panel({ children, accent = false, ready = false }: { children: ReactNode; accent?: boolean; ready?: boolean }) {
   return (
     <div
       style={{
-        border: accent ? '1px solid rgba(217, 124, 43, 0.36)' : '1px solid var(--border)',
-        background: accent
-          ? 'linear-gradient(145deg, rgba(217, 124, 43, 0.13), rgba(32, 29, 48, 0.9) 42%, rgba(32, 29, 48, 0.72))'
-          : 'rgba(32, 29, 48, 0.72)',
+        border: ready
+          ? '1px solid rgba(74, 222, 128, 0.58)'
+          : accent ? '1px solid rgba(217, 124, 43, 0.36)' : '1px solid var(--border)',
+        background: ready
+          ? 'linear-gradient(145deg, rgba(34, 197, 94, 0.16), rgba(32, 29, 48, 0.9) 44%, rgba(32, 29, 48, 0.72))'
+          : accent
+            ? 'linear-gradient(145deg, rgba(217, 124, 43, 0.13), rgba(32, 29, 48, 0.9) 42%, rgba(32, 29, 48, 0.72))'
+            : 'rgba(32, 29, 48, 0.72)',
         borderRadius: '22px',
         padding: 'clamp(1.25rem, 3vw, 2rem)',
-        boxShadow: '0 22px 60px rgba(0, 0, 0, 0.18)',
+        boxShadow: ready ? '0 0 0 1px rgba(74, 222, 128, 0.16), 0 22px 70px rgba(34, 197, 94, 0.12)' : '0 22px 60px rgba(0, 0, 0, 0.18)',
       }}
     >
       {children}
@@ -158,8 +185,94 @@ function Panel({ children, accent = false }: { children: ReactNode; accent?: boo
   )
 }
 
+function SectionHeading({ eyebrow, title, intro }: { eyebrow: string; title: string; intro?: string }) {
+  return (
+    <div style={{ marginBottom: '1.35rem' }}>
+      <div
+        className="uppercase"
+        style={{
+          color: 'var(--gold)',
+          fontFamily: displayFont,
+          fontSize: '0.7rem',
+          letterSpacing: '0.28em',
+          marginBottom: '0.55rem',
+        }}
+      >
+        {eyebrow}
+      </div>
+      <h2 style={{ color: 'var(--text)', fontFamily: displayFont, fontSize: 'clamp(1.65rem, 4vw, 2.55rem)', lineHeight: 1.08, margin: 0 }}>
+        {title}
+      </h2>
+      {intro ? (
+        <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1.06rem', lineHeight: 1.7, marginTop: '0.75rem', maxWidth: 760 }}>
+          {intro}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function GuidanceSteps({ type }: { type: 'install' | 'notifications' }) {
+  if (type === 'install') {
+    if (isIOS()) {
+      return (
+        <ol style={modalListStyle}>
+          <li>Open this page in Safari. iOS only allows Home Screen installs from Safari.</li>
+          <li>Tap the Share button at the bottom of Safari.</li>
+          <li>Choose <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li>
+          <li>Reopen HHS from the new Home Screen icon so the app can detect standalone mode.</li>
+        </ol>
+      )
+    }
+    if (isAndroid()) {
+      return (
+        <ol style={modalListStyle}>
+          <li>Use Chrome, Edge, or Samsung Internet if possible.</li>
+          <li>Tap the browser menu (⋮ or ···).</li>
+          <li>Choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
+          <li>Reopen HHS from the installed icon.</li>
+        </ol>
+      )
+    }
+    return (
+      <ol style={modalListStyle}>
+        <li>Desktop install prompts only appear in supported browsers when the PWA criteria are met.</li>
+        <li>If no install button is shown, open hallowedhopsociety.com on your phone and add it to your Home Screen there.</li>
+      </ol>
+    )
+  }
+
+  if (isIOS()) {
+    return (
+      <ol style={modalListStyle}>
+        <li>Install HHS to your Home Screen first; iOS web push works from the installed app.</li>
+        <li>Open HHS from the Home Screen icon, not an in-browser tab.</li>
+        <li>Tap <strong>Enable Notifications</strong> and approve the system prompt.</li>
+        <li>If blocked, open iOS Settings → Notifications → HHS/Safari and allow notifications, then return.</li>
+      </ol>
+    )
+  }
+  return (
+    <ol style={modalListStyle}>
+      <li>Tap <strong>Enable Notifications</strong> and approve the browser permission prompt.</li>
+      <li>If blocked, open {getBrowserName()} settings → Site settings → Notifications.</li>
+      <li>Allow hallowedhopsociety.com, reload this page, and tap the row again.</li>
+    </ol>
+  )
+}
+
 export default function PrelaunchHomePreview() {
-  const [countdown, setCountdown] = useState<Countdown | null>(null)
+  const [countdown, setCountdown] = useState<Countdown>({ days: 0, hours: 0, minutes: 0, seconds: 0 })
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
+  const [profile, setProfile] = useState<PreviewProfile | null>(null)
+  const [loadingProfile, setLoadingProfile] = useState(true)
+  const [runningAsPwa, setRunningAsPwa] = useState(false)
+  const [canNativeInstall, setCanNativeInstall] = useState(false)
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('unsupported')
+  const [hasPushSubscription, setHasPushSubscription] = useState(false)
+  const [activeModal, setActiveModal] = useState<ChecklistKey | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [subscribing, setSubscribing] = useState(false)
 
   useEffect(() => {
     const tick = () => setCountdown(buildCountdown())
@@ -168,19 +281,185 @@ export default function PrelaunchHomePreview() {
     return () => window.clearInterval(id)
   }, [])
 
-  const checklist = [
-    'Confirm your member sign-in works before the first reveal.',
-    'Make room in the fridge for 31 nights of North Sound finds.',
-    'Turn on notifications when you want daily reveal and pickup reminders.',
-    'Choose your visibility: Hallowed full run or Oddballs daily assignment.',
-  ]
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault()
+      deferredPrompt = e
+      setCanNativeInstall(true)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
 
-  const onboardingSketch = [
-    ['Invite', 'Zach sends or approves access so the member starts from the right tier: Hallowed or Oddballs.'],
-    ['Account', 'Member signs in, confirms display name/email, and lands on a short membership status confirmation.'],
-    ['Preferences', 'Member chooses calendar visibility and notification intent without changing the default Oddballs assignment.'],
-    ['Ready', 'Member sees the prelaunch checklist, pickup memo, and what unlocks on October 1.'],
-  ]
+  const refreshLiveState = useCallback(async () => {
+    setRunningAsPwa(isPWA())
+    setNotificationPermission(notificationSupported() ? Notification.permission : 'unsupported')
+
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    setUser(authUser)
+    if (!authUser) {
+      setProfile(null)
+      setHasPushSubscription(false)
+      setLoadingProfile(false)
+      return
+    }
+
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('username, display_name, email, tier, status, has_pwa, venmo_clicked_at, native_membership_amount')
+      .eq('id', authUser.id)
+      .maybeSingle()
+
+    setProfile({
+      username: profileRow?.username ?? null,
+      displayName: profileRow?.display_name ?? null,
+      email: profileRow?.email ?? authUser.email ?? null,
+      tier: profileRow?.tier ?? null,
+      status: profileRow?.status ?? null,
+      hasPwa: typeof profileRow?.has_pwa === 'boolean' ? profileRow.has_pwa : null,
+      venmoClickedAt: profileRow?.venmo_clicked_at ?? null,
+      nativeMembershipAmount: profileRow?.native_membership_amount ?? null,
+    })
+
+    const { data: pushSub } = await supabase
+      .from('push_subscriptions')
+      .select('user_id')
+      .eq('user_id', authUser.id)
+      .maybeSingle()
+
+    setHasPushSubscription(!!pushSub)
+    setLoadingProfile(false)
+  }, [])
+
+  useEffect(() => {
+    void Promise.resolve().then(refreshLiveState)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      setLoadingProfile(true)
+      refreshLiveState()
+    })
+    return () => subscription.unsubscribe()
+  }, [refreshLiveState])
+
+  const displayName = profile?.displayName || profile?.username || user?.email || 'Not signed in'
+  const membershipDone = !!user && (normalizeMembershipTier(profile?.tier) === 'hallowed' || normalizeMembershipTier(profile?.tier) === 'oddballs' || profile?.status === 'approved')
+  const installDone = runningAsPwa || profile?.hasPwa === true
+  const notificationDone = notificationPermission === 'granted' && hasPushSubscription
+  const paidDone = !!profile?.nativeMembershipAmount || !!profile?.venmoClickedAt
+
+  const rows: ChecklistRow[] = useMemo(() => [
+    {
+      key: 'username',
+      label: 'Username',
+      value: user ? displayName : 'Sign-in required',
+      done: !!user && displayName !== 'Not signed in',
+      source: user ? 'real' : 'preview',
+      summary: user ? 'Loaded from the current Supabase auth session/profile.' : 'Preview fallback because no member session is active.',
+    },
+    {
+      key: 'membership',
+      label: 'Membership',
+      value: membershipDone ? tierLabel(profile?.tier) : user ? 'Needs tier/status' : 'Not signed in',
+      done: membershipDone,
+      source: user ? 'real' : 'preview',
+      summary: 'Uses the current profile tier/status when signed in.',
+    },
+    {
+      key: 'install',
+      label: 'Added to Home Screen',
+      value: runningAsPwa ? 'Installed now' : profile?.hasPwa ? 'Profile says added' : canNativeInstall ? 'Install available' : 'Needs setup',
+      done: installDone,
+      source: user || runningAsPwa ? 'real' : 'preview',
+      summary: 'Uses browser standalone mode plus the existing profiles.has_pwa flag.',
+    },
+    {
+      key: 'notifications',
+      label: 'Notifications enabled',
+      value: notificationDone ? 'Enabled + subscribed' : notificationPermission === 'denied' ? 'Blocked' : notificationPermission === 'unsupported' ? 'Unsupported here' : 'Needs setup',
+      done: notificationDone,
+      source: user ? 'real' : 'preview',
+      summary: 'Uses browser permission plus the existing push_subscriptions row.',
+    },
+    {
+      key: 'paid',
+      label: 'Paid',
+      value: paidDone
+        ? profile?.nativeMembershipAmount ? `$${profile.nativeMembershipAmount} preview signal` : 'Venmo handoff seen'
+        : 'No confirmed payment field',
+      done: paidDone,
+      source: 'preview',
+      summary: 'Preview proxy only: HHS currently exposes Venmo/native membership signals here, not bank-confirmed payment settlement.',
+    },
+  ], [canNativeInstall, displayName, installDone, membershipDone, notificationDone, notificationPermission, paidDone, profile, runningAsPwa, user])
+
+  const allReady = rows.every(row => row.done)
+  const activeRow = rows.find(row => row.key === activeModal) ?? null
+
+  const markInstalled = async () => {
+    if (!user) {
+      setActionMessage('Sign in first so HHS can save the Home Screen status to your profile.')
+      return
+    }
+    await supabase.from('profiles').update({ has_pwa: true }).eq('id', user.id)
+    setActionMessage('Saved preview Home Screen status to your profile. Reopen from the icon for the real standalone check.')
+    await refreshLiveState()
+  }
+
+  const handleNativeInstall = async () => {
+    if (!deferredPrompt) {
+      setActionMessage('No one-click install prompt is available in this browser. Use the steps below.')
+      return
+    }
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    deferredPrompt = null
+    setCanNativeInstall(false)
+    if (outcome === 'accepted') await markInstalled()
+    else setActionMessage('Install was dismissed. You can still use the manual steps below.')
+  }
+
+  const enableNotifications = async () => {
+    if (!user) {
+      setActionMessage('Sign in first so HHS can save the push subscription to your member profile.')
+      return
+    }
+    if (!notificationSupported()) {
+      setActionMessage('This browser does not expose the web push APIs here. Use the platform steps below.')
+      return
+    }
+    setSubscribing(true)
+    setActionMessage(null)
+    try {
+      const perm = await Notification.requestPermission()
+      setNotificationPermission(perm)
+      if (perm !== 'granted') {
+        setActionMessage(perm === 'denied' ? 'Notifications are blocked. Use browser settings, then reload.' : 'Notification permission was not granted.')
+        return
+      }
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!vapidKey) {
+        setActionMessage('Preview cannot subscribe because NEXT_PUBLIC_VAPID_PUBLIC_KEY is not configured.')
+        return
+      }
+      const reg = await navigator.serviceWorker.ready
+      const existing = await reg.pushManager.getSubscription()
+      const sub = existing || await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      })
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ subscription: sub.toJSON(), user_id: user.id }),
+      })
+      if (!res.ok) throw new Error('Subscription save failed')
+      setActionMessage('Notifications are enabled and the push subscription was saved.')
+      await refreshLiveState()
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : 'Could not enable notifications from this browser.')
+    } finally {
+      setSubscribing(false)
+    }
+  }
 
   return (
     <main
@@ -191,239 +470,238 @@ export default function PrelaunchHomePreview() {
         color: 'var(--text)',
       }}
     >
-      <section className="container mx-auto max-w-6xl px-6" style={{ paddingTop: 'clamp(3rem, 8vw, 6.5rem)', paddingBottom: '3rem' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-            gap: 'clamp(1.5rem, 4vw, 3rem)',
-            alignItems: 'center',
-          }}
-        >
-          <div>
-            <StatusPill>Direct URL draft · not linked</StatusPill>
-            <h1
-              style={{
-                color: 'var(--text)',
-                fontFamily: displayFont,
-                fontSize: 'clamp(3rem, 10vw, 6.75rem)',
-                lineHeight: 0.92,
-                letterSpacing: '0.025em',
-                margin: '1.1rem 0 1rem',
-              }}
-            >
-              The long dark wait before the first pour.
-            </h1>
-            <p
-              style={{
-                color: 'var(--text-muted)',
-                fontFamily: bodyFont,
-                fontSize: 'clamp(1.1rem, 2.6vw, 1.35rem)',
-                lineHeight: 1.75,
-                maxWidth: 680,
-              }}
-            >
-              A pre-October home concept for members: countdown, pickup notes, readiness checks, route hints,
-              and the ritual rules before Hallowed Hop Society XXXI begins.
-            </p>
-          </div>
-
-          <Panel accent>
-            <div
-              className="uppercase"
-              style={{
-                color: 'var(--gold)',
-                fontFamily: displayFont,
-                fontSize: '0.72rem',
-                letterSpacing: '0.26em',
-                marginBottom: '1rem',
-              }}
-            >
-              Countdown to October 1
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
-              <CountdownTile label="Days" value={countdown?.days ?? '—'} />
-              <CountdownTile label="Hours" value={countdown?.hours ?? '—'} />
-              <CountdownTile label="Minutes" value={countdown?.minutes ?? '—'} />
-              <CountdownTile label="Seconds" value={countdown?.seconds ?? '—'} />
-            </div>
-            <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1rem', marginTop: '1.1rem', marginBottom: 0 }}>
-              The calendar stays sealed until the season opens. On October 1, today&apos;s beer becomes the main ritual.
-            </p>
-          </Panel>
-        </div>
+      <section style={{ paddingTop: 'clamp(1rem, 4vw, 2.25rem)' }}>
+        <HomeCountdownJoin countdown={countdown} showJoinCta={false} />
       </section>
+
+      <HomeHeroIntro
+        media={
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src="/mughhs.webp"
+            alt="Hallowed Hop Society"
+            className="hhs-hero-img"
+            style={{ opacity: 0.9 }}
+          />
+        }
+      />
 
       <section className="container mx-auto max-w-6xl px-6 py-8">
         <Panel accent>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <SectionHeading eyebrow="Latest from HHS" title="Sample pickup party memo" />
-            <StatusPill>Draft memo</StatusPill>
+            <SectionHeading
+              eyebrow="Member memo"
+              title="Before the first pour"
+              intro="This hidden preview keeps the launch message close to the existing HHS home style while the real calendar remains sealed."
+            />
+            <StatusPill>Preview memo</StatusPill>
           </div>
-          <div
-            style={{
-              borderLeft: '3px solid var(--gold)',
-              paddingLeft: '1rem',
-              color: 'var(--text-muted)',
-              fontFamily: bodyFont,
-              fontSize: '1.08rem',
-              lineHeight: 1.75,
-            }}
-          >
+          <div style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '1rem', color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1.08rem', lineHeight: 1.75 }}>
             <p style={{ marginTop: 0 }}>
-              Members, keep your Saturday evening loose. The opening pickup party is the handoff point for coolers,
-              route cards, and the first round of Society notes.
+              Members, use this page as the launch readiness board: confirm your account, pick your membership lane,
+              add HHS to your Home Screen, enable reveal notifications, and make sure payment is squared away.
             </p>
             <p style={{ marginBottom: 0 }}>
-              Final time and host details will be posted here once confirmed. Bring your member email, a bag or cooler,
-              and enough curiosity for thirty-one nights of North Sound beer.
+              Pickup party timing and host notes can live in this memo area once Zach is ready to publish the final details.
             </p>
           </div>
         </Panel>
       </section>
 
-      <section className="container mx-auto max-w-6xl px-6 py-8">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 290px), 1fr))', gap: '1rem' }}>
-          <Panel>
-            <SectionHeading
-              eyebrow="Before the first pour"
-              title="Member checklist"
-              intro="Small steps now prevent October friction later."
-            />
-            <ol style={{ display: 'grid', gap: '0.8rem', padding: 0, margin: 0, listStyle: 'none' }}>
-              {checklist.map((item, index) => (
-                <li key={item} style={{ display: 'grid', gridTemplateColumns: '2rem 1fr', gap: '0.85rem', alignItems: 'start' }}>
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '2rem',
-                      height: '2rem',
-                      borderRadius: 999,
-                      border: '1px solid rgba(217, 124, 43, 0.32)',
-                      color: 'var(--gold)',
-                      fontFamily: displayFont,
-                      fontSize: '0.78rem',
-                    }}
-                  >
-                    {index + 1}
-                  </span>
-                  <span style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1.05rem', lineHeight: 1.55 }}>
-                    {item}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </Panel>
-
-          <Panel>
-            <SectionHeading
-              eyebrow="North Sound map"
-              title="Route teaser"
-              intro="The map will frame the journey from Marysville north to the border once the verified list is ready."
-            />
-            <div
-              aria-label="North Sound map teaser with no breweries listed"
-              style={{
-                position: 'relative',
-                minHeight: 250,
-                borderRadius: '18px',
-                overflow: 'hidden',
-                border: '1px solid rgba(217, 124, 43, 0.2)',
-                background:
-                  'linear-gradient(160deg, rgba(25, 23, 38, 0.2), rgba(25, 23, 38, 0.78)), repeating-linear-gradient(35deg, rgba(217, 124, 43, 0.12) 0 1px, transparent 1px 24px), radial-gradient(circle at 35% 38%, rgba(217, 124, 43, 0.2), transparent 12rem)',
-              }}
-            >
-              <div style={{ position: 'absolute', top: '18%', left: '28%', right: '24%', height: 2, background: 'rgba(217, 124, 43, 0.55)', transform: 'rotate(58deg)', transformOrigin: 'left center' }} />
-              <div style={{ position: 'absolute', inset: '1rem', border: '1px solid rgba(217, 124, 43, 0.16)', borderRadius: '14px' }} />
-              <div style={{ position: 'absolute', left: '1rem', top: '1rem' }}>
-                <StatusPill tone="muted">Breweries hidden for now</StatusPill>
-              </div>
-              <div style={{ position: 'absolute', right: '1rem', bottom: '1rem', maxWidth: 260, color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1rem', lineHeight: 1.55 }}>
-                Pins stay dark until entries are verified and ready for the season reveal.
-              </div>
-            </div>
-          </Panel>
-        </div>
-      </section>
-
-      <section className="container mx-auto max-w-6xl px-6 py-8">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 290px), 1fr))', gap: '1rem' }}>
-          <Panel>
-            <SectionHeading
-              eyebrow="Season status"
-              title="What resets on launch"
-              intro="Before October, this screen explains the state of the season instead of pretending the calendar is open."
-            />
-            <div style={{ display: 'grid', gap: '0.8rem' }}>
-              {[
-                ['Now', 'Countdown, memos, checklist, and route teaser stay visible. Beer assignments remain sealed.'],
-                ['Oct 1', 'The daily beer reveal becomes the main home experience, with ratings and notes active for members.'],
-                ['After season', 'Progress, rankings, and wall context remain available while the next run returns to planning mode.'],
-              ].map(([label, text]) => (
-                <div key={label} style={{ display: 'grid', gap: '0.25rem' }}>
-                  <StatusPill tone={label === 'Oct 1' ? 'gold' : 'muted'}>{label}</StatusPill>
-                  <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1.03rem', lineHeight: 1.6, margin: 0 }}>
-                    {text}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel accent>
-            <SectionHeading
-              eyebrow="Membership snapshot"
-              title="Hallowed vs Oddballs"
-              intro="Two ways through the ritual, clearly separated before the first reveal."
-            />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem' }}>
-              <div style={{ border: '1px solid rgba(217, 124, 43, 0.26)', borderRadius: '16px', padding: '1rem', background: 'rgba(25, 23, 38, 0.28)' }}>
-                <StatusPill>Hallowed</StatusPill>
-                <p style={{ color: 'var(--text)', fontFamily: displayFont, fontSize: '1.55rem', lineHeight: 1.15, margin: '0.9rem 0 0.45rem' }}>
-                  Full 31-night run
-                </p>
-                <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1rem', lineHeight: 1.55, margin: 0 }}>
-                  Built for members following every reveal, rating each pour, and tracking the full Society arc.
-                </p>
-              </div>
-              <div style={{ border: '1px solid rgba(217, 124, 43, 0.2)', borderRadius: '16px', padding: '1rem', background: 'rgba(25, 23, 38, 0.24)' }}>
-                <StatusPill tone="muted">Oddballs</StatusPill>
-                <p style={{ color: 'var(--text)', fontFamily: displayFont, fontSize: '1.55rem', lineHeight: 1.15, margin: '0.9rem 0 0.45rem' }}>
-                  Designated daily beer
-                </p>
-                <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1rem', lineHeight: 1.55, margin: 0 }}>
-                  Defaults to the assigned beer first, with a clear opt-in view for the broader calendar when allowed.
-                </p>
-              </div>
-            </div>
-          </Panel>
-        </div>
-      </section>
-
       <section className="container mx-auto max-w-6xl px-6 py-8" style={{ paddingBottom: 'clamp(4rem, 8vw, 6rem)' }}>
-        <Panel>
+        <Panel ready={allReady}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <SectionHeading
-              eyebrow="Preview-only operator note"
-              title="Onboarding flow sketch"
-              intro="Non-public draft guidance only. This page does not change sign-in, membership, payments, preferences, or notification saves."
+              eyebrow="Launch checklist"
+              title={allReady ? 'You are ready for October.' : 'Finish your Society setup'}
+              intro={allReady
+                ? 'All preview checks are green. HHS will be ready to reveal the first beer when the ritual begins.'
+                : 'Tap any row for exact guidance. Green checks use live data when available; the payment row is marked as a preview proxy until a confirmed paid field exists.'}
             />
-            <StatusPill tone="muted">Not wired</StatusPill>
+            <StatusPill tone={allReady ? 'green' : 'gold'}>{allReady ? 'Ready' : loadingProfile ? 'Checking' : 'Action needed'}</StatusPill>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))', gap: '0.85rem' }}>
-            {onboardingSketch.map(([label, text], index) => (
-              <div key={label} style={{ border: '1px solid rgba(217, 124, 43, 0.18)', borderRadius: '16px', padding: '1rem', background: 'rgba(25, 23, 38, 0.24)' }}>
-                <StatusPill tone={index === 0 ? 'gold' : 'muted'}>{String(index + 1).padStart(2, '0')} · {label}</StatusPill>
-                <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1rem', lineHeight: 1.6, margin: '0.85rem 0 0' }}>
-                  {text}
-                </p>
-              </div>
+
+          {allReady ? (
+            <div style={{ border: '1px solid rgba(74, 222, 128, 0.34)', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '16px', padding: '1rem', marginBottom: '1rem', color: '#bbf7d0', fontFamily: bodyFont, fontSize: '1.05rem', lineHeight: 1.6 }}>
+              Congrats — your preview checklist is complete. Keep HHS on your Home Screen and watch for the first reveal.
+            </div>
+          ) : null}
+
+          <div style={{ display: 'grid', gap: '0.75rem' }}>
+            {rows.map(row => (
+              <button
+                key={row.key}
+                type="button"
+                onClick={() => { setActiveModal(row.key); setActionMessage(null) }}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                  gap: '0.85rem',
+                  alignItems: 'center',
+                  textAlign: 'left',
+                  width: '100%',
+                  border: `1px solid ${row.done ? 'rgba(74, 222, 128, 0.28)' : 'rgba(248, 113, 113, 0.22)'}`,
+                  background: row.done ? 'rgba(34, 197, 94, 0.07)' : 'rgba(25, 23, 38, 0.48)',
+                  borderRadius: '16px',
+                  padding: '0.95rem',
+                  cursor: 'pointer',
+                  color: 'inherit',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <CheckIcon done={row.done} />
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', color: 'var(--text)', fontFamily: displayFont, fontSize: '1.02rem', fontWeight: 700 }}>
+                    {row.label}
+                  </span>
+                  <span style={{ display: 'block', color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '0.95rem', lineHeight: 1.45 }}>
+                    {row.value}
+                  </span>
+                </span>
+                <StatusPill tone={row.source === 'real' ? 'green' : 'muted'}>{row.source}</StatusPill>
+              </button>
             ))}
           </div>
         </Panel>
       </section>
+
+      {activeRow ? (
+        <div role="dialog" aria-modal="true" aria-labelledby="prelaunch-modal-title">
+          <button
+            type="button"
+            aria-label="Close setup guidance"
+            onClick={() => setActiveModal(null)}
+            style={{ position: 'fixed', inset: 0, zIndex: 40, border: 0, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(5px)', cursor: 'default' }}
+          />
+          <div style={{ position: 'fixed', zIndex: 41, left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: 'min(460px, 92vw)', maxHeight: '86vh', overflow: 'auto', background: 'var(--bg-card)', border: '1px solid rgba(217,124,43,0.34)', borderRadius: '18px', padding: '1.5rem', boxShadow: '0 32px 96px rgba(0,0,0,0.75)' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
+              <CheckIcon done={activeRow.done} />
+              <div>
+                <h3 id="prelaunch-modal-title" style={{ color: 'var(--text)', fontFamily: displayFont, fontSize: '1.45rem', lineHeight: 1.1, margin: 0 }}>
+                  {activeRow.label}
+                </h3>
+                <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '0.96rem', lineHeight: 1.5, margin: '0.35rem 0 0' }}>
+                  {activeRow.summary}
+                </p>
+              </div>
+            </div>
+
+            {activeRow.key === 'username' ? (
+              <p style={modalBodyStyle}>
+                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. If this is red, sign in with your approved HHS email and return to this hidden preview URL.
+              </p>
+            ) : null}
+
+            {activeRow.key === 'membership' ? (
+              <p style={modalBodyStyle}>
+                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. Pick or confirm The Hallowed / Oddballs in Membership if available; otherwise Zach may need to update the profile tier/status.
+              </p>
+            ) : null}
+
+            {activeRow.key === 'install' ? (
+              <>
+                <p style={modalBodyStyle}>
+                  Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>.
+                </p>
+                {canNativeInstall ? (
+                  <button type="button" onClick={handleNativeInstall} style={primaryButtonStyle}>
+                    Add to Home Screen
+                  </button>
+                ) : null}
+                <GuidanceSteps type="install" />
+                <button type="button" onClick={markInstalled} style={secondaryButtonStyle}>
+                  I added it — save preview status
+                </button>
+              </>
+            ) : null}
+
+            {activeRow.key === 'notifications' ? (
+              <>
+                <p style={modalBodyStyle}>
+                  Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>.
+                </p>
+                {notificationSupported() && notificationPermission !== 'denied' ? (
+                  <button type="button" onClick={enableNotifications} disabled={subscribing} style={primaryButtonStyle}>
+                    {subscribing ? 'Enabling…' : 'Enable Notifications'}
+                  </button>
+                ) : null}
+                <GuidanceSteps type="notifications" />
+              </>
+            ) : null}
+
+            {activeRow.key === 'paid' ? (
+              <p style={modalBodyStyle}>
+                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. This preview only sees existing Venmo/native membership fields; it does not verify settled payment. If you paid and this is red, Zach needs to reconcile the roster/payment source.
+              </p>
+            ) : null}
+
+            {actionMessage ? (
+              <p style={{ ...modalBodyStyle, border: '1px solid rgba(217,124,43,0.22)', borderRadius: '12px', padding: '0.75rem', background: 'rgba(217,124,43,0.08)' }}>
+                {actionMessage}
+              </p>
+            ) : null}
+
+            <button type="button" onClick={() => setActiveModal(null)} style={{ ...secondaryButtonStyle, marginTop: '0.75rem' }}>
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
+}
+
+const modalBodyStyle: React.CSSProperties = {
+  color: 'var(--text-muted)',
+  fontFamily: bodyFont,
+  fontSize: '1rem',
+  lineHeight: 1.65,
+  margin: '0 0 1rem',
+}
+
+const modalListStyle: React.CSSProperties = {
+  color: 'var(--text-muted)',
+  fontFamily: bodyFont,
+  fontSize: '1rem',
+  lineHeight: 1.65,
+  margin: '0 0 1rem',
+  paddingLeft: '1.25rem',
+}
+
+const primaryButtonStyle: React.CSSProperties = {
+  width: '100%',
+  border: 'none',
+  borderRadius: '10px',
+  background: 'var(--gold)',
+  color: 'var(--bg)',
+  cursor: 'pointer',
+  fontFamily: displayFont,
+  fontSize: '0.82rem',
+  fontWeight: 700,
+  letterSpacing: '0.12em',
+  marginBottom: '1rem',
+  padding: '0.85rem 1rem',
+  textTransform: 'uppercase',
+}
+
+const secondaryButtonStyle: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid rgba(217,124,43,0.38)',
+  borderRadius: '10px',
+  background: 'transparent',
+  color: 'var(--gold)',
+  cursor: 'pointer',
+  fontFamily: displayFont,
+  fontSize: '0.78rem',
+  fontWeight: 700,
+  letterSpacing: '0.1em',
+  padding: '0.8rem 1rem',
+  textTransform: 'uppercase',
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)))
 }

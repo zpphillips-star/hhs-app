@@ -136,17 +136,23 @@ export default function FeedbackPage() {
     setImagePreviews(prev => prev.filter((_, i) => i !== index))
   }
 
-  // Upload images to Supabase Storage
+  // Upload images through the server route so all signed-in users can submit
+  // feedback even when client-side storage RLS would block direct bucket writes.
   async function uploadImages(files: File[]): Promise<string[]> {
     const urls: string[] = []
     for (const file of files) {
-      const ext = file.name.split('.').pop() ?? 'jpg'
-      const path = `feedback/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error } = await supabase.storage.from('hhs-feedback').upload(path, file, { upsert: false })
-      if (!error) {
-        const { data: urlData } = supabase.storage.from('hhs-feedback').getPublicUrl(path)
-        urls.push(urlData.publicUrl)
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/feedback/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || typeof data.url !== 'string' || !data.url.trim()) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Image upload failed')
       }
+      urls.push(data.url.trim())
     }
     return urls
   }
@@ -157,14 +163,14 @@ export default function FeedbackPage() {
     setSubmitting(true)
     setSubmitError(null)
 
-    let imageUrls: string[] = []
-    if (images.length > 0) {
-      setUploading(true)
-      imageUrls = await uploadImages(images)
-      setUploading(false)
-    }
-
     try {
+      let imageUrls: string[] = []
+      if (images.length > 0) {
+        setUploading(true)
+        imageUrls = await uploadImages(images)
+        setUploading(false)
+      }
+
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -186,8 +192,13 @@ export default function FeedbackPage() {
       setShowForm(false)
       setTimeout(() => setJustSubmitted(false), 5000)
       fetchItems()
-    } catch { setSubmitError('Something went wrong. Please try again.') }
-    finally { setSubmitting(false) }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+    }
+    finally {
+      setUploading(false)
+      setSubmitting(false)
+    }
   }
 
   function toggleStage(id: FeedbackStatus) {

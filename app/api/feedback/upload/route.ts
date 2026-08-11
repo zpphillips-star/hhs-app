@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SECRET_KEY!,
     )
 
-    const ext = file.name.split('.').pop() ?? 'jpg'
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const ext = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg'
+    const filename = `feedback/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
     const arrayBuffer = await file.arrayBuffer()
     const buffer = new Uint8Array(arrayBuffer)
 
@@ -58,9 +58,4 @@ export async function POST(req: NextRequest) {
     console.error('[feedback/upload] error:', err)
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }
-}
-
-// Required for formData parsing in Next.js route handlers
-export const config = {
-  api: { bodyParser: false },
 }

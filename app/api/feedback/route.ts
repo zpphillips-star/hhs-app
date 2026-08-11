@@ -29,6 +29,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { title, description, name, image_urls } = body
+  const imageUrls = Array.isArray(image_urls)
+    ? image_urls
+        .filter((url): url is string => typeof url === 'string' && Boolean(url.trim()))
+        .map(url => url.trim())
+        .slice(0, 4)
+    : []
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 })
@@ -40,7 +46,7 @@ export async function POST(req: NextRequest) {
       title: title.trim().slice(0, 200),
       description: typeof description === 'string' ? description.trim().slice(0, 2000) || null : null,
       name: typeof name === 'string' ? name.trim().slice(0, 100) || null : null,
-      image_urls: Array.isArray(image_urls) && image_urls.length > 0 ? image_urls : null,
+      image_urls: imageUrls,
       status: 'submitted',
     })
     .select('id, title, status, created_at')

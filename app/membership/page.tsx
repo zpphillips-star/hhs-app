@@ -109,6 +109,86 @@ function Toggle({
   )
 }
 
+function BeerVisibilitySegment({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: BeerVisibilityPreference
+  disabled?: boolean
+  onChange: (preference: BeerVisibilityPreference) => void
+}) {
+  const options: { value: BeerVisibilityPreference; title: string; sub: string }[] = [
+    { value: 'all', title: 'The Hallowed', sub: '31 beer Membership' },
+    { value: 'participating_only', title: 'The Oddballs', sub: '16 beer membership' },
+  ]
+
+  return (
+    <div
+      role="group"
+      aria-label="Beer calendar visibility"
+      style={{
+        position: 'relative',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 0,
+        border: '1px solid rgba(217,124,43,0.34)',
+        background: 'rgba(255,255,255,0.04)',
+        borderRadius: '999px',
+        padding: '4px',
+        opacity: disabled ? 0.6 : 1,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: '4px',
+          bottom: '4px',
+          left: '4px',
+          width: 'calc((100% - 8px) / 2)',
+          borderRadius: '999px',
+          background: 'rgba(217,124,43,0.24)',
+          border: '1px solid rgba(217,124,43,0.42)',
+          transform: value === 'all' ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.18s ease',
+        }}
+      />
+      {options.map(option => {
+        const selected = value === option.value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            disabled={disabled}
+            aria-pressed={selected}
+            onClick={() => onChange(option.value)}
+            style={{
+              position: 'relative',
+              zIndex: 1,
+              border: 0,
+              background: 'transparent',
+              color: selected ? 'var(--gold)' : 'var(--text-muted)',
+              padding: '0.78rem 0.8rem',
+              borderRadius: '999px',
+              cursor: disabled ? 'default' : 'pointer',
+              textAlign: 'center',
+              fontFamily: 'inherit',
+            }}
+          >
+            <span style={{ display: 'block', fontFamily: "'Modern Antiqua', serif", fontSize: '0.9rem', fontWeight: 700 }}>
+              {option.title}
+            </span>
+            <span style={{ display: 'block', fontSize: '0.72rem', lineHeight: 1.35 }}>
+              {option.sub}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function Row({
   label,
   sub,
@@ -232,7 +312,7 @@ export default function MembershipPage() {
   }, [visibility.tier])
 
   const visibilityLabel = visibility.effectivePreference === 'participating_only'
-    ? 'Participating beers only'
+    ? 'Odd days only'
     : 'Full 31-day calendar'
 
   const displayUsername = profile.displayName || profile.username || user?.email || 'Member'
@@ -452,34 +532,28 @@ export default function MembershipPage() {
                   <Row label="Username" sub="Shown on the Wall and Rankings.">
                     <span style={{ color: 'var(--text)', textAlign: 'right' }}>{profile.username ? `@${profile.username}` : 'Not set'}</span>
                   </Row>
-                  <Row label="Beer Calendar Visibility" sub={visibility.tier === 'oddballs' ? 'Oddballs defaults to odd-day participating beers.' : 'Hallowed members see the full 31-day calendar.'}>
-                    <span style={{ color: 'var(--gold)', textAlign: 'right' }}>{visibilityLabel}</span>
-                  </Row>
                 </Card>
 
                 <Card eyebrow="Beer Calendar Visibility">
                   {visibility.tier === 'oddballs' ? (
                     <>
                       <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '0.75rem' }}>
-                        Oddballs defaults to participating odd-day beers. Show all is a peek view; even-day Full Society beers remain read-only for rating and beer-specific Wall posting.
+                        Oddballs defaults to odd-day participating beers. Choose The Hallowed to peek at the full calendar without changing your Oddballs participation.
                       </p>
-                      <Row label="Participating beers only" sub="Default Oddballs view: odd days only.">
-                        <Toggle
-                          disabled={visibilitySaving || visibility.preferenceColumnAvailable === false}
-                          checked={visibility.effectivePreference === 'participating_only'}
-                          onChange={() => void saveBeerVisibility('participating_only')}
-                        />
-                      </Row>
-                      <Row label="Show all beers" sub="Peek at the full calendar without changing your Oddballs participation.">
-                        <Toggle
-                          disabled={visibilitySaving || visibility.preferenceColumnAvailable === false}
-                          checked={visibility.effectivePreference === 'all'}
-                          onChange={() => void saveBeerVisibility('all')}
-                        />
-                      </Row>
+                      <div style={{ color: 'var(--gold)', fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.55rem' }}>
+                        {visibilityLabel}
+                      </div>
+                      <BeerVisibilitySegment
+                        disabled={visibilitySaving || visibility.preferenceColumnAvailable === false}
+                        value={visibility.effectivePreference}
+                        onChange={preference => void saveBeerVisibility(preference)}
+                      />
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, marginTop: '0.75rem', marginBottom: 0 }}>
+                        Oddballs can peek at the Hallowed view. Hallowed-only/even-day beers are read-only for Oddball members: no rating and no beer-specific Wall posts for ineligible beers.
+                      </p>
                       {visibility.preferenceColumnAvailable === false && (
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, marginTop: '0.75rem' }}>
-                          Saving this preference is not available in the current web schema yet. The safe default is participating beers only.
+                          Saving this preference is not available in the current web schema yet. The safe default is Odd days only.
                         </p>
                       )}
                     </>

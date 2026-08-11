@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import type { Beer, Rating, Post, PostReaction, PostComment } from '@/lib/types'
 import Nav from '@/components/Nav'
 import StarRating from '@/components/StarRating'
+import FractionalStars, { formatRating } from '@/components/FractionalStars'
 import SetupGuide from '@/components/SetupGuide'
 import {
   DEFAULT_BEER_VISIBILITY_PROFILE,
@@ -797,11 +798,9 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                     }}>Society Rating</div>
                     {avgRating !== null ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ color: 'var(--gold)', fontSize: '1.2rem' }}>
-                          {'★'.repeat(Math.round(avgRating))}{'☆'.repeat(5 - Math.round(avgRating))}
-                        </span>
+                        <FractionalStars value={avgRating} size="1.2rem" />
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                          {avgRating} / 5 · {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}
+                          {formatRating(avgRating)} / 5 · {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}
                         </span>
                       </div>
                     ) : (
@@ -1321,11 +1320,9 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                     </div>
                     {modalAvgRating !== null ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ color: 'var(--gold)', fontSize: '1.15rem' }}>
-                          {'★'.repeat(Math.round(modalAvgRating))}{'☆'.repeat(5 - Math.round(modalAvgRating))}
-                        </span>
+                        <FractionalStars value={modalAvgRating} size="1.15rem" />
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                          {modalAvgRating} / 5 · {modalRatingCount} {modalRatingCount === 1 ? 'rating' : 'ratings'}
+                          {formatRating(modalAvgRating)} / 5 · {modalRatingCount} {modalRatingCount === 1 ? 'rating' : 'ratings'}
                         </span>
                       </div>
                     ) : (

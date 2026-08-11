@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Beer, Rating } from '@/lib/types'
 import StarRating from '@/components/StarRating'
+import FractionalStars, { formatRating } from '@/components/FractionalStars'
 import Nav from '@/components/Nav'
 import Link from 'next/link'
 import { BeersPageContent } from '@/components/BeersPageContent'
@@ -172,8 +173,8 @@ export default function HomePage() {
               )}
               {avgRating !== null && (
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  <span style={{ color: 'var(--gold)' }}>{'★'.repeat(Math.round(avgRating))}{'☆'.repeat(5 - Math.round(avgRating))}</span>
-                  {' '}{avgRating}/5 · {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}
+                  <FractionalStars value={avgRating} />
+                  {' '}{formatRating(avgRating)}/5 · {ratingCount} {ratingCount === 1 ? 'rating' : 'ratings'}
                 </p>
               )}
             </div>

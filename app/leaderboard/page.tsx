@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import RavenIcon from '@/components/RavenIcon'
+import FractionalStars, { formatRating } from '@/components/FractionalStars'
 
 type MemberStat = { username: string; display_name: string | null; score: number; ratings: number; posts: number; comments: number; reactions: number }
 type BeerStat   = { name: string; brewery: string; day_number: number; avg: number; count: number }
@@ -345,12 +346,9 @@ export default function LeaderboardPage() {
 
                 {/* Rating */}
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ color: 'var(--gold)', fontSize: '1rem', lineHeight: 1 }}>
-                    {'★'.repeat(Math.round(b.avg))}
-                    <span style={{ opacity: 0.25 }}>{'★'.repeat(5 - Math.round(b.avg))}</span>
-                  </div>
+                  <FractionalStars value={b.avg} />
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontFamily: "'Modern Antiqua', serif", marginTop: '2px' }}>
-                    {b.avg}/5 · {b.count} {b.count === 1 ? 'rating' : 'ratings'}
+                    {formatRating(b.avg)}/5 · {b.count} {b.count === 1 ? 'rating' : 'ratings'}
                   </div>
                 </div>
               </div>

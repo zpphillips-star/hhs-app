@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatRating } from '@/components/FractionalStars'
 
 type Props = {
   initialStars?: number
@@ -25,6 +26,7 @@ export default function StarRating({ initialStars, onSubmit }: Props) {
   // Sync when initialStars loads async (e.g. after DB fetch on page load)
   useEffect(() => {
     if (initialStars) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- initialStars arrives after the rating row loads.
       setStars(initialStars)
       setLastSaved(initialStars)
     }
@@ -39,19 +41,29 @@ export default function StarRating({ initialStars, onSubmit }: Props) {
     setSaving(false)
   }
 
+  const displayStars = hover || stars
+  const getStarFill = (n: number) => {
+    if (displayStars >= n) return '100%'
+    if (displayStars <= n - 1) return '0%'
+    return `${(displayStars - (n - 1)) * 100}%`
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem' }}>
         {[1, 2, 3, 4, 5].map(n => (
           <button
             key={n}
+            type="button"
             onClick={() => handleClick(n)}
             onMouseEnter={() => !saving && setHover(n)}
             onMouseLeave={() => setHover(0)}
             disabled={saving}
+            aria-label={`Rate ${n} out of 5`}
+            title={`Rate ${n} out of 5`}
             style={{
               fontSize: '2.25rem',
-              color: n <= (hover || stars) ? 'var(--gold)' : 'var(--text-muted)',
+              color: 'var(--text-muted)',
               background: 'none',
               border: 'none',
               cursor: saving ? 'wait' : 'pointer',
@@ -59,9 +71,22 @@ export default function StarRating({ initialStars, onSubmit }: Props) {
               transition: 'transform 0.1s, color 0.1s',
               transform: hover === n && !saving ? 'scale(1.15)' : 'scale(1)',
               padding: 0,
+              position: 'relative',
             }}
           >
-            ★
+            <span aria-hidden="true">★</span>
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: getStarFill(n),
+                overflow: 'hidden',
+                color: 'var(--gold)',
+              }}
+            >
+              ★
+            </span>
           </button>
         ))}
       </div>
@@ -77,7 +102,7 @@ export default function StarRating({ initialStars, onSubmit }: Props) {
         {saving
           ? 'recording…'
           : lastSaved > 0
-            ? `✓ rated ${lastSaved} / 5 — ${RATING_LABELS[lastSaved]}`
+            ? `✓ rated ${formatRating(lastSaved)} / 5${RATING_LABELS[lastSaved] ? ` — ${RATING_LABELS[lastSaved]}` : ''}`
             : 'click a star to rate'}
       </div>
     </div>

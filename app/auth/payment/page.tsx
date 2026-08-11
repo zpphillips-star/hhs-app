@@ -136,7 +136,7 @@ export default function PaymentPage() {
             </div>
             <div style={{ padding: '0.75rem 1.25rem', background: 'rgba(var(--gold-rgb, 180,130,50), 0.04)' }}>
               <p style={{ fontFamily: "'Crimson Text', serif", fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.6 }}>
-                🌱 Any funds beyond membership cost are donated to{' '}
+                🌱 Any funds beyond beer costs are donated to{' '}
                 <span style={{ color: 'var(--text)', fontStyle: 'normal' }}>Vision Young Leaders Academy</span>.
               </p>
             </div>

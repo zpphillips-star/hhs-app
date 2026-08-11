@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Beer } from '@/lib/types'
 import Nav from '@/components/Nav'
@@ -43,6 +43,10 @@ type Member = {
   venmo_clicked_at: string | null
   native_membership_amount: number | null
   native_source: string | null
+}
+
+const MEMBER_ROSTER_GRID_STYLE: CSSProperties = {
+  gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 4.5rem 4rem',
 }
 
 async function getAuthHeaders(): Promise<HeadersInit> {
@@ -386,8 +390,13 @@ export default function AdminPage() {
         {/* Members Roster */}
         <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>Members</h2>
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{members.length} approved</span>
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>Members</h2>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.72 }}>
+                Push/Install show setup status; Paid tracks Venmo click; Due is expected or recorded amount.
+              </p>
+            </div>
+            <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{members.length} approved</span>
           </div>
 
           {/* Tier Selection Control */}
@@ -418,19 +427,21 @@ export default function AdminPage() {
           ) : (
             <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               {/* Header row */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="grid gap-3 px-4 py-2" style={{ ...MEMBER_ROSTER_GRID_STYLE, borderBottom: '1px solid var(--border)' }}>
                 <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Member</span>
-                <span className="text-xs uppercase tracking-wider text-center w-8" style={{ color: 'var(--text-muted)' }}>Notifs</span>
-                <span className="text-xs uppercase tracking-wider text-center w-8" style={{ color: 'var(--text-muted)' }}>PWA</span>
-                <span className="text-xs uppercase tracking-wider text-center w-20" style={{ color: 'var(--text-muted)' }}>Tier</span>
-                <span className="text-xs uppercase tracking-wider text-center w-14" style={{ color: 'var(--text-muted)' }}>Venmo</span>
-                <span className="text-xs uppercase tracking-wider text-center w-12" style={{ color: 'var(--text-muted)' }}>Amt</span>
+                <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Push</span>
+                <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Install</span>
+                <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Tier</span>
+                <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Paid</span>
+                <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Due</span>
               </div>
               {members.map((m, i) => (
                 <div
                   key={m.id}
-                  className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-3 items-center"
-                  style={i < members.length - 1 ? { borderBottom: '1px solid rgba(217,124,43,0.08)' } : {}}
+                  className="grid gap-3 px-4 py-3 items-center"
+                  style={i < members.length - 1
+                    ? { ...MEMBER_ROSTER_GRID_STYLE, borderBottom: '1px solid rgba(217,124,43,0.08)' }
+                    : MEMBER_ROSTER_GRID_STYLE}
                 >
                   <div>
                     <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
@@ -441,13 +452,13 @@ export default function AdminPage() {
                       {m.native_source && <span className="ml-1 px-1 rounded" style={{ background: 'rgba(217,124,43,0.12)', color: 'var(--gold)', fontSize: '0.65rem' }}>native</span>}
                     </p>
                   </div>
-                  <div className="text-center w-8" title="Push notifications enabled">
+                  <div className="text-center" title="Push notifications enabled">
                     {m.has_notifications ? <span className="text-green-400">✓</span> : <span style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>}
                   </div>
-                  <div className="text-center w-8" title="App installed on home screen">
+                  <div className="text-center" title="App installed on home screen">
                     {m.has_pwa ? <span className="text-green-400">✓</span> : <span style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>}
                   </div>
-                  <div className="text-center w-20">
+                  <div className="text-center">
                     {m.tier
                       ? <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: 'rgba(217,124,43,0.15)', color: 'var(--gold)' }}>
                           {m.tier === 'hallowed' ? 'Hallowed' : 'Odd Balls'}
@@ -455,7 +466,7 @@ export default function AdminPage() {
                       : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                     }
                   </div>
-                  <div className="text-center w-14">
+                  <div className="text-center">
                     {m.venmo_clicked_at
                       ? <span className="text-green-400 text-xs" title={`Clicked: ${new Date(m.venmo_clicked_at).toLocaleDateString()}`}>✓ sent</span>
                       : m.tier
@@ -463,7 +474,7 @@ export default function AdminPage() {
                         : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                     }
                   </div>
-                  <div className="text-center w-12">
+                  <div className="text-center">
                     {m.native_membership_amount
                       ? <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>${m.native_membership_amount}</span>
                       : m.tier
@@ -474,13 +485,13 @@ export default function AdminPage() {
                 </div>
               ))}
               {/* Summary row */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ borderTop: '1px solid var(--border)', background: 'rgba(25,23,38,0.5)' }}>
+              <div className="grid gap-3 px-4 py-2" style={{ ...MEMBER_ROSTER_GRID_STYLE, borderTop: '1px solid var(--border)', background: 'rgba(25,23,38,0.5)' }}>
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{members.length} total</span>
-                <span className="text-xs text-center w-8" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_notifications).length}/{members.length}</span>
-                <span className="text-xs text-center w-8" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_pwa).length}/{members.length}</span>
-                <span className="text-xs text-center w-20" style={{ color: 'var(--gold)' }}>{members.filter(m => m.tier).length}/{members.length}</span>
-                <span className="text-xs text-green-400 text-center w-14">{members.filter(m => m.venmo_clicked_at).length}/{members.length}</span>
-                <span className="text-xs text-center w-12" style={{ color: 'var(--gold)' }}>
+                <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_notifications).length}/{members.length}</span>
+                <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_pwa).length}/{members.length}</span>
+                <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.tier).length}/{members.length}</span>
+                <span className="text-xs text-green-400 text-center">{members.filter(m => m.venmo_clicked_at).length}/{members.length}</span>
+                <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>
                   ${members.reduce((sum, m) => sum + (m.native_membership_amount || (m.tier === 'hallowed' ? 150 : m.tier === 'oddballs' ? 100 : 0)), 0)}
                 </span>
               </div>

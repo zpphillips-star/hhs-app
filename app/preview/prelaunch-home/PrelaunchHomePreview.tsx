@@ -175,6 +175,13 @@ export default function PrelaunchHomePreview() {
     'Choose your visibility: Hallowed full run or Oddballs daily assignment.',
   ]
 
+  const onboardingSketch = [
+    ['Invite', 'Zach sends or approves access so the member starts from the right tier: Hallowed or Oddballs.'],
+    ['Account', 'Member signs in, confirms display name/email, and lands on a short membership status confirmation.'],
+    ['Preferences', 'Member chooses calendar visibility and notification intent without changing the default Oddballs assignment.'],
+    ['Ready', 'Member sees the prelaunch checklist, pickup memo, and what unlocks on October 1.'],
+  ]
+
   return (
     <main
       style={{
@@ -341,7 +348,7 @@ export default function PrelaunchHomePreview() {
         </div>
       </section>
 
-      <section className="container mx-auto max-w-6xl px-6 py-8" style={{ paddingBottom: 'clamp(4rem, 8vw, 6rem)' }}>
+      <section className="container mx-auto max-w-6xl px-6 py-8">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 290px), 1fr))', gap: '1rem' }}>
           <Panel>
             <SectionHeading
@@ -393,6 +400,29 @@ export default function PrelaunchHomePreview() {
             </div>
           </Panel>
         </div>
+      </section>
+
+      <section className="container mx-auto max-w-6xl px-6 py-8" style={{ paddingBottom: 'clamp(4rem, 8vw, 6rem)' }}>
+        <Panel>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <SectionHeading
+              eyebrow="Preview-only operator note"
+              title="Onboarding flow sketch"
+              intro="Non-public draft guidance only. This page does not change sign-in, membership, payments, preferences, or notification saves."
+            />
+            <StatusPill tone="muted">Not wired</StatusPill>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))', gap: '0.85rem' }}>
+            {onboardingSketch.map(([label, text], index) => (
+              <div key={label} style={{ border: '1px solid rgba(217, 124, 43, 0.18)', borderRadius: '16px', padding: '1rem', background: 'rgba(25, 23, 38, 0.24)' }}>
+                <StatusPill tone={index === 0 ? 'gold' : 'muted'}>{String(index + 1).padStart(2, '0')} · {label}</StatusPill>
+                <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1rem', lineHeight: 1.6, margin: '0.85rem 0 0' }}>
+                  {text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Panel>
       </section>
     </main>
   )

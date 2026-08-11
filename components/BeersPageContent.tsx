@@ -278,8 +278,11 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
   const [postPhoto,    setPostPhoto]    = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [submitting,   setSubmitting]   = useState(false)
-  const [loading,      setLoading]      = useState(true)
-  const [beerAccess,   setBeerAccess]   = useState<BeerVisibilityProfile>(DEFAULT_BEER_VISIBILITY_PROFILE)
+  const [loading,          setLoading]          = useState(true)
+  const [beerAccess,       setBeerAccess]       = useState<BeerVisibilityProfile>(DEFAULT_BEER_VISIBILITY_PROFILE)
+  // Guard: true until auth + membership check have both resolved.
+  // Prevents rendering gated beer content before we know the user's tier.
+  const [beerAccessLoading, setBeerAccessLoading] = useState(true)
 
   // Past beer modal
   const [selectedDay,  setSelectedDay]  = useState<number | null>(null)
@@ -299,17 +302,35 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => setUser(s?.user ?? null))
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+      // If there's no session we can clear the access guard immediately — no
+      // membership fetch will run, and the default 'all' preference is correct
+      // for logged-out visitors.
+      if (!user) setBeerAccessLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
+      const u = s?.user ?? null
+      setUser(u)
+      // Signed out: no membership check pending → clear guard so content renders.
+      if (!u) setBeerAccessLoading(false)
+    })
     return () => subscription.unsubscribe()
   }, [])
 
   // ── Membership beer visibility ──────────────────────────────────────────────
   useEffect(() => {
     if (!user) {
-      void Promise.resolve().then(() => setBeerAccess(DEFAULT_BEER_VISIBILITY_PROFILE))
+      void Promise.resolve().then(() => {
+        setBeerAccess(DEFAULT_BEER_VISIBILITY_PROFILE)
+        setBeerAccessLoading(false) // no fetch needed
+      })
       return
     }
+    // Re-arm the guard before the fetch so a user-change (e.g. sign-in) can
+    // never momentarily render gated content with stale access data.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: must arm before async fetch
+    setBeerAccessLoading(true)
     let cancelled = false
     fetch(`/api/beer-visibility-preference?user_id=${encodeURIComponent(user.id)}`)
       .then(async res => {
@@ -333,6 +354,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
           effectivePreference: json.effectivePreference ?? getEffectiveBeerVisibilityPreference(tier, json.preference ?? null),
           preferenceColumnAvailable: json.supported ?? null,
         })
+        setBeerAccessLoading(false) // access resolved — safe to render gated content
       })
       .catch(() => {
         if (!cancelled) {
@@ -342,6 +364,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
             effectivePreference: 'all',
             preferenceColumnAvailable: null,
           }))
+          setBeerAccessLoading(false) // resolve even on error to avoid infinite spinner
         }
       })
     return () => { cancelled = true }
@@ -657,7 +680,15 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
             {/* ══════════════════════════════════════════════════════════════
                 BEER OF THE DAY
             ══════════════════════════════════════════════════════════════ */}
-            {todayOnly && !calendarOnly && isActiveBeerDay && todayBeer && todayCanShow ? (
+            {todayOnly && !calendarOnly && isActiveBeerDay && beerAccessLoading ? (
+              // Membership check still in flight. Show a neutral placeholder so
+              // Oddball users on ineligible days never see a flash of beer content.
+              <section style={{ textAlign: 'center', padding: '4rem 0', marginBottom: '3.5rem' }}>
+                <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif" }}>
+                  Loading...
+                </p>
+              </section>
+            ) : todayOnly && !calendarOnly && isActiveBeerDay && todayBeer && todayCanShow ? (
               <section style={{ marginBottom: '3.5rem' }}>
 
                 {/* TODAY'S BEER label */}
@@ -940,7 +971,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
 
               </section>
 
-            ) : todayOnly && !calendarOnly && isActiveBeerDay && todayBeer && !todayCanShow ? (
+            ) : todayOnly && !calendarOnly && isActiveBeerDay && !beerAccessLoading && todayBeer && !todayCanShow ? (
               <section style={{ textAlign: 'center', padding: '3rem 0', marginBottom: '3rem' }}>
                 <div style={{
                   background: 'var(--bg-card)',

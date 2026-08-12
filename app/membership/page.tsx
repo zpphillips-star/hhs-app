@@ -576,12 +576,12 @@ export default function MembershipPage() {
                         value={visibility.effectivePreference}
                         onChange={preference => void saveBeerVisibility(preference)}
                       />
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.55, margin: '0.75rem 0 0' }}>
-                        <p style={{ margin: 0 }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, margin: '0.75rem 0 0', textAlign: 'left' }}>
+                        <p style={{ fontSize: 'inherit', lineHeight: 'inherit', margin: 0 }}>
                           <strong style={{ color: 'var(--text)', fontSize: 'inherit', fontFamily: 'inherit', fontWeight: 700 }}>The Oddballs</strong>: visibility to only the odd-day beers.
                         </p>
                         <div style={{ borderTop: '1px solid var(--border)', margin: '0.65rem 0' }} />
-                        <p style={{ margin: 0 }}>
+                        <p style={{ fontSize: 'inherit', lineHeight: 'inherit', margin: 0 }}>
                           <strong style={{ color: 'var(--text)', fontSize: 'inherit', fontFamily: 'inherit', fontWeight: 700 }}>The Hallowed</strong>: visibility to all 31 days of beers. Caveat: The Oddball members will be able to see the beers but will be unable to rate or post to the Beer Wall for those beers.
                         </p>
                       </div>

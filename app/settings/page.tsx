@@ -147,7 +147,7 @@ export default function SettingsPage() {
           Settings
         </h1>
         <p style={{ color: 'var(--text-muted)', fontFamily: "'Crimson Text', serif", fontSize: '1rem', lineHeight: 1.6, marginBottom: '2rem' }}>
-          Manage your notification preferences for the Society.
+          Manage your HHS reminders.
         </p>
 
         {loading ? (
@@ -173,7 +173,7 @@ export default function SettingsPage() {
                       Wall/social alerts
                     </div>
                     <div style={{ color: 'var(--text-muted)', fontFamily: "'Crimson Text', serif", fontSize: '0.88rem', lineHeight: 1.55, marginTop: 4 }}>
-                      Native-app push only for now. Web/PWA Daily Beer is the only browser notification path that is fully wired, so web social toggles are hidden until Wall push delivery is supported.
+                      Native only — look forward to this in the app coming 2027.
                     </div>
                   </div>
                   <span style={{ border: '1px solid var(--border)', borderRadius: 999, color: 'var(--text-muted)', fontSize: '0.65rem', letterSpacing: '0.09em', padding: '0.25rem 0.55rem', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
@@ -241,9 +241,9 @@ export default function SettingsPage() {
             }}>
               <p style={{ color: 'var(--text-muted)', fontFamily: "'Crimson Text', serif", fontSize: '0.88rem', lineHeight: 1.6, margin: 0 }}>
                 <span style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
-                  🔔 Push Notifications
+                  🔔 HHS Reminders
                 </span>
-                Browser push subscriptions are registered when you grant notification permission. On web/PWA, HHS currently sends Daily Beer browser reminders only; Wall/social push alerts are native-app only until the web delivery path is wired.
+                Daily Beer reminders are available now. More alerts are coming to the app in 2027.
               </p>
             </div>
           </>

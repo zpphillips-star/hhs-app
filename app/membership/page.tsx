@@ -615,8 +615,8 @@ export default function MembershipPage() {
               <Card eyebrow="Notifications">
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '1rem' }}>
                   {nativeAppMode
-                    ? 'These preferences save to your HHS account and are checked before supported native notifications are sent. Daily Beer also controls any registered web/PWA beer reminders.'
-                    : 'Web/PWA notifications are only wired for Daily Beer today. This switch saves to your HHS account and is checked before browser beer reminders are sent.'}
+                    ? 'Choose which HHS reminders you want to receive.'
+                    : 'Daily Beer reminders are available now. More alerts are coming to the app in 2027.'}
                 </p>
                 <Row label="Daily Beer" sub="Get notified each day your next beer is ready.">
                   <Toggle disabled={prefsSaving} checked={prefs.daily_beer} onChange={v => updateNotifPref('daily_beer', v)} />
@@ -649,7 +649,7 @@ export default function MembershipPage() {
                           Wall/social alerts
                         </div>
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5 }}>
-                          Native-app push only for now. Web/PWA Wall notification toggles are hidden until that path is fully wired.
+                          Native only — look forward to this in the app coming 2027.
                         </div>
                       </div>
                       <span style={{ border: '1px solid var(--border)', borderRadius: '999px', color: 'var(--text-muted)', fontSize: '0.68rem', letterSpacing: '0.08em', padding: '0.25rem 0.55rem', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>

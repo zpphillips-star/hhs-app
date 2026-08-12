@@ -570,23 +570,22 @@ export default function MembershipPage() {
                     <h2 style={{ ...cardTitleStyle, marginBottom: '0.25rem' }}>{visibilityLabel}</h2>
                     {visibility.tier === 'oddballs' && (
                       <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.65, margin: 0 }}>
-                        Use the slider to select which view you want to see.
+                        Use the slider to choose your calendar view.
                       </p>
                     )}
                   </div>
                   {visibility.tier === 'oddballs' ? (
                     <>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '0.75rem' }}>
-                        Oddballs defaults to odd-day participating beers. Choose The Hallowed to peek at the full calendar without changing your Oddballs participation.
-                      </p>
                       <BeerVisibilitySegment
                         disabled={visibilitySaving}
                         value={visibility.effectivePreference}
                         onChange={preference => void saveBeerVisibility(preference)}
                       />
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, marginTop: '0.75rem', marginBottom: 0 }}>
-                        Oddballs can peek at the Hallowed view. Hallowed-only/even-day beers are read-only for Oddball members: no rating and no beer-specific Wall posts for ineligible beers.
-                      </p>
+                      <ul style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.55, margin: '0.75rem 0 0', paddingLeft: '1.1rem' }}>
+                        <li>Oddballs: odd-day beers.</li>
+                        <li>The Hallowed: peek at all 31 beers.</li>
+                        <li>Even-day/Hallowed beers stay read-only: no ratings or beer-wall posts.</li>
+                      </ul>
                       {visibility.preferenceColumnAvailable === false && (
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, marginTop: '0.75rem' }}>
                           Server-side saving is not available in the current web schema yet, so this device will remember your preview choice locally.
@@ -595,7 +594,7 @@ export default function MembershipPage() {
                     </>
                   ) : (
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, margin: 0 }}>
-                      Hallowed members see the full 31-day calendar. Oddballs members default to odd-day participating beers.
+                      Hallowed: full 31-day calendar. Oddballs: odd-day beers by default.
                     </p>
                   )}
                   {visibilitySaving && <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.75rem' }}>Saving beer visibility...</p>}

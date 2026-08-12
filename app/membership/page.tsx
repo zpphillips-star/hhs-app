@@ -585,11 +585,6 @@ export default function MembershipPage() {
                           <strong style={{ color: 'var(--text)', fontSize: 'inherit', fontFamily: 'inherit', fontWeight: 700 }}>The Hallowed</strong>: visibility to all 31 days of beers. Caveat: The Oddball members will be able to see the beers but will be unable to rate or post to the Beer Wall for those beers.
                         </p>
                       </div>
-                      {visibility.preferenceColumnAvailable === false && (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, marginTop: '0.75rem' }}>
-                          Server-side saving is not available in the current web schema yet, so this device will remember your preview choice locally.
-                        </p>
-                      )}
                     </>
                   ) : (
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, margin: 0 }}>

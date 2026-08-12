@@ -436,8 +436,8 @@ export default function MembershipPage() {
       type="button"
       onClick={() => setActiveTab(tab)}
       style={{
-        flex: 1,
-        minWidth: '7rem',
+        width: '100%',
+        minWidth: 0,
         border: `1px solid ${activeTab === tab ? 'rgba(217,124,43,0.55)' : 'var(--border)'}`,
         background: activeTab === tab ? 'rgba(217,124,43,0.16)' : 'rgba(255,255,255,0.03)',
         color: activeTab === tab ? 'var(--gold)' : 'var(--text-muted)',
@@ -458,8 +458,8 @@ export default function MembershipPage() {
     <Link
       href={href}
       style={{
-        flex: 1,
-        minWidth: '7rem',
+        width: '100%',
+        minWidth: 0,
         border: '1px solid var(--border)',
         background: 'rgba(255,255,255,0.03)',
         color: 'var(--text-muted)',
@@ -528,7 +528,7 @@ export default function MembershipPage() {
             </button>
           </div>
 
-          <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+          <div className="hhs-settings-nav-grid" style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)' }}>
             {tabButton('account', 'Account')}
             {tabButton('notifications', 'Notifications')}
             {settingsLink('/about', 'About HHS')}

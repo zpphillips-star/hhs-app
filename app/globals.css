@@ -84,6 +84,12 @@ html[data-hhs-app-mode="true"] body {
   display: none;
 }
 
+.hhs-settings-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
 @media (max-width: 767px) {
   .hhs-desktop-nav {
     display: none;
@@ -174,6 +180,10 @@ html[data-hhs-app-mode="true"] body {
   .hhs-mobile-bottom-nav-spacer {
     display: block;
     height: 0;
+  }
+
+  .hhs-settings-nav-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .hhs-settings-overlay-with-mobile-nav {

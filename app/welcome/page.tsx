@@ -30,6 +30,13 @@ function getBrowserName() {
   if (/Safari/.test(ua) && !/Chrome/.test(ua)) return 'Safari'
   return 'Chrome'
 }
+function oneTapInstallUnavailableMessage() {
+  const browser = getBrowserName()
+  if (browser === 'Chrome') {
+    return 'Chrome has not offered the one-tap install button here. That can happen if HHS is already installed, this page was opened inside another app, or Chrome has not made the prompt available yet. Use the Chrome menu and choose Install app or Add to Home screen.'
+  }
+  return `${browser} has not offered a one-tap install button here. Use the browser menu and choose Install app or Add to Home screen.`
+}
 function canUsePushHere() {
   if (typeof window === 'undefined') return false
   if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return false
@@ -229,7 +236,7 @@ export default function WelcomePage() {
               <>
                 <div style={infoBox}>
                   <p style={{ color: 'var(--text)', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
-                    No one-click install prompt is available in {getBrowserName()}. Use the browser menu and choose <strong style={{ color: 'var(--gold)' }}>Install app</strong> or <strong style={{ color: 'var(--gold)' }}>Add to Home screen</strong>.
+                    {oneTapInstallUnavailableMessage()}
                   </p>
                 </div>
                 <button onClick={goToNotify} style={{ ...btnPrimary, marginTop: '1.25rem' }}>

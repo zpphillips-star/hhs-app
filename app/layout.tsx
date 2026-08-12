@@ -42,6 +42,12 @@ export default function RootLayout({
           (function() {
             try {
               var params = new URLSearchParams(window.location.search);
+              if (params.get('browser') === '1' || params.get('hhs_browser') === '1') {
+                localStorage.removeItem('__hhs_native_app__');
+                document.documentElement.removeAttribute('data-hhs-app-mode');
+                window.__HHS_NATIVE_APP__ = false;
+                return;
+              }
               if (params.get('hhs_app') === '1' || localStorage.getItem('__hhs_native_app__') === '1') {
                 document.documentElement.setAttribute('data-hhs-app-mode', 'true');
                 window.__HHS_NATIVE_APP__ = true;

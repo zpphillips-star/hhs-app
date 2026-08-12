@@ -89,6 +89,14 @@ function getBrowserName() {
   return 'your browser'
 }
 
+function oneTapInstallUnavailableMessage() {
+  const browser = getBrowserName()
+  if (browser === 'Chrome') {
+    return 'Chrome has not offered the one-tap install button here. That can happen if HHS is already installed, this page was opened inside another app, or Chrome has not made the prompt available yet. Use the steps below.'
+  }
+  return `${browser} has not offered a one-tap install button here. Use the steps below.`
+}
+
 function notificationSupported() {
   return typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window
 }
@@ -406,7 +414,7 @@ export default function PrelaunchHomePreview() {
 
   const handleNativeInstall = async () => {
     if (!deferredPrompt) {
-      setActionMessage('No one-click install prompt is available in this browser. Use the steps below.')
+      setActionMessage(oneTapInstallUnavailableMessage())
       return
     }
     deferredPrompt.prompt()

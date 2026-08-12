@@ -8,6 +8,15 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+function getBrowserSetupRedirect(): string {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'
+  const redirectUrl = new URL('/auth/complete', siteUrl)
+  // Normal browser setup links should not inherit the native WebView marker that
+  // is persisted for the React Native shell on this same origin.
+  redirectUrl.searchParams.set('browser', '1')
+  return redirectUrl.toString()
+}
+
 function getResend() {
   if (!process.env.RESEND_API_KEY) {
     throw new Error('RESEND_API_KEY is not configured')
@@ -151,7 +160,7 @@ export async function POST(req: NextRequest) {
       type: 'magiclink',
       email: memberReq.email,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'}/auth/complete`,
+        redirectTo: getBrowserSetupRedirect(),
       }
     })
     const setupLink = linkData?.properties?.action_link || 'https://hallowedhopsociety.com/auth'

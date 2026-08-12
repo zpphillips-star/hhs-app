@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Nav from '@/components/Nav'
@@ -50,6 +50,18 @@ const SOCIAL_KEYS: (keyof NotifPrefs)[] = [
   'social_reaction_to_your_items',
   'social_comment_on_your_items',
 ]
+
+const titleStyle: CSSProperties = {
+  color: 'var(--text)',
+  fontFamily: "'Modern Antiqua', serif",
+  fontWeight: 700,
+}
+
+const cardTitleStyle: CSSProperties = {
+  ...titleStyle,
+  fontSize: '1.35rem',
+  margin: 0,
+}
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -506,7 +518,7 @@ export default function MembershipPage() {
               <div style={{ color: 'var(--gold)', fontSize: '0.58rem', letterSpacing: '0.32em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
                 Hallowed Hop Society
               </div>
-              <h1 id="hhs-settings-title" style={{ color: 'var(--text)', fontSize: '1.55rem', margin: 0 }}>
+              <h1 id="hhs-settings-title" style={{ ...titleStyle, fontSize: '1.55rem', margin: 0 }}>
                 The Settings
               </h1>
             </div>
@@ -532,7 +544,7 @@ export default function MembershipPage() {
               <p style={{ color: 'var(--gold)', textAlign: 'center', padding: '3rem 0' }}>Loading settings...</p>
             ) : !user ? (
               <Card eyebrow="Account">
-                <h2 style={{ color: 'var(--text)', fontSize: '1.4rem', marginBottom: '0.75rem' }}>Members Only</h2>
+                <h2 style={{ ...cardTitleStyle, marginBottom: '0.75rem' }}>Members Only</h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '1.5rem' }}>
                   Sign in to view membership, notification, and HHS account settings.
                 </p>
@@ -543,7 +555,7 @@ export default function MembershipPage() {
             ) : activeTab === 'account' ? (
               <>
                 <Card eyebrow="Account">
-                  <h2 style={{ color: 'var(--text)', fontSize: '1.35rem', marginBottom: '0.2rem' }}>{displayUsername}</h2>
+                  <h2 style={{ ...cardTitleStyle, marginBottom: '0.2rem' }}>{displayUsername}</h2>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', margin: 0 }}>{user.email}</p>
                   <Row label="Subscription" sub="Your current HHS membership tier.">
                     <span style={{ color: 'var(--gold)', textAlign: 'right' }}>{tierLabel}</span>
@@ -554,14 +566,19 @@ export default function MembershipPage() {
                 </Card>
 
                 <Card eyebrow="Beer Calendar Visibility">
+                  <div style={{ marginBottom: '0.85rem' }}>
+                    <h2 style={{ ...cardTitleStyle, marginBottom: '0.25rem' }}>{visibilityLabel}</h2>
+                    {visibility.tier === 'oddballs' && (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.65, margin: 0 }}>
+                        Use the slider to select which view you want to see.
+                      </p>
+                    )}
+                  </div>
                   {visibility.tier === 'oddballs' ? (
                     <>
                       <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, marginBottom: '0.75rem' }}>
                         Oddballs defaults to odd-day participating beers. Choose The Hallowed to peek at the full calendar without changing your Oddballs participation.
                       </p>
-                      <div style={{ color: 'var(--gold)', fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.55rem' }}>
-                        {visibilityLabel}
-                      </div>
                       <BeerVisibilitySegment
                         disabled={visibilitySaving}
                         value={visibility.effectivePreference}

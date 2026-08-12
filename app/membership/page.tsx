@@ -225,7 +225,7 @@ function Row({
         <div style={{ color: 'var(--text)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.95rem', fontWeight: 700 }}>
           {label}
         </div>
-        {sub && <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5 }}>{sub}</div>}
+        {sub && <div style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.5 }}>{sub}</div>}
       </div>
       {children}
     </div>
@@ -329,10 +329,6 @@ export default function MembershipPage() {
     if (visibility.tier === 'oddballs') return 'The Oddballs'
     return 'Not selected yet'
   }, [visibility.tier])
-
-  const visibilityLabel = visibility.effectivePreference === 'participating_only'
-    ? 'Odd days only'
-    : 'Full 31-day calendar'
 
   const displayUsername = profile.displayName || profile.username || user?.email || 'Member'
 
@@ -567,7 +563,6 @@ export default function MembershipPage() {
 
                 <Card eyebrow="Beer Calendar Visibility">
                   <div style={{ marginBottom: '0.85rem' }}>
-                    <h2 style={{ ...cardTitleStyle, marginBottom: '0.25rem' }}>{visibilityLabel}</h2>
                     {visibility.tier === 'oddballs' && (
                       <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.65, margin: 0 }}>
                         Use the slider to choose your calendar view.
@@ -581,10 +576,9 @@ export default function MembershipPage() {
                         value={visibility.effectivePreference}
                         onChange={preference => void saveBeerVisibility(preference)}
                       />
-                      <ul style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.55, margin: '0.75rem 0 0', paddingLeft: '1.1rem' }}>
-                        <li>Oddballs: odd-day beers.</li>
-                        <li>The Hallowed: peek at all 31 beers.</li>
-                        <li>Even-day/Hallowed beers stay read-only: no ratings or beer-wall posts.</li>
+                      <ul style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.55, margin: '0.75rem 0 0', paddingLeft: '1.1rem' }}>
+                        <li><strong>The Oddballs</strong>: visibility to only the odd-day beers.</li>
+                        <li><strong>The Hallowed</strong>: visibility to all 31 days of beers. Caveat: The Oddball members will be able to see the beers but will be unable to rate or post to the Beer Wall for those beers.</li>
                       </ul>
                       {visibility.preferenceColumnAvailable === false && (
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, marginTop: '0.75rem' }}>

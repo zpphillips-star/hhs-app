@@ -169,16 +169,18 @@ export default function CompleteProfilePage() {
                   {
                     key: 'hallowed' as Tier,
                     name: 'The Hallowed',
+                    price: '$150',
                     count: '31 Beers',
                     desc: 'Every day of October',
                   },
                   {
                     key: 'oddballs' as Tier,
                     name: 'The Oddballs',
+                    price: '$100',
                     count: '16 Beers',
                     desc: 'Odd days only',
                   },
-                ] as const).map(({ key, name, count, desc }) => {
+                ] as const).map(({ key, name, price, count, desc }) => {
                   const selected = tier === key
                   return (
                     <button
@@ -205,6 +207,15 @@ export default function CompleteProfilePage() {
                         marginBottom: '0.3rem',
                       }}>
                         {name}
+                      </div>
+                      <div style={{
+                        fontFamily: "'Crimson Text', serif",
+                        fontSize: '1rem',
+                        color: selected ? 'var(--gold)' : 'var(--text)',
+                        fontWeight: 700,
+                        marginBottom: '0.2rem',
+                      }}>
+                        {price}
                       </div>
                       <div style={{
                         fontFamily: "'Crimson Text', serif",

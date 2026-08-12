@@ -66,7 +66,7 @@ export default function WelcomePage() {
 
   // Native app guard — if running inside the HHS native WebView, this page is
   // irrelevant (native has its own setup/onboarding flow). Mark setup done and
-  // immediately redirect to /beers so the user never sees the web install flow.
+  // immediately redirect to Today so the user never sees the web install flow.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const isNative =
@@ -77,7 +77,7 @@ export default function WelcomePage() {
       })()
     if (isNative) {
       try { localStorage.setItem('hhs_setup_done', '1') } catch { /* ignore */ }
-      router.replace('/beers')
+      router.replace('/')
     }
   }, [router])
 
@@ -85,13 +85,13 @@ export default function WelcomePage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) { router.push('/auth'); return }
 
-      // In native app: skip the webapp welcome/install flow — go directly to beers
+      // In native app: skip the webapp welcome/install flow — go directly to Today
       const nativeApp =
         !!(window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__ ||
         localStorage.getItem('__hhs_native_app__') === '1'
       if (nativeApp) {
         localStorage.setItem('hhs_setup_done', '1')
-        router.replace('/beers')
+        router.replace('/')
         return
       }
 

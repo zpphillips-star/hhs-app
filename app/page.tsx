@@ -115,7 +115,7 @@ export default function HomePage() {
     setUserRating(json.rating)
   }
 
-  if (authChecked && user && !nativeView.appMode) {
+  if (authChecked && user) {
     return <BeersPageContent forceTodayOnly />
   }
 

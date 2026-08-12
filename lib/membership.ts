@@ -17,6 +17,38 @@ export const DEFAULT_BEER_VISIBILITY_PROFILE: BeerVisibilityProfile = {
   preferenceColumnAvailable: null,
 }
 
+const LOCAL_BEER_VISIBILITY_PREFIX = 'hhs_beer_visibility_preference:'
+
+function canUseLocalStorage() {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+}
+
+export function getLocalBeerVisibilityPreference(
+  userId: string | null | undefined,
+): BeerVisibilityPreference | null {
+  if (!userId || !canUseLocalStorage()) return null
+  try {
+    return normalizeBeerVisibilityPreference(
+      window.localStorage.getItem(`${LOCAL_BEER_VISIBILITY_PREFIX}${userId}`),
+    )
+  } catch {
+    return null
+  }
+}
+
+export function setLocalBeerVisibilityPreference(
+  userId: string | null | undefined,
+  preference: BeerVisibilityPreference,
+) {
+  if (!userId || !canUseLocalStorage()) return
+  try {
+    window.localStorage.setItem(`${LOCAL_BEER_VISIBILITY_PREFIX}${userId}`, preference)
+  } catch {
+    // Local fallback is best-effort only; the server preference remains authoritative
+    // when the Supabase schema supports it.
+  }
+}
+
 export function normalizeMembershipTier(tier: string | null | undefined): MembershipTier {
   const normalized = (tier ?? '').trim().toLowerCase().replace(/[\s_-]+/g, '')
   if (!normalized) return 'unknown'

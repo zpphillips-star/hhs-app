@@ -9,7 +9,9 @@ import { supabase } from '@/lib/supabase'
 import {
   DEFAULT_BEER_VISIBILITY_PROFILE,
   getEffectiveBeerVisibilityPreference,
+  getLocalBeerVisibilityPreference,
   normalizeMembershipTier,
+  setLocalBeerVisibilityPreference,
   type BeerVisibilityPreference,
   type BeerVisibilityProfile,
 } from '@/lib/membership'
@@ -258,6 +260,9 @@ export default function MembershipPage() {
     }
     if (!res.ok) throw new Error(json.error || 'Could not load membership settings.')
     const tier = normalizeMembershipTier(json.tier)
+    const serverPreference = json.preference ?? null
+    const localPreference = json.supported === false ? getLocalBeerVisibilityPreference(userId) : null
+    const preference = localPreference ?? serverPreference
     setProfile({
       username: json.username ?? null,
       displayName: json.displayName ?? null,
@@ -266,8 +271,10 @@ export default function MembershipPage() {
     setVisibility({
       tier,
       rawTier: json.rawTier ?? null,
-      preference: json.preference ?? null,
-      effectivePreference: json.effectivePreference ?? getEffectiveBeerVisibilityPreference(tier, json.preference ?? null),
+      preference,
+      effectivePreference: preference
+        ? getEffectiveBeerVisibilityPreference(tier, preference)
+        : json.effectivePreference ?? getEffectiveBeerVisibilityPreference(tier, null),
       preferenceColumnAvailable: json.supported ?? null,
     })
   }, [])
@@ -363,7 +370,7 @@ export default function MembershipPage() {
   }
 
   const saveBeerVisibility = async (preference: BeerVisibilityPreference) => {
-    if (!user || visibility.preferenceColumnAvailable === false) return
+    if (!user) return
     setVisibilitySaving(true)
     setVisibilityError(null)
     const previous = visibility
@@ -372,6 +379,11 @@ export default function MembershipPage() {
       preference,
       effectivePreference: getEffectiveBeerVisibilityPreference(v.tier, preference),
     }))
+    if (visibility.preferenceColumnAvailable === false) {
+      setLocalBeerVisibilityPreference(user.id, preference)
+      setVisibilitySaving(false)
+      return
+    }
     try {
       const res = await fetch('/api/beer-visibility-preference', {
         method: 'POST',
@@ -383,7 +395,14 @@ export default function MembershipPage() {
         setVisibility(previous)
         setVisibilityError(json.error || 'Could not save beer visibility.')
         if (json.supported === false) {
-          setVisibility(v => ({ ...v, preferenceColumnAvailable: false }))
+          setLocalBeerVisibilityPreference(user.id, preference)
+          setVisibility(v => ({
+            ...v,
+            preference,
+            effectivePreference: getEffectiveBeerVisibilityPreference(v.tier, preference),
+            preferenceColumnAvailable: false,
+          }))
+          setVisibilityError(null)
         }
       } else {
         setVisibility(v => ({ ...v, preferenceColumnAvailable: true }))
@@ -544,7 +563,7 @@ export default function MembershipPage() {
                         {visibilityLabel}
                       </div>
                       <BeerVisibilitySegment
-                        disabled={visibilitySaving || visibility.preferenceColumnAvailable === false}
+                        disabled={visibilitySaving}
                         value={visibility.effectivePreference}
                         onChange={preference => void saveBeerVisibility(preference)}
                       />
@@ -553,7 +572,7 @@ export default function MembershipPage() {
                       </p>
                       {visibility.preferenceColumnAvailable === false && (
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.6, marginTop: '0.75rem' }}>
-                          Saving this preference is not available in the current web schema yet. The safe default is Odd days only.
+                          Server-side saving is not available in the current web schema yet, so this device will remember your preview choice locally.
                         </p>
                       )}
                     </>

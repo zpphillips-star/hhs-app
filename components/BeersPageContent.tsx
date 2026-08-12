@@ -14,6 +14,7 @@ import {
   canShowBeerDetails,
   getBeerAccessMessage,
   getEffectiveBeerVisibilityPreference,
+  getLocalBeerVisibilityPreference,
   normalizeMembershipTier,
   type BeerVisibilityPreference,
   type BeerVisibilityProfile,
@@ -347,11 +348,16 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
       .then(json => {
         if (cancelled) return
         const tier = normalizeMembershipTier(json.tier)
+        const serverPreference = json.preference ?? null
+        const localPreference = json.supported === false ? getLocalBeerVisibilityPreference(user.id) : null
+        const preference = localPreference ?? serverPreference
         setBeerAccess({
           tier,
           rawTier: json.rawTier ?? null,
-          preference: json.preference ?? null,
-          effectivePreference: json.effectivePreference ?? getEffectiveBeerVisibilityPreference(tier, json.preference ?? null),
+          preference,
+          effectivePreference: preference
+            ? getEffectiveBeerVisibilityPreference(tier, preference)
+            : json.effectivePreference ?? getEffectiveBeerVisibilityPreference(tier, null),
           preferenceColumnAvailable: json.supported ?? null,
         })
         setBeerAccessLoading(false) // access resolved — safe to render gated content

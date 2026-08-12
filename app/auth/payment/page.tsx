@@ -186,7 +186,7 @@ export default function PaymentPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <button
               onClick={handleContinue}
-              disabled={continuing}
+              disabled={continuing || !venmoClicked}
               style={{
                 background: venmoClicked ? 'var(--gold)' : 'transparent',
                 color: venmoClicked ? 'var(--bg)' : 'var(--text-muted)',
@@ -196,14 +196,14 @@ export default function PaymentPage() {
                 padding: '0.875rem',
                 fontWeight: 700,
                 textTransform: 'uppercase',
-                cursor: continuing ? 'not-allowed' : 'pointer',
+                cursor: continuing || !venmoClicked ? 'not-allowed' : 'pointer',
                 border: venmoClicked ? 'none' : '1px solid var(--border)',
                 width: '100%',
                 transition: 'all 0.3s',
                 borderRadius: 'var(--radius-sm)',
               }}
             >
-              {continuing ? 'Entering the Society...' : "I've Paid — Enter the Society"}
+              {continuing ? 'Entering the Society...' : venmoClicked ? "I've Paid — Set Up App" : 'Pay with Venmo first'}
             </button>
             {!venmoClicked && (
               <p style={{ textAlign: 'center', fontFamily: "'Crimson Text', serif", fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>

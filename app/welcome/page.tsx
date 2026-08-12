@@ -5,19 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 
-type Step = 'welcome' | 'browser' | 'install' | 'install-ios-steps' | 'notify' | 'done'
-
-function isInAppBrowser() {
-  if (typeof navigator === 'undefined') return false
-  const ua = navigator.userAgent
-  // UA-detectable in-app browsers: Facebook, Instagram, Twitter, Snapchat, etc.
-  if (/GSA\/|FBAN|FBAV|Instagram|LinkedInApp|Snapchat|Twitter\/|Line\/|KAKAOTALK|musical_ly/.test(ua)) return true
-  // Gmail/Outlook on Android use Chrome Custom Tabs — identical UA to Chrome, but referrer is android-app://
-  if (typeof document !== 'undefined' && /android-app:\/\//i.test(document.referrer)) return true
-  // iOS Gmail opens links in GSA (Google Search App) — already caught above via GSA\/, but also:
-  if (typeof navigator.serviceWorker === 'undefined') return true
-  return false
-}
+type Step = 'welcome' | 'install' | 'notify' | 'done'
 function isPWA() {
   if (typeof window === 'undefined') return false
   return (
@@ -33,6 +21,23 @@ function isAndroid() {
   if (typeof navigator === 'undefined') return false
   return /android/i.test(navigator.userAgent)
 }
+function getBrowserName() {
+  if (typeof navigator === 'undefined') return 'your browser'
+  const ua = navigator.userAgent
+  if (/Edg\/|EdgA\//.test(ua)) return 'Edge'
+  if (/SamsungBrowser/.test(ua)) return 'Samsung Internet'
+  if (/Firefox/.test(ua)) return 'Firefox'
+  if (/Safari/.test(ua) && !/Chrome/.test(ua)) return 'Safari'
+  return 'Chrome'
+}
+function canUsePushHere() {
+  if (typeof window === 'undefined') return false
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return false
+  // iOS Safari only exposes web push to installed Home Screen web apps. A normal
+  // browser tab cannot grant the permission that the installed PWA will use.
+  if (isIOS() && !isPWA()) return false
+  return true
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let deferredPrompt: any = null
@@ -43,9 +48,10 @@ export default function WelcomePage() {
   const [firstName, setFirstName] = useState('')
   const [userId, setUserId] = useState('')
   const [canNativeInstall, setCanNativeInstall] = useState(false)
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default')
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() =>
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
+  )
   const [subscribing, setSubscribing] = useState(false)
-  const [iosStep, setIosStep] = useState(1)
 
   // Capture Android install prompt
   useEffect(() => {
@@ -92,7 +98,6 @@ export default function WelcomePage() {
       setUserId(user.id)
       setFirstName(user.user_metadata?.first_name || '')
     })
-    if ('Notification' in window) setNotifPermission(Notification.permission)
   }, [router])
 
   const markPWA = async (uid: string) => {
@@ -105,6 +110,10 @@ export default function WelcomePage() {
   }
 
   const subscribeNotifications = async () => {
+    if (!canUsePushHere()) {
+      setStep('done')
+      return
+    }
     setSubscribing(true)
     try {
       const perm = await Notification.requestPermission()
@@ -137,7 +146,7 @@ export default function WelcomePage() {
     setCanNativeInstall(false)
     if (outcome === 'accepted') {
       await markPWA(userId)
-      setTimeout(() => setStep('notify'), 800)
+      setTimeout(() => setStep('notify'), 500)
     }
   }
 
@@ -176,57 +185,41 @@ export default function WelcomePage() {
               Welcome{firstName ? `, ${firstName}` : ''}.
             </h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1.7, marginBottom: '2.5rem' }}>
-              Your membership to the Hallowed Hop Society has been approved. Before you enter, let&apos;s get you set up — it takes 2 minutes.
+              Payment is the last membership step. Now let&apos;s add HHS to your phone and turn on beer notifications.
             </p>
-            <button onClick={() => setStep('browser')} style={btnPrimary}>
-              Get Started →
+            <button onClick={() => setStep('install')} style={btnPrimary}>
+              Set Up App & Notifications →
             </button>
           </div>
         )}
 
-        {/* ── STEP: OPEN IN BROWSER ── */}
-        {step === 'browser' && (
-          <div style={{ textAlign: 'center' }}>
-            <StepIndicator current={1} total={3} />
-            <h2 style={heading}>Open in Your Browser</h2>
-            <p style={body}>
-              To receive notifications, this page needs to be open in{' '}
-              <strong style={{ color: 'var(--gold)' }}>{isIOS() ? 'Safari' : 'Chrome'}</strong> — not inside your email or messaging app.
-            </p>
-            <div style={infoBox}>
-              {isIOS() ? (
-                <>
-                  <p style={infoStep}><span style={dot}>1</span> Tap the <strong style={{ color: 'var(--gold)' }}>⋯</strong> or open button at the bottom of your screen</p>
-                  <p style={infoStep}><span style={dot}>2</span> Tap <strong style={{ color: 'var(--gold)' }}>&quot;Open in Safari&quot;</strong></p>
-                  <p style={infoStep}><span style={dot}>3</span> Come back to this page and continue setup</p>
-                </>
-              ) : (
-                <>
-                  <p style={infoStep}><span style={dot}>1</span> Look for the <strong style={{ color: 'var(--gold)' }}>&quot;Open in default browser&quot;</strong> button — usually at the top or bottom of your screen</p>
-                  <p style={infoStep}><span style={dot}>2</span> Tap it to open this page in Chrome</p>
-                  <p style={infoStep}><span style={dot}>3</span> Come back to this page and continue setup</p>
-                </>
-              )}
-            </div>
-            <button onClick={() => setStep('install')} style={{ ...btnPrimary, marginTop: '1.25rem' }}>
-              I&apos;m in my browser →
-            </button>
-          </div>
-        )}
-
-        {/* ── STEP: INSTALL (Android or desktop) ── */}
-        {step === 'install' && !isIOS() && (
+        {/* ── STEP: INSTALL ── */}
+        {step === 'install' && (
           <div>
             <StepIndicator current={1} total={2} />
             <h2 style={heading}>Add to your Home Screen</h2>
             <p style={body}>
-              This gives you the full app experience — tap the icon to open HHS anytime, and you&apos;ll get notified each time your next beer is revealed.
+              Install HHS first, then enable beer notifications from this same setup flow where your browser supports it.
             </p>
 
             {canNativeInstall ? (
               <>
                 <button onClick={handleAndroidInstall} style={{ ...btnPrimary, marginBottom: '0.75rem' }}>
-                  Add to Home Screen
+                  Install HHS
+                </button>
+                <button onClick={() => setStep('notify')} style={btnSecondary}>
+                  Skip for now
+                </button>
+              </>
+            ) : isIOS() ? (
+              <>
+                <div style={infoBox}>
+                  <p style={infoStep}><span style={dot}>1</span> Open this page in Safari if you are not already there.</p>
+                  <p style={infoStep}><span style={dot}>2</span> Tap Share → <strong style={{ color: 'var(--gold)' }}>Add to Home Screen</strong> → Add.</p>
+                  <p style={infoStep}><span style={dot}>3</span> Open HHS from the new Home Screen icon to enable notifications.</p>
+                </div>
+                <button onClick={goToNotify} style={{ ...btnPrimary, marginTop: '1.25rem' }}>
+                  I added it — continue →
                 </button>
                 <button onClick={() => setStep('notify')} style={btnSecondary}>
                   Skip for now
@@ -235,87 +228,24 @@ export default function WelcomePage() {
             ) : isAndroid() ? (
               <>
                 <div style={infoBox}>
-                  <p style={infoStep}><span style={dot}>1</span> Tap the <strong style={{ color: 'var(--gold)' }}>⋮ menu</strong> in the top-right of Chrome</p>
-                  <p style={infoStep}><span style={dot}>2</span> Tap <strong style={{ color: 'var(--gold)' }}>&quot;Add to Home screen&quot;</strong></p>
-                  <p style={infoStep}><span style={dot}>3</span> Tap <strong style={{ color: 'var(--gold)' }}>Add</strong> to confirm</p>
-                  <p style={infoStep}><span style={dot}>4</span> Open the app from your home screen, then tap below</p>
+                  <p style={{ color: 'var(--text)', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
+                    No one-click install prompt is available in {getBrowserName()}. Use the browser menu and choose <strong style={{ color: 'var(--gold)' }}>Install app</strong> or <strong style={{ color: 'var(--gold)' }}>Add to Home screen</strong>.
+                  </p>
                 </div>
                 <button onClick={goToNotify} style={{ ...btnPrimary, marginTop: '1.25rem' }}>
-                  I added it →
-                </button>
-                <button onClick={() => setStep('notify')} style={btnSecondary}>
-                  Skip for now
+                  Continue to notifications →
                 </button>
               </>
             ) : (
               <>
                 <div style={infoBox}>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
-                    For the best experience, open <strong style={{ color: 'var(--gold)' }}>hallowedhopsociety.com</strong> on your phone and add it to your home screen from there.
+                  <p style={{ color: 'var(--text)', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
+                    If your browser offers <strong style={{ color: 'var(--gold)' }}>Install app</strong> in the address bar or menu, use it here. Otherwise, open hallowedhopsociety.com on your phone and add it to your Home Screen.
                   </p>
                 </div>
                 <button onClick={() => setStep('notify')} style={{ ...btnPrimary, marginTop: '1.25rem' }}>
-                  Continue on desktop →
+                  Continue →
                 </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── STEP: INSTALL iOS intro ── */}
-        {step === 'install' && isIOS() && (
-          <div>
-            <StepIndicator current={1} total={2} />
-            <h2 style={heading}>Add to your Home Screen</h2>
-            <p style={body}>
-              On iPhone, you need to add HHS to your Home Screen to receive notifications. It takes 3 taps — we&apos;ll walk you through it.
-            </p>
-            <button onClick={() => { setIosStep(1); setStep('install-ios-steps') }} style={btnPrimary}>
-              Show me how →
-            </button>
-            <button onClick={() => setStep('notify')} style={btnSecondary}>
-              Skip for now
-            </button>
-          </div>
-        )}
-
-        {/* ── STEP: iOS STEP-BY-STEP ── */}
-        {step === 'install-ios-steps' && (
-          <div style={{ textAlign: 'center' }}>
-            <StepIndicator current={1} total={2} />
-
-            {iosStep === 1 && (
-              <>
-                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⬆️</div>
-                <h2 style={heading}>Tap the Share button</h2>
-                <p style={body}>
-                  At the bottom of Safari, tap the <strong style={{ color: 'var(--gold)' }}>Share</strong> button — the box with an arrow pointing up.
-                </p>
-                <button onClick={() => setIosStep(2)} style={btnPrimary}>Got it →</button>
-              </>
-            )}
-            {iosStep === 2 && (
-              <>
-                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>➕</div>
-                <h2 style={heading}>Tap &quot;Add to Home Screen&quot;</h2>
-                <p style={body}>
-                  Scroll down in the Share menu until you see <strong style={{ color: 'var(--gold)' }}>&quot;Add to Home Screen&quot;</strong>, then tap it.
-                </p>
-                <button onClick={() => setIosStep(3)} style={btnPrimary}>Got it →</button>
-              </>
-            )}
-            {iosStep === 3 && (
-              <>
-                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✓</div>
-                <h2 style={heading}>Tap &quot;Add&quot;</h2>
-                <p style={body}>
-                  A preview screen appears. Tap <strong style={{ color: 'var(--gold)' }}>Add</strong> in the top-right. HHS will now appear on your home screen.
-                </p>
-                <p style={{ color: 'var(--gold)', fontSize: '0.85rem', marginBottom: '1.75rem', fontStyle: 'italic' }}>
-                  Now open the app from your home screen, then tap below.
-                </p>
-                <button onClick={goToNotify} style={btnPrimary}>I added it →</button>
-                <button onClick={() => setStep('notify')} style={btnSecondary}>Skip for now</button>
               </>
             )}
           </div>
@@ -326,9 +256,17 @@ export default function WelcomePage() {
           <div style={{ textAlign: 'center' }}>
             <StepIndicator current={2} total={2} />
             <h2 style={heading}>Enable Notifications</h2>
-            <p style={body}>
-              Each time your next beer is ready, you&apos;ll get a notification — just for you, based on your membership. Tap the button below, then tap <strong style={{ color: 'var(--gold)' }}>Allow</strong> when your phone asks.
-            </p>
+            {canUsePushHere() ? (
+              <p style={body}>
+                This permission is for <strong style={{ color: 'var(--gold)' }}>hallowedhopsociety.com</strong>, so it applies to the installed HHS app on this origin too. Tap the button, then choose Allow.
+              </p>
+            ) : (
+              <p style={body}>
+                {isIOS() && !isPWA()
+                  ? 'iPhone notifications can only be enabled from the installed Home Screen app. Open HHS from the icon you just added, then enable notifications there.'
+                  : 'This browser cannot enable HHS push notifications here. You can finish now and enable notifications later from a supported browser or installed app.'}
+              </p>
+            )}
 
             {notifPermission === 'denied' && (
               <div style={{ ...infoBox, marginBottom: '1.5rem' }}>
@@ -338,7 +276,7 @@ export default function WelcomePage() {
               </div>
             )}
 
-            {notifPermission !== 'denied' && (
+            {notifPermission !== 'denied' && canUsePushHere() && (
               <button onClick={subscribeNotifications} disabled={subscribing} style={{ ...btnPrimary, marginBottom: '0.75rem' }}>
                 {subscribing ? 'Enabling...' : 'Enable Notifications'}
               </button>

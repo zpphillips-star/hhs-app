@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 function isPWA() {
@@ -48,17 +49,19 @@ let deferredPrompt: any = null
 type Step = 'install' | 'notify' | 'done'
 
 export default function SetupBanner() {
+  const pathname = usePathname()
   const [userId, setUserId] = useState<string | null>(null)
   const [step, setStep] = useState<Step | null>(null)
   const [canNativeInstall, setCanNativeInstall] = useState(false)
   const [showInstallSteps, setShowInstallSteps] = useState(false)
   const [subscribing, setSubscribing] = useState(false)
   const [notifBlocked, setNotifBlocked] = useState(false)
-
-  // FIX 2: Never show install/setup prompts inside the native app wrapper.
-  // The native app handles onboarding via its own React Native overlay.
-  const [isNative, setIsNative] = useState(false)
-  useEffect(() => { setIsNative(isNativeApp()) }, [])
+  const isNative = isNativeApp()
+  const suppressOnRoute =
+    pathname === '/welcome' ||
+    pathname === '/admin' ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/preview')
 
   // Capture native install prompt (Android/desktop Chrome/Edge)
   useEffect(() => {
@@ -73,6 +76,7 @@ export default function SetupBanner() {
 
   // On every page load: check real state from Supabase + browser
   useEffect(() => {
+    if (isNative || suppressOnRoute) return
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       setUserId(user.id)
@@ -83,9 +87,15 @@ export default function SetupBanner() {
       // Also check DB (used for admin tracking only, not modal logic)
       const { data: profile } = await supabase
         .from('profiles')
-        .select('has_pwa')
+        .select('has_pwa, venmo_clicked_at, native_membership_amount')
         .eq('id', user.id)
         .single()
+
+      // This global reminder is only allowed after the payment/Venmo step.
+      // New members coming from the approval email complete username/password/tier
+      // before payment, so do not interrupt those auth/payment pages with install UI.
+      const paymentStarted = !!profile?.venmo_clicked_at || !!profile?.native_membership_amount
+      if (!paymentStarted) return
 
       // If running as PWA right now → installed. Write it to DB if not already set.
       // If NOT running as PWA on mobile → they deleted it (or never installed). Reset DB.
@@ -121,10 +131,10 @@ export default function SetupBanner() {
         setStep('done')
       }
     })
-  }, [])
+  }, [isNative, suppressOnRoute])
 
   // Don't render until we know what to show; never render inside native app
-  if (isNative || !userId || !step || step === 'done') return null
+  if (isNative || suppressOnRoute || !userId || !step || step === 'done') return null
 
   const markInstalled = async () => {
     if (!userId) return

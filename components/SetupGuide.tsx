@@ -65,16 +65,24 @@ let deferredInstallPrompt: any = null
 
 export default function SetupGuide({ userId }: { userId: string }) {
   const [step, setStep] = useState<Step | null>(null)
-  const [notifStatus, setNotifStatus] = useState<NotificationPermission | null>(null)
+  const [, setNotifStatus] = useState<NotificationPermission | null>(null)
   const [subscribing, setSubscribing] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [canPromptInstall, setCanPromptInstall] = useState(false)
   const [inAppBrowser, setInAppBrowser] = useState<InAppType>(null)
-  const [currentBrowser, setCurrentBrowser] = useState<BrowserName>('other')
+  const [currentBrowser] = useState<BrowserName>(() =>
+    typeof navigator === 'undefined' ? 'other' : detectCurrentBrowser()
+  )
+  const [setupDone] = useState(() => {
+    try {
+      return typeof window !== 'undefined' && localStorage.getItem('hhs_setup_done') === '1'
+    } catch {
+      return false
+    }
+  })
+  const nativeApp = isNativeApp()
 
   // Don't render at all in the native app — install/PWA prompts are not applicable
-  if (isNativeApp()) return null
-
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault()
@@ -85,29 +93,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  useEffect(() => {
-    if (dismissed) return
-
-    // Skip entirely when running inside the HHS native Android app.
-    // The native app manages its own onboarding overlay and sets window.__HHS_NATIVE_APP__.
-    if (typeof window !== 'undefined' && (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__) {
-      return
-    }
-
-    setCurrentBrowser(detectCurrentBrowser())
-
-    const detected = detectInAppBrowser()
-    if (detected) {
-      setInAppBrowser(detected)
-      setStep('browser')
-      return
-    }
-
-    proceedToSetup()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, dismissed])
-
-  const proceedToSetup = () => {
+  function proceedToSetup() {
     const installed = isPWA()
     const notifPerm = 'Notification' in window ? Notification.permission : 'denied'
     setNotifStatus(notifPerm)
@@ -130,6 +116,28 @@ export default function SetupGuide({ userId }: { userId: string }) {
     }
   }
 
+  useEffect(() => {
+    if (nativeApp || dismissed || setupDone) return
+
+    // Skip entirely when running inside the HHS native Android app.
+    // The native app manages its own onboarding overlay and sets window.__HHS_NATIVE_APP__.
+    if (typeof window !== 'undefined' && (window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__) {
+      return
+    }
+
+    const detected = detectInAppBrowser()
+    if (detected) {
+      window.setTimeout(() => {
+        setInAppBrowser(detected)
+        setStep('browser')
+      }, 0)
+      return
+    }
+
+    window.setTimeout(() => proceedToSetup(), 0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, dismissed, setupDone, nativeApp])
+
   const triggerInstallPrompt = async () => {
     if (!deferredInstallPrompt) return
     deferredInstallPrompt.prompt()
@@ -143,7 +151,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
   }
 
   // Always get a FRESH push subscription — never reuse a potentially stale one
-  const subscribeIfNeeded = async (uid: string) => {
+  async function subscribeIfNeeded(uid: string) {
     try {
       const reg = await navigator.serviceWorker.ready
       const existing = await reg.pushManager.getSubscription()
@@ -176,7 +184,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
     setSubscribing(false)
   }
 
-  if (!step || step === 'done' || dismissed) return null
+  if (nativeApp || setupDone || !step || step === 'done' || dismissed) return null
 
   const androidManualInstallInstructions: Record<BrowserName, string> = {
     edge: 'Tap the ··· menu at the bottom → "Add to Phone" → Add',

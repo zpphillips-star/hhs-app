@@ -556,7 +556,7 @@ export default function MembershipPage() {
                   <Row label="Subscription" sub="Your current HHS membership tier.">
                     <span style={{ color: 'var(--gold)', textAlign: 'right' }}>{tierLabel}</span>
                   </Row>
-                  <Row label="Username" sub="Shown on the Wall and Rankings.">
+                  <Row label="Username" sub="Shown on The Wall and The Rankings">
                     <span style={{ color: 'var(--text)', textAlign: 'right' }}>{profile.username ? `@${profile.username}` : 'Not set'}</span>
                   </Row>
                 </Card>

@@ -134,6 +134,9 @@ export default function CompleteProfilePage() {
                 placeholder="How you'll be known among members"
                 autoFocus
               />
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.5, margin: '0.4rem 0 0' }}>
+                Shown on The Wall and The Rankings
+              </p>
             </div>
             <div>
               <label style={labelStyle}>Password</label>

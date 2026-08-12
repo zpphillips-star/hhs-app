@@ -168,13 +168,13 @@ export default function CompleteProfilePage() {
                 {([
                   {
                     key: 'hallowed' as Tier,
-                    name: 'Hallowed',
+                    name: 'The Hallowed',
                     count: '31 Beers',
                     desc: 'Every day of October',
                   },
                   {
                     key: 'oddballs' as Tier,
-                    name: 'Oddballs',
+                    name: 'The Oddballs',
                     count: '16 Beers',
                     desc: 'Odd days only',
                   },

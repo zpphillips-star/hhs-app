@@ -314,7 +314,7 @@ export default function MembershipPage() {
 
   const tierLabel = useMemo(() => {
     if (visibility.tier === 'hallowed') return 'The Hallowed'
-    if (visibility.tier === 'oddballs') return 'Oddballs'
+    if (visibility.tier === 'oddballs') return 'The Oddballs'
     return 'Not selected yet'
   }, [visibility.tier])
 

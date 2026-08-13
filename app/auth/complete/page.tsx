@@ -131,15 +131,25 @@ export default function CompleteProfilePage() {
 
     // Upsert profile with username
     const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      await supabase.from('profiles').upsert({
-        id: user.id,
-        username: username.trim().toLowerCase(),
-        display_name: username.trim(),
-        status: 'approved',
-        tier,
-        tier_selected_at: new Date().toISOString(),
-      }, { onConflict: 'id' })
+    if (!user) {
+      setError('Your setup session expired. Open the latest approval email link and try again.')
+      setLoading(false)
+      return
+    }
+
+    const { error: profileErr } = await supabase.from('profiles').upsert({
+      id: user.id,
+      username: username.trim().toLowerCase(),
+      display_name: username.trim(),
+      status: 'approved',
+      tier,
+      tier_selected_at: new Date().toISOString(),
+    }, { onConflict: 'id' })
+
+    if (profileErr) {
+      setError(profileErr.message || 'Could not save your profile. Please try again.')
+      setLoading(false)
+      return
     }
 
     router.push('/auth/payment')

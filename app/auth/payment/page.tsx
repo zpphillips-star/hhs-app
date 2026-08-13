@@ -14,6 +14,7 @@ export default function PaymentPage() {
   const [venmoClicked, setVenmoClicked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [continuing, setContinuing] = useState(false)
+  const [error, setError] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -41,17 +42,28 @@ export default function PaymentPage() {
   }, [router])
 
   const handleVenmoClick = async () => {
+    setError('')
     const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      await supabase
-        .from('profiles')
-        .update({
-          venmo_clicked_at: new Date().toISOString(),
-          payment_review_status: 'not_reviewed',
-          payment_confirmed_at: null,
-        })
-        .eq('id', user.id)
+    if (!user) {
+      setError('Your sign-in session expired. Sign in again before sending dues.')
+      router.push('/auth')
+      return
     }
+
+    const { error: paymentErr } = await supabase
+      .from('profiles')
+      .update({
+        venmo_clicked_at: new Date().toISOString(),
+        payment_review_status: 'not_reviewed',
+        payment_confirmed_at: null,
+      })
+      .eq('id', user.id)
+
+    if (paymentErr) {
+      setError(paymentErr.message || 'HHS could not save your payment attempt. Please try again before opening Venmo.')
+      return
+    }
+
     setVenmoClicked(true)
 
     if (!tier) return
@@ -157,6 +169,11 @@ export default function PaymentPage() {
             <p style={{ textAlign: 'center', fontFamily: "'Crimson Text', serif", fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
               Pay <strong style={{ fontStyle: 'normal', color: 'var(--text)' }}>@zpphillips</strong> · ${config.amount} · Note: HHS {config.label} 2026
             </p>
+            {error && (
+              <p style={{ textAlign: 'center', fontFamily: "'Crimson Text', serif", fontSize: '0.85rem', color: '#e57373', lineHeight: 1.5 }}>
+                {error}
+              </p>
+            )}
           </div>
 
           {/* Divider */}

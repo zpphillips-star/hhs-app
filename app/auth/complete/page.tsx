@@ -26,6 +26,22 @@ export default function CompleteProfilePage() {
       if (typeof window === 'undefined') return ''
       const search = new URLSearchParams(window.location.search)
       const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      const setupError = search.get('setup_error')
+      if (setupError === 'expired') {
+        return 'This approved member setup link has expired. Ask Zach to resend a fresh approval link.'
+      }
+      if (setupError === 'already_completed') {
+        return 'This setup link has already been completed. Sign in with the password you chose, or use password reset if needed.'
+      }
+      if (setupError === 'not_approved' || setupError === 'profile_missing') {
+        return 'We could not confirm an approved membership for this setup link. Ask Zach to resend your approved member setup link.'
+      }
+      if (setupError === 'link_generation_failed') {
+        return 'Your membership was approved, but setup could not start. Ask Zach to resend your approved member setup link.'
+      }
+      if (setupError) {
+        return 'This setup link is invalid. Open the latest approval email link, or ask Zach to resend it.'
+      }
       return search.get('error_description') ||
         hash.get('error_description') ||
         search.get('error') ||
@@ -37,7 +53,7 @@ export default function CompleteProfilePage() {
       const urlError = readAuthErrorFromUrl()
       if (urlError) {
         if (!cancelled) {
-          setLinkError('This setup link is invalid or has expired. Ask Zach to resend your approved member setup link.')
+          setLinkError(urlError)
           setCheckingLink(false)
         }
         return
@@ -122,6 +138,7 @@ export default function CompleteProfilePage() {
         display_name: username.trim(),
         status: 'approved',
         tier,
+        tier_selected_at: new Date().toISOString(),
       }, { onConflict: 'id' })
     }
 

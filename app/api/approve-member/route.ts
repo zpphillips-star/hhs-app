@@ -2,19 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { welcomeEmail, rejectionEmail } from '@/lib/email-templates'
+import { createApprovalSetupToken } from '@/lib/approval-token'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
 
-function getBrowserSetupRedirect(): string {
+function getReusableApprovalLink(requestId: string, userId: string, email: string): string {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'
-  const redirectUrl = new URL('/auth/complete', siteUrl)
-  // Normal browser setup links should not inherit the native WebView marker that
-  // is persisted for the React Native shell on this same origin.
-  redirectUrl.searchParams.set('browser', '1')
-  return redirectUrl.toString()
+  const setupUrl = new URL('/auth/approved', siteUrl)
+  setupUrl.searchParams.set('token', createApprovalSetupToken({ requestId, userId, email }))
+  return setupUrl.toString()
 }
 
 function getResend() {
@@ -154,16 +153,12 @@ export async function POST(req: NextRequest) {
         }, { onConflict: 'id' })
     }
 
-    // Send welcome email via Resend
-    // Generate a fresh setup link to embed in the email
-    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: memberReq.email,
-      options: {
-        redirectTo: getBrowserSetupRedirect(),
-      }
-    })
-    const setupLink = linkData?.properties?.action_link || 'https://hallowedhopsociety.com/auth'
+    // Send welcome email via Resend.
+    // The email link is an HHS-signed reusable approval link, not the raw
+    // Supabase magic link. Each click mints a fresh one-time Supabase link, so
+    // opening the approval email in another browser still works until this
+    // token expires or the member commits the first setup page.
+    const setupLink = getReusableApprovalLink(request_id, userId, memberReq.email)
 
     const welcomeTpl = welcomeEmail({ first_name: memberReq.first_name, setup_link: setupLink })
     await getResend().emails.send({

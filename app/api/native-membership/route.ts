@@ -69,8 +69,11 @@ export async function POST(req: NextRequest) {
     const update: Record<string, unknown> = {}
     if (tier) update.tier = tier
     if (tier_selected_at) update.tier_selected_at = tier_selected_at
-    if (venmo_clicked && venmo_clicked_at)
+    if (venmo_clicked && venmo_clicked_at) {
       update.venmo_clicked_at = venmo_clicked_at
+      update.payment_review_status = 'not_reviewed'
+      update.payment_confirmed_at = null
+    }
     if (email) update.email = email
     if (name) {
       // Split name into first/last for consistency with existing schema

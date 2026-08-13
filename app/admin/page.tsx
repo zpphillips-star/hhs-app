@@ -42,17 +42,54 @@ type Member = {
   tier_selected_at: string | null
   venmo_clicked_at: string | null
   native_membership_amount: number | null
+  payment_review_status: PaymentReviewStatus | null
   payment_confirmed_at: string | null
   native_source: string | null
 }
 
-type MemberProfileRow = Omit<Member, 'has_notifications' | 'has_pwa' | 'payment_confirmed_at'> & {
+type MemberProfileRow = Omit<Member, 'has_notifications' | 'has_pwa' | 'payment_review_status' | 'payment_confirmed_at'> & {
   has_pwa: boolean | null
+  payment_review_status?: PaymentReviewStatus | null
   payment_confirmed_at?: string | null
 }
 
+type PaymentReviewStatus = 'paid' | 'not_paid' | 'not_reviewed'
+type AdminPaymentState = 'paid' | 'not_paid' | 'awaiting_review' | 'not_reviewed'
+
 const MEMBER_ROSTER_GRID_STYLE: CSSProperties = {
-  gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 6rem 4rem 6.5rem',
+  gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 7rem 4rem 12rem',
+}
+
+function getAdminPaymentState(member: Member): AdminPaymentState {
+  if (member.payment_review_status === 'paid' || member.payment_confirmed_at) return 'paid'
+  if (member.payment_review_status === 'not_paid') return 'not_paid'
+  if (member.venmo_clicked_at) return 'awaiting_review'
+  return 'not_paid'
+}
+
+function getAdminPaymentCopy(member: Member) {
+  const state = getAdminPaymentState(member)
+  if (state === 'paid') {
+    return {
+      label: 'paid',
+      color: '#4ade80',
+      title: member.payment_confirmed_at ? `Confirmed: ${new Date(member.payment_confirmed_at).toLocaleDateString()}` : 'Marked paid by Zach',
+    }
+  }
+  if (state === 'awaiting_review') {
+    return {
+      label: 'not reviewed',
+      color: 'var(--gold)',
+      title: member.venmo_clicked_at ? `Venmo opened: ${new Date(member.venmo_clicked_at).toLocaleDateString()}` : 'Awaiting Zach’s review',
+    }
+  }
+  return {
+    label: 'not paid',
+    color: '#fca5a5',
+    title: member.payment_review_status === 'not_paid'
+      ? 'Zach reviewed and did not receive payment'
+      : 'Payment has not been received',
+  }
 }
 
 async function getAuthHeaders(): Promise<HeadersInit> {
@@ -142,7 +179,7 @@ export default function AdminPage() {
   }
 
   async function fetchMembers() {
-    const memberSelect = 'id, first_name, last_name, username, email, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at, native_membership_amount, payment_confirmed_at, native_source'
+    const memberSelect = 'id, first_name, last_name, username, email, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at, native_membership_amount, payment_review_status, payment_confirmed_at, native_source'
     const fallbackMemberSelect = 'id, first_name, last_name, username, email, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at, native_membership_amount, native_source'
     const profilesResult = await supabase
       .from('profiles')
@@ -151,7 +188,7 @@ export default function AdminPage() {
       .order('created_at', { ascending: true })
     let profiles = profilesResult.data as MemberProfileRow[] | null
     let profilesError = profilesResult.error
-    if (profilesError && /payment_confirmed_at/i.test(profilesError.message)) {
+    if (profilesError && /payment_review_status|payment_confirmed_at/i.test(profilesError.message)) {
       const fallback = await supabase
         .from('profiles')
         .select(fallbackMemberSelect)
@@ -176,16 +213,19 @@ export default function AdminPage() {
       tier_selected_at: p.tier_selected_at || null,
       venmo_clicked_at: p.venmo_clicked_at || null,
       native_membership_amount: p.native_membership_amount || null,
+      payment_review_status: 'payment_review_status' in p ? p.payment_review_status || null : null,
       payment_confirmed_at: 'payment_confirmed_at' in p ? p.payment_confirmed_at || null : null,
       native_source: p.native_source || null,
     })))
   }
 
-  const updatePaymentConfirmation = async (member: Member, action: 'confirm' | 'reset') => {
+  const updatePaymentConfirmation = async (member: Member, action: PaymentReviewStatus) => {
     const memberName = member.first_name && member.last_name ? `${member.first_name} ${member.last_name}` : member.username
-    const prompt = action === 'confirm'
+    const prompt = action === 'paid'
       ? `Mark ${memberName} as paid? Only do this after Zach confirms receipt.`
-      : `Mark ${memberName} as not paid? This clears the Venmo attempt and payment amount so their checklist returns to payment not received.`
+      : action === 'not_paid'
+        ? `Mark ${memberName} as not paid? Their membership choice and Venmo attempt will stay on file so they can retry payment.`
+        : `Move ${memberName} back to not reviewed? Use this when a Venmo attempt still needs Zach’s verification.`
     if (!confirm(prompt)) return
     setConfirmingPaidId(member.id)
     try {
@@ -205,8 +245,9 @@ export default function AdminPage() {
     }
   }
 
-  const markPaymentPaid = (member: Member) => updatePaymentConfirmation(member, 'confirm')
-  const markPaymentNotPaid = (member: Member) => updatePaymentConfirmation(member, 'reset')
+  const markPaymentPaid = (member: Member) => updatePaymentConfirmation(member, 'paid')
+  const markPaymentNotPaid = (member: Member) => updatePaymentConfirmation(member, 'not_paid')
+  const markPaymentNotReviewed = (member: Member) => updatePaymentConfirmation(member, 'not_reviewed')
 
   async function fetchBeers() {
     const { data } = await supabase.from('beers').select('*').order('day_number')
@@ -486,7 +527,15 @@ export default function AdminPage() {
                  <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Due</span>
                  <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Action</span>
               </div>
-              {members.map((m, i) => (
+              {members.map((m, i) => {
+                const paymentCopy = getAdminPaymentCopy(m)
+                const activePaymentStatus = m.payment_review_status === 'paid' || m.payment_confirmed_at
+                  ? 'paid'
+                  : m.payment_review_status === 'not_paid'
+                    ? 'not_paid'
+                    : 'not_reviewed'
+                const hasPaymentContext = !!m.tier || !!m.venmo_clicked_at || !!m.payment_confirmed_at || !!m.payment_review_status
+                return (
                 <div
                   key={m.id}
                   className="grid gap-3 px-4 py-3 items-center"
@@ -518,13 +567,9 @@ export default function AdminPage() {
                     }
                   </div>
                   <div className="text-center">
-                    {m.payment_confirmed_at
-                      ? <span className="text-green-400 text-xs" title={`Confirmed: ${new Date(m.payment_confirmed_at).toLocaleDateString()}`}>confirmed</span>
-                      : m.venmo_clicked_at
-                        ? <span className="text-xs" style={{ color: 'var(--gold)' }} title={`Clicked: ${new Date(m.venmo_clicked_at).toLocaleDateString()}`}>needs check</span>
-                      : m.tier
-                        ? <span className="text-xs" style={{ color: 'var(--gold)', opacity: 0.6 }}>not paid</span>
-                        : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
+                    {hasPaymentContext
+                      ? <span className="text-xs" style={{ color: paymentCopy.color }} title={paymentCopy.title}>{paymentCopy.label}</span>
+                      : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                     }
                   </div>
                   <div className="text-center">
@@ -536,35 +581,46 @@ export default function AdminPage() {
                     }
                   </div>
                   <div className="text-center">
-                    {m.payment_confirmed_at ? (
-                      <button
-                        type="button"
-                        onClick={() => markPaymentNotPaid(m)}
-                        disabled={confirmingPaidId === m.id}
-                        className="text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
-                        style={{ background: 'rgba(248,113,113,0.12)', color: '#fca5a5' }}
-                      >
-                        {confirmingPaidId === m.id ? '...' : 'Not paid'}
-                      </button>
-                    ) : m.venmo_clicked_at ? (
-                      <div className="flex flex-col items-center gap-1">
+                    {hasPaymentContext ? (
+                      <div className="flex flex-wrap justify-center gap-1">
                         <button
                           type="button"
                           onClick={() => markPaymentPaid(m)}
                           disabled={confirmingPaidId === m.id}
-                          className="text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
-                          style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80' }}
+                          className="text-[0.68rem] px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                          style={{
+                            background: activePaymentStatus === 'paid' ? 'rgba(74,222,128,0.22)' : 'rgba(74,222,128,0.1)',
+                            color: '#4ade80',
+                            border: activePaymentStatus === 'paid' ? '1px solid rgba(74,222,128,0.45)' : '1px solid transparent',
+                          }}
                         >
-                          {confirmingPaidId === m.id ? '...' : 'Mark paid'}
+                          {confirmingPaidId === m.id ? '...' : 'Paid'}
                         </button>
                         <button
                           type="button"
                           onClick={() => markPaymentNotPaid(m)}
                           disabled={confirmingPaidId === m.id}
-                          className="text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
-                          style={{ background: 'rgba(248,113,113,0.1)', color: '#fca5a5' }}
+                          className="text-[0.68rem] px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                          style={{
+                            background: activePaymentStatus === 'not_paid' ? 'rgba(248,113,113,0.2)' : 'rgba(248,113,113,0.1)',
+                            color: '#fca5a5',
+                            border: activePaymentStatus === 'not_paid' ? '1px solid rgba(248,113,113,0.4)' : '1px solid transparent',
+                          }}
                         >
-                          {confirmingPaidId === m.id ? '...' : 'Not paid'}
+                          {confirmingPaidId === m.id ? '...' : 'Not Paid'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => markPaymentNotReviewed(m)}
+                          disabled={confirmingPaidId === m.id}
+                          className="text-[0.68rem] px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                          style={{
+                            background: activePaymentStatus === 'not_reviewed' ? 'rgba(217,124,43,0.22)' : 'rgba(217,124,43,0.1)',
+                            color: 'var(--gold)',
+                            border: activePaymentStatus === 'not_reviewed' ? '1px solid rgba(217,124,43,0.45)' : '1px solid transparent',
+                          }}
+                        >
+                          {confirmingPaidId === m.id ? '...' : 'Not Reviewed'}
                         </button>
                       </div>
                     ) : (
@@ -572,18 +628,19 @@ export default function AdminPage() {
                     )}
                   </div>
                 </div>
-              ))}
+                )
+              })}
               {/* Summary row */}
               <div className="grid gap-3 px-4 py-2" style={{ ...MEMBER_ROSTER_GRID_STYLE, borderTop: '1px solid var(--border)', background: 'rgba(25,23,38,0.5)' }}>
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{members.length} total</span>
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_notifications).length}/{members.length}</span>
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_pwa).length}/{members.length}</span>
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.tier).length}/{members.length}</span>
-                <span className="text-xs text-green-400 text-center">{members.filter(m => m.payment_confirmed_at).length}/{members.length}</span>
+                <span className="text-xs text-green-400 text-center">{members.filter(m => getAdminPaymentState(m) === 'paid').length}/{members.length}</span>
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>
                   ${members.reduce((sum, m) => sum + (m.native_membership_amount || (m.tier === 'hallowed' ? 150 : m.tier === 'oddballs' ? 100 : 0)), 0)}
                 </span>
-                <span className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{members.filter(m => m.venmo_clicked_at && !m.payment_confirmed_at).length} need check</span>
+                <span className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{members.filter(m => getAdminPaymentState(m) === 'awaiting_review').length} need check</span>
               </div>
             </div>
           )}

@@ -25,7 +25,7 @@ const TIERS = [
 
 type TierId = 'hallowed' | 'oddballs'
 
-export default function TierSelectionModal({ userId, onComplete }: { userId: string; onComplete?: () => void }) {
+export default function TierSelectionModal({ userId }: { userId: string; onComplete?: () => void }) {
   const [selected, setSelected] = useState<TierId | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -49,6 +49,8 @@ export default function TierSelectionModal({ userId, onComplete }: { userId: str
     // Log the click
     await supabase.from('profiles').update({
       venmo_clicked_at: new Date().toISOString(),
+      payment_review_status: 'not_reviewed',
+      payment_confirmed_at: null,
     }).eq('id', userId)
     setVenmoClicked(true)
 

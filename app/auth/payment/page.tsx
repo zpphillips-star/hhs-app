@@ -44,7 +44,11 @@ export default function PaymentPage() {
     if (user) {
       await supabase
         .from('profiles')
-        .update({ venmo_clicked_at: new Date().toISOString() })
+        .update({
+          venmo_clicked_at: new Date().toISOString(),
+          payment_review_status: 'not_reviewed',
+          payment_confirmed_at: null,
+        })
         .eq('id', user.id)
     }
     setVenmoClicked(true)

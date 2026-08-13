@@ -19,24 +19,31 @@ export async function POST(req: NextRequest) {
   if (!memberId) {
     return NextResponse.json({ error: 'member_id is required' }, { status: 400 })
   }
-  const action = typeof body.action === 'string' ? body.action.trim() : 'confirm'
-  if (action !== 'confirm' && action !== 'reset') {
-    return NextResponse.json({ error: 'action must be confirm or reset' }, { status: 400 })
+  const rawAction = typeof body.action === 'string' ? body.action.trim() : 'paid'
+  const action = rawAction === 'confirm'
+    ? 'paid'
+    : rawAction === 'reset'
+      ? 'not_paid'
+      : rawAction
+  if (action !== 'paid' && action !== 'not_paid' && action !== 'not_reviewed') {
+    return NextResponse.json({ error: 'action must be paid, not_paid, or not_reviewed' }, { status: 400 })
   }
 
-  const update = action === 'confirm'
-    ? { payment_confirmed_at: new Date().toISOString() }
+  const update = action === 'paid'
+    ? {
+        payment_review_status: 'paid',
+        payment_confirmed_at: new Date().toISOString(),
+      }
     : {
+        payment_review_status: action,
         payment_confirmed_at: null,
-        venmo_clicked_at: null,
-        native_membership_amount: null,
       }
 
   const { data, error } = await supabase
     .from('profiles')
     .update(update)
     .eq('id', memberId)
-    .select('id, payment_confirmed_at, venmo_clicked_at, native_membership_amount')
+    .select('id, payment_review_status, payment_confirmed_at, venmo_clicked_at, native_membership_amount')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

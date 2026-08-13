@@ -23,6 +23,7 @@ type PreviewProfile = {
   hasPwa: boolean | null
   venmoClickedAt: string | null
   nativeMembershipAmount: number | null
+  paymentReviewStatus: PaymentReviewStatus | null
   paymentConfirmedAt: string | null
 }
 
@@ -38,6 +39,7 @@ type ChecklistRow = {
 }
 
 type PaymentStatus = 'not_complete' | 'in_process' | 'confirmed'
+type PaymentReviewStatus = 'paid' | 'not_paid' | 'not_reviewed'
 
 type ProfileRow = {
   username?: string | null
@@ -48,6 +50,7 @@ type ProfileRow = {
   has_pwa?: boolean | null
   venmo_clicked_at?: string | null
   native_membership_amount?: number | null
+  payment_review_status?: PaymentReviewStatus | null
   payment_confirmed_at?: string | null
 }
 
@@ -317,7 +320,7 @@ export default function PrelaunchHomePreview() {
       return
     }
 
-    const profileSelect = 'username, display_name, email, tier, status, has_pwa, venmo_clicked_at, native_membership_amount, payment_confirmed_at'
+    const profileSelect = 'username, display_name, email, tier, status, has_pwa, venmo_clicked_at, native_membership_amount, payment_review_status, payment_confirmed_at'
     const fallbackProfileSelect = 'username, display_name, email, tier, status, has_pwa, venmo_clicked_at, native_membership_amount'
     const profileResult = await supabase
       .from('profiles')
@@ -326,7 +329,7 @@ export default function PrelaunchHomePreview() {
       .maybeSingle()
     let profileRow = profileResult.data as ProfileRow | null
     let profileError = profileResult.error
-    if (profileError && /payment_confirmed_at/i.test(profileError.message)) {
+    if (profileError && /payment_review_status|payment_confirmed_at/i.test(profileError.message)) {
       const fallback = await supabase
         .from('profiles')
         .select(fallbackProfileSelect)
@@ -350,6 +353,7 @@ export default function PrelaunchHomePreview() {
       hasPwa: detectedPwa ? true : typeof row?.has_pwa === 'boolean' ? row.has_pwa : null,
       venmoClickedAt: row?.venmo_clicked_at ?? null,
       nativeMembershipAmount: row?.native_membership_amount ?? null,
+      paymentReviewStatus: row?.payment_review_status ?? null,
       paymentConfirmedAt: row?.payment_confirmed_at ?? null,
     })
 
@@ -385,8 +389,10 @@ export default function PrelaunchHomePreview() {
   const membershipDone = !!chosenMembership
   const installDone = runningAsPwa || profile?.hasPwa === true
   const notificationDone = notificationPermission === 'granted' && hasPushSubscription
-  const paymentStatus: PaymentStatus = profile?.paymentConfirmedAt
+  const paymentStatus: PaymentStatus = profile?.paymentReviewStatus === 'paid' || profile?.paymentConfirmedAt
     ? 'confirmed'
+    : profile?.paymentReviewStatus === 'not_paid'
+      ? 'not_complete'
     : profile?.venmoClickedAt
       ? 'in_process'
       : 'not_complete'
@@ -522,13 +528,25 @@ export default function PrelaunchHomePreview() {
     }
 
     const now = new Date().toISOString()
-    const { error: paymentUpdateError } = await supabase
+    const paymentUpdate = {
+      venmo_clicked_at: now,
+      native_membership_amount: latestMembership.amount,
+      payment_review_status: 'not_reviewed' as PaymentReviewStatus,
+      payment_confirmed_at: null,
+    }
+    const paymentUpdateResult = await supabase
       .from('profiles')
-      .update({
-        venmo_clicked_at: now,
-        native_membership_amount: latestMembership.amount,
-      })
+      .update(paymentUpdate)
       .eq('id', activeUser.id)
+    const paymentUpdateError = paymentUpdateResult.error && /payment_review_status|payment_confirmed_at/i.test(paymentUpdateResult.error.message)
+      ? (await supabase
+          .from('profiles')
+          .update({
+            venmo_clicked_at: now,
+            native_membership_amount: latestMembership.amount,
+          })
+          .eq('id', activeUser.id)).error
+      : paymentUpdateResult.error
 
     if (paymentUpdateError) {
       setActionMessage('Venmo is opening, but HHS could not save the payment attempt yet. After sending dues, check back here or tell Zach.')
@@ -539,6 +557,7 @@ export default function PrelaunchHomePreview() {
             tier: latestMembership.tier,
             venmoClickedAt: now,
             nativeMembershipAmount: latestMembership.amount,
+            paymentReviewStatus: 'not_reviewed',
             paymentConfirmedAt: null,
           }
         : prev)

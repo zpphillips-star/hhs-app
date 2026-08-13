@@ -15,11 +15,20 @@ function isNativeApp() {
 }
 
 function isIOS() {
+  if (typeof navigator === 'undefined') return false
   return /iphone|ipad|ipod/i.test(navigator.userAgent)
 }
 function isPWA() {
   return window.matchMedia('(display-mode: standalone)').matches ||
     ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
+}
+function canUsePushHere() {
+  if (typeof window === 'undefined') return false
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return false
+  // iOS web push is only available from the installed Home Screen app. Safari
+  // tabs can show the install guide, but they cannot enable the PWA permission.
+  if (isIOS() && !isPWA()) return false
+  return true
 }
 
 function detectInAppBrowser(): InAppType {
@@ -69,17 +78,11 @@ export default function SetupGuide({ userId }: { userId: string }) {
   const [subscribing, setSubscribing] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [canPromptInstall, setCanPromptInstall] = useState(false)
+  const [notifBlocked, setNotifBlocked] = useState(false)
   const [inAppBrowser, setInAppBrowser] = useState<InAppType>(null)
   const [currentBrowser] = useState<BrowserName>(() =>
     typeof navigator === 'undefined' ? 'other' : detectCurrentBrowser()
   )
-  const [setupDone] = useState(() => {
-    try {
-      return typeof window !== 'undefined' && localStorage.getItem('hhs_setup_done') === '1'
-    } catch {
-      return false
-    }
-  })
   const nativeApp = isNativeApp()
 
   // Don't render at all in the native app — install/PWA prompts are not applicable
@@ -93,10 +96,11 @@ export default function SetupGuide({ userId }: { userId: string }) {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  function proceedToSetup() {
+  async function proceedToSetup() {
     const installed = isPWA()
     const notifPerm = 'Notification' in window ? Notification.permission : 'denied'
     setNotifStatus(notifPerm)
+    setNotifBlocked(notifPerm === 'denied')
 
     if (installed) {
       supabase.from('profiles').update({ has_pwa: true }).eq('id', userId).then(() => {})
@@ -105,19 +109,22 @@ export default function SetupGuide({ userId }: { userId: string }) {
       supabase.from('profiles').update({ has_pwa: false }).eq('id', userId).then(() => {})
     }
 
+    const { data: pushSub } = canUsePushHere()
+      ? await supabase.from('push_subscriptions').select('user_id').eq('user_id', userId).maybeSingle()
+      : { data: null }
+    const notifDone = canUsePushHere() ? notifPerm === 'granted' && !!pushSub : false
+
     if (!installed) {
       setStep('install')
-    } else if (notifPerm !== 'granted') {
+    } else if (!notifDone) {
       setStep('notify')
     } else {
-      // Already have permission — re-subscribe to get a fresh token in DB
-      subscribeIfNeeded(userId)
       setStep('done')
     }
   }
 
   useEffect(() => {
-    if (nativeApp || dismissed || setupDone) return
+    if (nativeApp || dismissed) return
 
     // Skip entirely when running inside the HHS native Android app.
     // The native app manages its own onboarding overlay and sets window.__HHS_NATIVE_APP__.
@@ -136,7 +143,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
 
     window.setTimeout(() => proceedToSetup(), 0)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, dismissed, setupDone, nativeApp])
+  }, [userId, dismissed, nativeApp])
 
   const triggerInstallPrompt = async () => {
     if (!deferredInstallPrompt) return
@@ -148,6 +155,16 @@ export default function SetupGuide({ userId }: { userId: string }) {
       supabase.from('profiles').update({ has_pwa: true }).eq('id', userId).then(() => {})
       setTimeout(() => setStep('notify'), 1500)
     }
+  }
+
+  const continueToNotifications = async () => {
+    if (isPWA()) {
+      await supabase.from('profiles').update({ has_pwa: true }).eq('id', userId)
+    }
+    const notifPerm = 'Notification' in window ? Notification.permission : 'denied'
+    setNotifStatus(notifPerm)
+    setNotifBlocked(notifPerm === 'denied')
+    setStep('notify')
   }
 
   // Always get a FRESH push subscription — never reuse a potentially stale one
@@ -169,22 +186,22 @@ export default function SetupGuide({ userId }: { userId: string }) {
   }
 
   const requestNotifications = async () => {
+    if (!canUsePushHere()) return
     setSubscribing(true)
     try {
       const perm = await Notification.requestPermission()
       setNotifStatus(perm)
+      setNotifBlocked(perm === 'denied')
       if (perm === 'granted') {
         await subscribeIfNeeded(userId)
         await supabase.from('profiles').update({ has_notifications: true }).eq('id', userId)
-        setStep('done')
-      } else {
         setStep('done')
       }
     } catch { /* silent */ }
     setSubscribing(false)
   }
 
-  if (nativeApp || setupDone || !step || step === 'done' || dismissed) return null
+  if (nativeApp || !step || step === 'done' || dismissed) return null
 
   const androidManualInstallInstructions: Record<BrowserName, string> = {
     edge: 'Tap the ··· menu at the bottom → "Add to Phone" → Add',
@@ -286,6 +303,11 @@ export default function SetupGuide({ userId }: { userId: string }) {
           )}
 
           <button
+            onClick={continueToNotifications}
+            style={{ width: '100%', padding: '0.75rem', background: 'transparent', border: '1px solid rgba(255,140,0,0.4)', borderRadius: '10px', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.82rem', cursor: 'pointer', letterSpacing: '0.1em', marginBottom: '0.65rem' }}
+          >I added it — continue to notifications →</button>
+
+          <button
             onClick={() => setDismissed(true)}
             style={{ width: '100%', marginTop: '0.5rem', padding: '0.7rem', background: 'transparent', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem', cursor: 'pointer', letterSpacing: '0.1em' }}
           >I&apos;ll do this later</button>
@@ -297,17 +319,29 @@ export default function SetupGuide({ userId }: { userId: string }) {
           <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
             Get notified each time your next beer is revealed.
           </p>
-          <button
-            onClick={requestNotifications}
-            disabled={subscribing}
-            style={{
-              width: '100%', padding: '0.8rem',
-              background: 'var(--gold)', border: 'none', borderRadius: '10px',
-              color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif",
-              fontSize: '0.9rem', fontWeight: 700, letterSpacing: '0.1em',
-              cursor: 'pointer', marginBottom: '0.75rem',
-            }}
-          >{subscribing ? 'Enabling...' : 'Enable Notifications'}</button>
+          {canUsePushHere() && !notifBlocked ? (
+            <button
+              onClick={requestNotifications}
+              disabled={subscribing}
+              style={{
+                width: '100%', padding: '0.8rem',
+                background: 'var(--gold)', border: 'none', borderRadius: '10px',
+                color: 'var(--bg)', fontFamily: "'Modern Antiqua', serif",
+                fontSize: '0.9rem', fontWeight: 700, letterSpacing: '0.1em',
+                cursor: 'pointer', marginBottom: '0.75rem',
+              }}
+            >{subscribing ? 'Enabling...' : 'Enable Notifications'}</button>
+          ) : (
+            <div style={{ background: 'rgba(255,140,0,0.07)', border: '1px solid rgba(255,140,0,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+              <p style={{ color: 'var(--text)', fontSize: '0.875rem', lineHeight: 1.6, margin: 0 }}>
+                {notifBlocked
+                  ? <>Notifications are blocked. Open <strong style={{ color: 'var(--gold)' }}>{isIOS() ? 'iOS Settings → Notifications' : `${browserLabel(currentBrowser)} settings → Site settings → Notifications`}</strong>, allow HHS, then return.</>
+                  : isIOS()
+                  ? <>On iPhone/iPad, notifications are enabled from the installed Home Screen app. Open HHS from the icon you added, then tap <strong style={{ color: 'var(--gold)' }}>Enable Notifications</strong> there.</>
+                  : <>This browser cannot enable HHS push notifications here. Open HHS in Chrome, Edge, or the installed app and tap <strong style={{ color: 'var(--gold)' }}>Enable Notifications</strong>.</>}
+              </p>
+            </div>
+          )}
           <button
             onClick={() => setDismissed(true)}
             style={{ width: '100%', padding: '0.6rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem', cursor: 'pointer' }}

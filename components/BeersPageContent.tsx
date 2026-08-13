@@ -1010,54 +1010,6 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                   Today&apos;s beer hasn&apos;t been added yet. Check back soon.
                 </p>
               </section>
-            ) : !todayOnly && !calendarOnly ? (
-              <section style={{ textAlign: 'center', padding: '2.5rem 0 2rem', marginBottom: '2rem' }}>
-
-                {/* Divider line + label */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '3rem' }}>
-                  <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(255,140,0,0.35))' }} />
-                  <span style={{
-                    fontFamily: "'Modern Antiqua', serif",
-                    fontSize: '0.6rem', letterSpacing: '0.4em',
-                    textTransform: 'uppercase', color: 'var(--gold)', whiteSpace: 'nowrap',
-                  }}>The Beer Ledger</span>
-                  <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
-                </div>
-
-                {/* Intro */}
-                <div style={{
-                  maxWidth: '520px', margin: '0 auto 1rem',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '12px',
-                  padding: '1.5rem 1.75rem',
-                }}>
-                  <p style={{
-                    fontFamily: "'Modern Antiqua', serif",
-                    color: 'var(--text-muted)',
-                    fontSize: '0.95rem',
-                    lineHeight: 1.9,
-                    fontStyle: 'italic',
-                    margin: 0,
-                  }}>
-                    The next pour is still being argued over in the shadows. Today&apos;s revealed beer lives on the Today page; the October calendar waits below.
-                  </p>
-                </div>
-
-                {/* CTA hint */}
-                <button onClick={() => router.push('/')} style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-muted)', fontSize: '0.8rem',
-                  fontFamily: "'Modern Antiqua', serif",
-                  letterSpacing: '0.1em',
-                  textDecoration: 'none',
-                  cursor: 'pointer',
-                }}>
-                  Open Today&apos;s Beer →
-                </button>
-
-              </section>
             ) : null}
 
             {/* ══════════════════════════════════════════════════════════════

@@ -1015,7 +1015,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
             {/* ══════════════════════════════════════════════════════════════
                 OCTOBER CALENDAR
             ══════════════════════════════════════════════════════════════ */}
-            {!todayOnly && <section style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+            {!todayOnly && <section style={{ paddingTop: '2rem' }}>
 
               {/* Month header */}
               <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>

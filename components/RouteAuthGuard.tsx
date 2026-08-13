@@ -15,6 +15,7 @@ const PROTECTED_ROUTE_PREFIXES = [
   '/membership',
   '/preview',
   '/settings',
+  '/today',
   '/wall',
   '/welcome',
 ]

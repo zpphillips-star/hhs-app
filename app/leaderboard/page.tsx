@@ -23,23 +23,6 @@ function getNativeAppMode() {
   }
 }
 
-function SectionDivider({ label }: { label: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-      <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, transparent, rgba(255,140,0,0.35))' }} />
-      <span style={{
-        fontFamily: "'Modern Antiqua', serif",
-        fontSize: '0.6rem',
-        letterSpacing: '0.4em',
-        textTransform: 'uppercase',
-        color: 'var(--gold)',
-        whiteSpace: 'nowrap',
-      }}>{label}</span>
-      <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to left, transparent, rgba(255,140,0,0.35))' }} />
-    </div>
-  )
-}
-
 export default function LeaderboardPage() {
   const [nativeAppMode] = useState(getNativeAppMode)
   const [user,     setUser]     = useState<{ id: string; email?: string } | null>(null)
@@ -150,7 +133,6 @@ export default function LeaderboardPage() {
       <main style={{ maxWidth: '700px', margin: '0 auto', padding: '1.25rem 1.5rem 5.5rem' }}>
 
         {/* Header */}
-        <SectionDivider label="Rankings" />
         <h1 style={{
           fontFamily: "'Modern Antiqua', serif",
           color: 'var(--text)',

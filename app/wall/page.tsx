@@ -376,7 +376,7 @@ export default function WallPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const [page, setPage] = useState(0)
+  const pageRef = useRef(0)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const [wallPostText, setWallPostText] = useState('')
@@ -446,24 +446,24 @@ export default function WallPage() {
   }, [])
 
   // Initial load
-  useEffect(() => { fetchPage(0) }, [fetchPage])
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchPage(0))
+  }, [fetchPage])
 
   // Intersection observer — fire when sentinel is visible
   useEffect(() => {
     if (observerRef.current) observerRef.current.disconnect()
     observerRef.current = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-        setPage(prev => {
-          const next = prev + 1
-          fetchPage(next, false, filterBeerId)
-          return next
-        })
+        const next = pageRef.current + 1
+        pageRef.current = next
+        fetchPage(next, false, filterBeerId)
       }
     }, { threshold: 0.1 })
 
     if (sentinelRef.current) observerRef.current.observe(sentinelRef.current)
     return () => observerRef.current?.disconnect()
-  }, [hasMore, loadingMore, loading, fetchPage])
+  }, [hasMore, loadingMore, loading, fetchPage, filterBeerId])
 
   // ── Conditional returns AFTER all hooks ──
   if (!authChecked) return null
@@ -560,7 +560,7 @@ export default function WallPage() {
   const handleBeerFilter = (beerId: string, label: string) => {
     setFilterBeerId(beerId)
     setFilterBeerLabel(label)
-    setPage(0)
+    pageRef.current = 0
     setPosts([])
     setHasMore(true)
     fetchPage(0, true, beerId)
@@ -569,7 +569,7 @@ export default function WallPage() {
   const clearBeerFilter = () => {
     setFilterBeerId(null)
     setFilterBeerLabel('')
-    setPage(0)
+    pageRef.current = 0
     setPosts([])
     setHasMore(true)
     fetchPage(0, true, null)
@@ -746,7 +746,7 @@ export default function WallPage() {
           }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🍺</div>
             <p>The wall is empty. Be the first to post.</p>
-            <Link href="/beers" style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.875rem' }}>
+            <Link href="/today" style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.875rem' }}>
               → Go to today&apos;s beer
             </Link>
           </div>
@@ -761,7 +761,7 @@ export default function WallPage() {
         {/* Back link */}
         {!loading && (
           <div style={{ textAlign: 'center', marginTop: '3rem' }}>
-            <Link href="/beers" style={{
+            <Link href="/today" style={{
               color: 'var(--text-muted)',
               fontFamily: "'Modern Antiqua', serif",
               fontSize: '0.8rem',

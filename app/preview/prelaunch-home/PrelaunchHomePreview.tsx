@@ -611,6 +611,14 @@ export default function PrelaunchHomePreview() {
   const activeRow = rows.find(row => row.key === activeModal) ?? null
 
   useEffect(() => {
+    if (!user || allReady) return
+    const id = window.setInterval(() => {
+      void refreshLiveState()
+    }, 8000)
+    return () => window.clearInterval(id)
+  }, [allReady, refreshLiveState, user])
+
+  useEffect(() => {
     if (autoOpenedInstall || typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     if (params.get('setup') !== 'install') return
@@ -840,9 +848,7 @@ export default function PrelaunchHomePreview() {
               Congratulations
             </h2>
             <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1.06rem', lineHeight: 1.7, margin: '0.75rem 0 1rem', maxWidth: 760 }}>
-              {setupOverrideActive
-                ? 'Zach has opened entry for your account, so you can enter HHS now while any remaining setup details stay visible below.'
-                : 'You’ve successfully completed the difficult setup journey.'}
+              You&apos;ve successfully completed the difficult setup journey.
             </p>
             <button type="button" onClick={() => router.push(HHS_APP_HOME_ROUTE)} style={primaryButtonStyle}>
               you may now enter the Hallowed Hop Society

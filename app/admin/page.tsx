@@ -57,7 +57,7 @@ type MemberProfileRow = Omit<Member, 'auth_email' | 'has_notifications' | 'has_p
 }
 
 type PaymentReviewStatus = 'paid' | 'not_paid' | 'not_reviewed'
-type AdminPaymentState = 'paid' | 'not_paid' | 'awaiting_review' | 'not_reviewed'
+type AdminPaymentState = 'paid' | 'not_paid' | 'not_reviewed'
 
 const MEMBER_ROSTER_GRID_STYLE: CSSProperties = {
   gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 7rem 4rem 7rem 12rem',
@@ -66,8 +66,7 @@ const MEMBER_ROSTER_GRID_STYLE: CSSProperties = {
 function getAdminPaymentState(member: Member): AdminPaymentState {
   if (member.payment_review_status === 'paid' || member.payment_confirmed_at) return 'paid'
   if (member.payment_review_status === 'not_paid') return 'not_paid'
-  if (member.venmo_clicked_at) return 'awaiting_review'
-  return 'not_paid'
+  return 'not_reviewed'
 }
 
 function getAdminPaymentCopy(member: Member) {
@@ -79,11 +78,13 @@ function getAdminPaymentCopy(member: Member) {
       title: member.payment_confirmed_at ? `Confirmed: ${new Date(member.payment_confirmed_at).toLocaleDateString()}` : 'Marked paid by Zach',
     }
   }
-  if (state === 'awaiting_review') {
+  if (state === 'not_reviewed') {
     return {
       label: 'not reviewed',
       color: 'var(--gold)',
-      title: member.venmo_clicked_at ? `Venmo opened: ${new Date(member.venmo_clicked_at).toLocaleDateString()}` : 'Awaiting Zach’s review',
+      title: member.venmo_clicked_at
+        ? `Venmo opened: ${new Date(member.venmo_clicked_at).toLocaleDateString()}`
+        : 'Payment has not been reviewed yet',
     }
   }
   return {
@@ -534,9 +535,6 @@ export default function AdminPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-xs font-semibold uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>Members</h2>
-               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.72 }}>
-                 Push/Install show setup status; Entry lets Zach open app access without changing payment review.
-               </p>
             </div>
             <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{members.length} approved</span>
           </div>
@@ -586,7 +584,6 @@ export default function AdminPage() {
                   : m.payment_review_status === 'not_paid'
                     ? 'not_paid'
                     : 'not_reviewed'
-                const hasPaymentContext = !!m.tier || !!m.venmo_clicked_at || !!m.payment_confirmed_at || !!m.payment_review_status
                 return (
                 <div
                   key={m.id}
@@ -622,10 +619,7 @@ export default function AdminPage() {
                     }
                   </div>
                   <div className="text-center">
-                    {hasPaymentContext
-                      ? <span className="text-xs" style={{ color: paymentCopy.color }} title={paymentCopy.title}>{paymentCopy.label}</span>
-                      : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
-                    }
+                    <span className="text-xs" style={{ color: paymentCopy.color }} title={paymentCopy.title}>{paymentCopy.label}</span>
                   </div>
                    <div className="text-center">
                      {m.native_membership_amount
@@ -652,8 +646,7 @@ export default function AdminPage() {
                      </button>
                    </div>
                    <div className="text-center">
-                    {hasPaymentContext ? (
-                      <div className="flex flex-wrap justify-center gap-1">
+                    <div className="flex flex-wrap justify-center gap-1">
                         <button
                           type="button"
                           onClick={() => markPaymentPaid(m)}
@@ -693,10 +686,7 @@ export default function AdminPage() {
                         >
                           {confirmingPaidId === m.id ? '...' : 'Not Reviewed'}
                         </button>
-                      </div>
-                    ) : (
-                      <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
-                    )}
+                    </div>
                   </div>
                 </div>
                 )
@@ -712,7 +702,7 @@ export default function AdminPage() {
                    ${members.reduce((sum, m) => sum + (m.native_membership_amount || (m.tier === 'hallowed' ? 150 : m.tier === 'oddballs' ? 100 : 0)), 0)}
                  </span>
                  <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.setup_override_at).length} opened</span>
-                 <span className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{members.filter(m => getAdminPaymentState(m) === 'awaiting_review').length} need check</span>
+                  <span className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{members.filter(m => getAdminPaymentState(m) === 'not_reviewed').length} need check</span>
               </div>
             </div>
           )}

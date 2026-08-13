@@ -738,24 +738,51 @@ export default function PrelaunchHomePreview() {
         />
 
         {allReady ? (
-          <div
-            style={{
-              border: '1px solid rgba(217, 124, 43, 0.32)',
-              background: 'rgba(25, 23, 38, 0.58)',
-              borderRadius: '16px',
-              padding: '1.25rem',
-              marginBottom: '1rem',
-              fontFamily: bodyFont,
-              fontSize: '1.08rem',
-              lineHeight: 1.65,
-            }}
-          >
-            <h2 style={{ color: 'var(--text)', fontFamily: displayFont, fontSize: 'clamp(1.65rem, 4vw, 2.55rem)', lineHeight: 1.08, margin: '0 0 1rem' }}>
-              Congratulations! You&apos;ve successfully completed the difficult setup journey.
+          <div style={{ marginBottom: '1rem' }}>
+            <h2 style={{ color: 'var(--text)', fontFamily: displayFont, fontSize: 'clamp(1.65rem, 4vw, 2.55rem)', lineHeight: 1.08, margin: 0 }}>
+              Congratulations
             </h2>
+            <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1.06rem', lineHeight: 1.7, margin: '0.75rem 0 1rem', maxWidth: 760 }}>
+              You&apos;ve successfully completed the difficult setup journey.
+            </p>
             <button type="button" onClick={() => router.push(HHS_APP_HOME_ROUTE)} style={primaryButtonStyle}>
-              you may not enter the Hallowed Hop Society
+              you may now enter the Hallowed Hop Society
             </button>
+
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              {rows.map(row => (
+                <button
+                  key={row.key}
+                  type="button"
+                  onClick={() => handleRowClick(row)}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'auto minmax(0, 1fr)',
+                    gap: '0.85rem',
+                    alignItems: 'center',
+                    textAlign: 'left',
+                    width: '100%',
+                    border: `1px solid ${row.done ? 'rgba(74, 222, 128, 0.28)' : 'rgba(248, 113, 113, 0.22)'}`,
+                    background: row.done ? 'rgba(34, 197, 94, 0.07)' : 'rgba(25, 23, 38, 0.48)',
+                    borderRadius: '16px',
+                    padding: '0.95rem',
+                    cursor: 'pointer',
+                    color: 'inherit',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <CheckIcon done={row.done} />
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', color: 'var(--text)', fontFamily: displayFont, fontSize: '1.02rem', fontWeight: 700 }}>
+                      {row.label}
+                    </span>
+                    <span style={{ display: 'block', color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '0.95rem', lineHeight: 1.45 }}>
+                      {row.value}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <>

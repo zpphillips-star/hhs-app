@@ -51,6 +51,11 @@ type ProfileRow = {
   payment_confirmed_at?: string | null
 }
 
+type ChosenMembership = {
+  tier: HhsPaymentTier
+  amount: number
+}
+
 const displayFont = 'var(--font-display), "Modern Antiqua", Georgia, serif'
 const bodyFont = 'var(--font-body), "Crimson Text", Georgia, serif'
 
@@ -141,6 +146,25 @@ function tierAmount(tier: string | null | undefined) {
   const normalized = normalizeMembershipTier(tier)
   if (normalized === 'hallowed') return HHS_PAYMENT_TIERS.hallowed.amount
   if (normalized === 'oddballs') return HHS_PAYMENT_TIERS.oddballs.amount
+  return null
+}
+
+function membershipFromProfile(profile: Pick<PreviewProfile, 'tier' | 'nativeMembershipAmount'> | null | undefined): ChosenMembership | null {
+  const normalized = normalizeMembershipTier(profile?.tier)
+  if (normalized === 'hallowed' || normalized === 'oddballs') {
+    return {
+      tier: normalized,
+      amount: profile?.nativeMembershipAmount ?? HHS_PAYMENT_TIERS[normalized].amount,
+    }
+  }
+
+  if (profile?.nativeMembershipAmount === HHS_PAYMENT_TIERS.hallowed.amount) {
+    return { tier: 'hallowed', amount: HHS_PAYMENT_TIERS.hallowed.amount }
+  }
+  if (profile?.nativeMembershipAmount === HHS_PAYMENT_TIERS.oddballs.amount) {
+    return { tier: 'oddballs', amount: HHS_PAYMENT_TIERS.oddballs.amount }
+  }
+
   return null
 }
 
@@ -251,7 +275,7 @@ export default function PrelaunchHomePreview() {
   const [countdown, setCountdown] = useState<Countdown>({ days: 0, hours: 0, minutes: 0, seconds: 0 })
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [profile, setProfile] = useState<PreviewProfile | null>(null)
-  const [, setLoadingProfile] = useState(true)
+  const [loadingProfile, setLoadingProfile] = useState(true)
   const [runningAsPwa, setRunningAsPwa] = useState(false)
   const [canNativeInstall, setCanNativeInstall] = useState(false)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('unsupported')
@@ -349,10 +373,16 @@ export default function PrelaunchHomePreview() {
   }, [refreshLiveState])
 
   const memberUsername = profile?.username ? `@${profile.username}` : null
-  const normalizedTier = normalizeMembershipTier(profile?.tier)
-  const selectedTier = normalizedTier === 'hallowed' || normalizedTier === 'oddballs' ? normalizedTier : null
+  const chosenMembership = useMemo(
+    () => membershipFromProfile({
+      tier: profile?.tier ?? null,
+      nativeMembershipAmount: profile?.nativeMembershipAmount ?? null,
+    }),
+    [profile?.nativeMembershipAmount, profile?.tier],
+  )
+  const selectedTier = chosenMembership?.tier ?? null
   const profileDone = !!user && profile?.status === 'approved' && !!profile?.username
-  const membershipDone = !!selectedTier
+  const membershipDone = !!chosenMembership
   const installDone = runningAsPwa || profile?.hasPwa === true
   const notificationDone = notificationPermission === 'granted' && hasPushSubscription
   const paymentStatus: PaymentStatus = profile?.paymentConfirmedAt
@@ -361,7 +391,7 @@ export default function PrelaunchHomePreview() {
       ? 'in_process'
       : 'not_complete'
   const paymentDone = paymentStatus === 'confirmed'
-  const expectedAmount = profile?.nativeMembershipAmount ?? tierAmount(profile?.tier)
+  const expectedAmount = chosenMembership?.amount ?? tierAmount(profile?.tier)
   const paymentValue = paymentStatus === 'confirmed'
     ? `Payment confirmed${expectedAmount ? ` · $${expectedAmount}` : ''}`
     : paymentStatus === 'in_process'
@@ -387,7 +417,7 @@ export default function PrelaunchHomePreview() {
       value: membershipDone ? tierLabel(profile?.tier) : 'Not selected',
       done: membershipDone,
       summary: membershipDone
-        ? `Your Society membership is set to ${tierLabel(profile?.tier)}.`
+        ? `Your Society membership is set to ${tierLabel(selectedTier)}.`
         : 'Choose The Hallowed or The Oddballs in the approved member setup flow.',
       actionLabel: 'Select Membership',
     },
@@ -414,16 +444,20 @@ export default function PrelaunchHomePreview() {
     {
       key: 'paid',
       label: 'Pay membership dues',
-      value: paymentValue,
+      value: paymentStatus === 'not_complete' && chosenMembership
+        ? `Payment not received · $${chosenMembership.amount}`
+        : paymentValue,
       done: paymentDone,
       summary: paymentDone
         ? 'Zach has confirmed your dues as received.'
         : paymentStatus === 'in_process'
           ? 'You attempted to send payment. Zach now needs to verify the payment was received.'
-          : 'Tap to open Venmo with your selected membership and amount filled in.',
+        : chosenMembership
+          ? `Tap to open Venmo with ${tierLabel(chosenMembership.tier)} and $${chosenMembership.amount} filled in.`
+          : 'Choose your membership first, then return here to send dues.',
       actionLabel: paymentStatus === 'not_complete' ? 'Open Venmo' : 'Payment Status',
     },
-  ], [canNativeInstall, installDone, memberUsername, membershipDone, notificationDone, notificationPermission, paymentDone, paymentStatus, paymentValue, profile?.hasPwa, profile?.tier, profileDone, runningAsPwa, user])
+  ], [canNativeInstall, chosenMembership, installDone, memberUsername, membershipDone, notificationDone, notificationPermission, paymentDone, paymentStatus, paymentValue, profile?.hasPwa, profile?.tier, profileDone, runningAsPwa, selectedTier, user])
 
   const allReady = rows.every(row => row.done)
   const activeRow = rows.find(row => row.key === activeModal) ?? null
@@ -458,28 +492,61 @@ export default function PrelaunchHomePreview() {
   }
 
   const openPaymentLink = async () => {
-    if (!user) {
+    const activeUser = user ?? (await supabase.auth.getUser()).data.user
+    if (!activeUser) {
       router.push('/auth')
       return
     }
-    if (!selectedTier) {
-      router.push(user ? '/auth/complete' : '/auth')
+
+    if (loadingProfile) {
+      setActionMessage('One moment — HHS is reading your membership before opening Venmo.')
+      await refreshLiveState()
+    }
+
+    const { data: latestProfile, error: latestProfileError } = await supabase
+      .from('profiles')
+      .select('tier, native_membership_amount')
+      .eq('id', activeUser.id)
+      .maybeSingle()
+
+    const latestMembership = latestProfileError
+      ? chosenMembership
+      : membershipFromProfile({
+          tier: latestProfile?.tier ?? profile?.tier ?? null,
+          nativeMembershipAmount: latestProfile?.native_membership_amount ?? profile?.nativeMembershipAmount ?? null,
+        })
+
+    if (!latestMembership) {
+      router.push('/auth/complete')
       return
     }
 
-    const tier = HHS_PAYMENT_TIERS[selectedTier as HhsPaymentTier]
     const now = new Date().toISOString()
-    await supabase
+    const { error: paymentUpdateError } = await supabase
       .from('profiles')
       .update({
         venmo_clicked_at: now,
-        native_membership_amount: profile?.nativeMembershipAmount ?? tier.amount,
+        native_membership_amount: latestMembership.amount,
       })
-      .eq('id', user.id)
+      .eq('id', activeUser.id)
 
-    await refreshLiveState()
+    if (paymentUpdateError) {
+      setActionMessage('Venmo is opening, but HHS could not save the payment attempt yet. After sending dues, check back here or tell Zach.')
+    } else {
+      setProfile(prev => prev
+        ? {
+            ...prev,
+            tier: latestMembership.tier,
+            venmoClickedAt: now,
+            nativeMembershipAmount: latestMembership.amount,
+            paymentConfirmedAt: null,
+          }
+        : prev)
+      setActionMessage(null)
+    }
 
-    openHhsVenmoPayment(selectedTier as HhsPaymentTier)
+    openHhsVenmoPayment(latestMembership.tier)
+    void refreshLiveState()
   }
 
   const handleRowClick = (row: ChecklistRow) => {

@@ -221,6 +221,9 @@ export default function WelcomePage() {
           <div>
             <StepIndicator current={1} total={2} />
             <h2 style={heading}>Add to your Home Screen</h2>
+            <p style={installReminder}>
+              Once you install HHS, use the installed app on your phone from now on.
+            </p>
             <p style={body}>
               Install HHS first, then enable beer notifications from this same setup flow where your browser supports it.
             </p>
@@ -396,6 +399,16 @@ const body: React.CSSProperties = {
   fontSize: '0.95rem',
   lineHeight: 1.7,
   marginBottom: '1.75rem',
+  textAlign: 'center',
+}
+
+const installReminder: React.CSSProperties = {
+  color: 'var(--text)',
+  fontFamily: "'Modern Antiqua', serif",
+  fontSize: '1.35rem',
+  fontWeight: 700,
+  lineHeight: 1.35,
+  marginBottom: '1.5rem',
   textAlign: 'center',
 }
 

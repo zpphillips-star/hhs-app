@@ -45,6 +45,8 @@ type Member = {
   payment_review_status: PaymentReviewStatus | null
   payment_confirmed_at: string | null
   native_source: string | null
+  setup_override_at: string | null
+  setup_override_by: string | null
 }
 
 type MemberProfileRow = Omit<Member, 'has_notifications' | 'has_pwa' | 'payment_review_status' | 'payment_confirmed_at'> & {
@@ -57,7 +59,7 @@ type PaymentReviewStatus = 'paid' | 'not_paid' | 'not_reviewed'
 type AdminPaymentState = 'paid' | 'not_paid' | 'awaiting_review' | 'not_reviewed'
 
 const MEMBER_ROSTER_GRID_STYLE: CSSProperties = {
-  gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 7rem 4rem 12rem',
+  gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 7rem 4rem 7rem 12rem',
 }
 
 function getAdminPaymentState(member: Member): AdminPaymentState {
@@ -121,6 +123,7 @@ export default function AdminPage() {
   const [notifDetail, setNotifDetail] = useState<Record<string, NotifDetail>>({})
   const [members, setMembers] = useState<Member[]>([])
   const [confirmingPaidId, setConfirmingPaidId] = useState<string | null>(null)
+  const [updatingOverrideId, setUpdatingOverrideId] = useState<string | null>(null)
   const [tierSelectionOpen, setTierSelectionOpen] = useState(false)
   const [togglingTier, setTogglingTier] = useState(false)
 
@@ -179,7 +182,7 @@ export default function AdminPage() {
   }
 
   async function fetchMembers() {
-    const memberSelect = 'id, first_name, last_name, username, email, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at, native_membership_amount, payment_review_status, payment_confirmed_at, native_source'
+    const memberSelect = 'id, first_name, last_name, username, email, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at, native_membership_amount, payment_review_status, payment_confirmed_at, native_source, setup_override_at, setup_override_by'
     const fallbackMemberSelect = 'id, first_name, last_name, username, email, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at, native_membership_amount, native_source'
     const profilesResult = await supabase
       .from('profiles')
@@ -188,7 +191,7 @@ export default function AdminPage() {
       .order('created_at', { ascending: true })
     let profiles = profilesResult.data as MemberProfileRow[] | null
     let profilesError = profilesResult.error
-    if (profilesError && /payment_review_status|payment_confirmed_at/i.test(profilesError.message)) {
+    if (profilesError && /payment_review_status|payment_confirmed_at|setup_override_at|setup_override_by/i.test(profilesError.message)) {
       const fallback = await supabase
         .from('profiles')
         .select(fallbackMemberSelect)
@@ -216,7 +219,34 @@ export default function AdminPage() {
       payment_review_status: 'payment_review_status' in p ? p.payment_review_status || null : null,
       payment_confirmed_at: 'payment_confirmed_at' in p ? p.payment_confirmed_at || null : null,
       native_source: p.native_source || null,
+      setup_override_at: 'setup_override_at' in p ? p.setup_override_at || null : null,
+      setup_override_by: 'setup_override_by' in p ? p.setup_override_by || null : null,
     })))
+  }
+
+  const updateSetupOverride = async (member: Member, action: 'enable' | 'disable') => {
+    const memberName = member.first_name && member.last_name ? `${member.first_name} ${member.last_name}` : member.username
+    const memberIdentifier = member.email ? member.email : `@${member.username}`
+    const prompt = action === 'enable'
+      ? `Let ${memberName} (${memberIdentifier}) into HHS now? This bypasses the setup checklist for this member only.`
+      : `Remove the entry override for ${memberName} (${memberIdentifier})? They will need to complete the normal setup checklist before entering.`
+    if (!confirm(prompt)) return
+    setUpdatingOverrideId(member.id)
+    try {
+      const res = await fetch('/api/admin/setup-override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ member_id: member.id, action }),
+      })
+      const json = await res.json().catch(() => ({})) as { error?: string }
+      if (!res.ok) {
+        alert(json.error || 'Could not update entry access.')
+      } else {
+        await fetchMembers()
+      }
+    } finally {
+      setUpdatingOverrideId(null)
+    }
   }
 
   const updatePaymentConfirmation = async (member: Member, action: PaymentReviewStatus) => {
@@ -485,9 +515,9 @@ export default function AdminPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-xs font-semibold uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>Members</h2>
-              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.72 }}>
-                Push/Install show setup status; Paid is Zach-confirmed receipt; Due is expected or recorded amount.
-              </p>
+               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.72 }}>
+                 Push/Install show setup status; Entry lets Zach open app access without changing payment review.
+               </p>
             </div>
             <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{members.length} approved</span>
           </div>
@@ -527,7 +557,8 @@ export default function AdminPage() {
                  <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Tier</span>
                  <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Paid</span>
                  <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Due</span>
-                 <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Action</span>
+                 <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Entry</span>
+                 <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Payment</span>
               </div>
               {members.map((m, i) => {
                 const paymentCopy = getAdminPaymentCopy(m)
@@ -574,15 +605,31 @@ export default function AdminPage() {
                       : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                     }
                   </div>
-                  <div className="text-center">
-                    {m.native_membership_amount
+                   <div className="text-center">
+                     {m.native_membership_amount
                       ? <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>${m.native_membership_amount}</span>
                       : m.tier
                         ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}>${m.tier === 'hallowed' ? 150 : 100}</span>
                       : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
-                    }
-                  </div>
-                  <div className="text-center">
+                     }
+                   </div>
+                   <div className="text-center">
+                     <button
+                       type="button"
+                       onClick={() => updateSetupOverride(m, m.setup_override_at ? 'disable' : 'enable')}
+                       disabled={updatingOverrideId === m.id}
+                       className="text-[0.68rem] px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                       title={m.setup_override_at ? `Manual entry opened ${new Date(m.setup_override_at).toLocaleDateString()}` : 'Bypass setup checklist for this member'}
+                       style={{
+                         background: m.setup_override_at ? 'rgba(74,222,128,0.22)' : 'rgba(217,124,43,0.1)',
+                         color: m.setup_override_at ? '#4ade80' : 'var(--gold)',
+                         border: m.setup_override_at ? '1px solid rgba(74,222,128,0.45)' : '1px solid rgba(217,124,43,0.25)',
+                       }}
+                     >
+                       {updatingOverrideId === m.id ? '...' : m.setup_override_at ? 'Remove override' : 'Let them in'}
+                     </button>
+                   </div>
+                   <div className="text-center">
                     {hasPaymentContext ? (
                       <div className="flex flex-wrap justify-center gap-1">
                         <button
@@ -639,10 +686,11 @@ export default function AdminPage() {
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_pwa).length}/{members.length}</span>
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.tier).length}/{members.length}</span>
                 <span className="text-xs text-green-400 text-center">{members.filter(m => getAdminPaymentState(m) === 'paid').length}/{members.length}</span>
-                <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>
-                  ${members.reduce((sum, m) => sum + (m.native_membership_amount || (m.tier === 'hallowed' ? 150 : m.tier === 'oddballs' ? 100 : 0)), 0)}
-                </span>
-                <span className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{members.filter(m => getAdminPaymentState(m) === 'awaiting_review').length} need check</span>
+                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>
+                   ${members.reduce((sum, m) => sum + (m.native_membership_amount || (m.tier === 'hallowed' ? 150 : m.tier === 'oddballs' ? 100 : 0)), 0)}
+                 </span>
+                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.setup_override_at).length} opened</span>
+                 <span className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{members.filter(m => getAdminPaymentState(m) === 'awaiting_review').length} need check</span>
               </div>
             </div>
           )}

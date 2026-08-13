@@ -26,6 +26,7 @@ type PreviewProfile = {
   nativeMembershipAmount: number | null
   paymentReviewStatus: PaymentReviewStatus | null
   paymentConfirmedAt: string | null
+  setupOverrideAt: string | null
 }
 
 type ChecklistKey = 'profile' | 'membership' | 'install' | 'notifications' | 'paid'
@@ -54,6 +55,7 @@ type ProfileRow = {
   native_membership_amount?: number | null
   payment_review_status?: PaymentReviewStatus | null
   payment_confirmed_at?: string | null
+  setup_override_at?: string | null
 }
 
 type ChosenMembership = {
@@ -354,7 +356,7 @@ export default function PrelaunchHomePreview() {
       return
     }
 
-    const profileSelect = 'username, display_name, email, tier, status, has_pwa, venmo_clicked_at, native_membership_amount, payment_review_status, payment_confirmed_at'
+    const profileSelect = 'username, display_name, email, tier, status, has_pwa, venmo_clicked_at, native_membership_amount, payment_review_status, payment_confirmed_at, setup_override_at'
     const fallbackProfileSelect = 'username, display_name, email, tier, status, has_pwa, venmo_clicked_at, native_membership_amount'
     const profileResult = await supabase
       .from('profiles')
@@ -363,7 +365,7 @@ export default function PrelaunchHomePreview() {
       .maybeSingle()
     let profileRow = profileResult.data as ProfileRow | null
     let profileError = profileResult.error
-    if (profileError && /payment_review_status|payment_confirmed_at/i.test(profileError.message)) {
+    if (profileError && /payment_review_status|payment_confirmed_at|setup_override_at/i.test(profileError.message)) {
       const fallback = await supabase
         .from('profiles')
         .select(fallbackProfileSelect)
@@ -389,6 +391,7 @@ export default function PrelaunchHomePreview() {
       nativeMembershipAmount: row?.native_membership_amount ?? null,
       paymentReviewStatus: row?.payment_review_status ?? null,
       paymentConfirmedAt: row?.payment_confirmed_at ?? null,
+      setupOverrideAt: row?.setup_override_at ?? null,
     })
 
     const { data: pushSub } = await supabase
@@ -453,6 +456,7 @@ export default function PrelaunchHomePreview() {
     : paymentStatus === 'in_process'
       ? `Awaiting Zach’s verification${expectedAmount ? ` · $${expectedAmount}` : ''}`
       : 'Payment not received'
+  const setupOverrideActive = profile?.status === 'approved' && !!profile?.setupOverrideAt
 
   useEffect(() => {
     if (paymentStatus !== 'in_process') return
@@ -467,8 +471,10 @@ export default function PrelaunchHomePreview() {
       key: 'profile',
       label: 'Setup member profile',
       value: user ? memberUsername ?? 'Username missing' : 'Sign in to view',
-      done: profileDone,
-      summary: profileDone
+      done: setupOverrideActive || profileDone,
+      summary: setupOverrideActive && !profileDone
+        ? 'Zach has opened entry for your account while the profile detail is finished.'
+        : profileDone
         ? `Your member profile is active as ${memberUsername}.`
         : user
           ? 'Your approved member profile needs a Society username before setup is complete.'
@@ -479,8 +485,10 @@ export default function PrelaunchHomePreview() {
       key: 'membership',
       label: 'Select society membership',
       value: membershipDone ? tierLabel(profile?.tier) : 'Not selected',
-      done: membershipDone,
-      summary: membershipDone
+      done: setupOverrideActive || membershipDone,
+      summary: setupOverrideActive && !membershipDone
+        ? 'Zach has opened entry for your account while membership details are finalized.'
+        : membershipDone
         ? `Your Society membership is set to ${tierLabel(selectedTier)}.`
         : 'Choose The Hallowed or The Oddballs in the approved member setup flow.',
       actionLabel: 'Select Membership',
@@ -489,8 +497,10 @@ export default function PrelaunchHomePreview() {
       key: 'install',
       label: 'Install app to phone',
       value: runningAsPwa ? 'Detected from Home Screen' : profile?.hasPwa ? 'Previously detected' : canNativeInstall ? 'Install available' : 'Not detected',
-      done: installDone,
-      summary: installDone
+      done: setupOverrideActive || installDone,
+      summary: setupOverrideActive && !installDone
+        ? 'Zach has opened entry for your account without requiring Home Screen install detection first.'
+        : installDone
         ? 'HHS has detected the installed Home Screen app state.'
         : 'Install HHS to your Home Screen, then open it from the new app icon so HHS can detect and save the install.',
       actionLabel: canNativeInstall ? 'Install HHS' : 'Open install guide',
@@ -499,8 +509,10 @@ export default function PrelaunchHomePreview() {
       key: 'notifications',
       label: 'Enable notifications',
       value: notificationDone ? 'Enabled' : notificationPermission === 'denied' ? 'Notifications blocked' : notificationPermission === 'unsupported' ? 'Not available in this browser' : 'Not enabled',
-      done: notificationDone,
-      summary: notificationDone
+      done: setupOverrideActive || notificationDone,
+      summary: setupOverrideActive && !notificationDone
+        ? 'Zach has opened entry for your account without requiring notifications first.'
+        : notificationDone
         ? 'Notifications are enabled and HHS has a saved push subscription for your account.'
         : isIOS() && !installDone
           ? 'Install HHS to your Home Screen first; iPhone notifications can only be enabled from the installed app.'
@@ -513,8 +525,10 @@ export default function PrelaunchHomePreview() {
       value: paymentStatus === 'not_complete' && chosenMembership
         ? `Payment not received · $${chosenMembership.amount}`
         : paymentValue,
-      done: paymentDone,
-      summary: paymentDone
+      done: setupOverrideActive || paymentDone,
+      summary: setupOverrideActive && !paymentDone
+        ? 'Zach has opened entry for your account while payment review stays separate.'
+        : paymentDone
         ? 'Zach has confirmed your dues as received.'
         : paymentStatus === 'in_process'
           ? 'You attempted to send payment. Zach now needs to verify the payment was received.'
@@ -523,9 +537,9 @@ export default function PrelaunchHomePreview() {
           : 'Choose your membership first, then return here to send dues.',
       actionLabel: paymentStatus === 'not_complete' ? 'Open Venmo' : 'Payment Status',
     },
-  ], [canNativeInstall, chosenMembership, installDone, memberUsername, membershipDone, notificationDone, notificationPermission, paymentDone, paymentStatus, paymentValue, profile?.hasPwa, profile?.tier, profileDone, runningAsPwa, selectedTier, user])
+  ], [canNativeInstall, chosenMembership, installDone, memberUsername, membershipDone, notificationDone, notificationPermission, paymentDone, paymentStatus, paymentValue, profile?.hasPwa, profile?.tier, profileDone, runningAsPwa, selectedTier, setupOverrideActive, user])
 
-  const allReady = rows.every(row => row.done)
+  const allReady = setupOverrideActive || rows.every(row => row.done)
   const activeRow = rows.find(row => row.key === activeModal) ?? null
 
   useEffect(() => {
@@ -643,7 +657,7 @@ export default function PrelaunchHomePreview() {
       router.push(user ? '/auth/complete' : '/auth')
       return
     }
-    if (row.key === 'paid' && paymentStatus === 'not_complete') {
+    if (row.key === 'paid' && !row.done && paymentStatus === 'not_complete') {
       void openPaymentLink()
       return
     }
@@ -743,7 +757,9 @@ export default function PrelaunchHomePreview() {
               Congratulations
             </h2>
             <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1.06rem', lineHeight: 1.7, margin: '0.75rem 0 1rem', maxWidth: 760 }}>
-              You&apos;ve successfully completed the difficult setup journey.
+              {setupOverrideActive
+                ? 'Zach has opened entry for your account, so you can enter HHS now while any remaining setup details stay visible below.'
+                : 'You’ve successfully completed the difficult setup journey.'}
             </p>
             <button type="button" onClick={() => router.push(HHS_APP_HOME_ROUTE)} style={primaryButtonStyle}>
               you may now enter the Hallowed Hop Society

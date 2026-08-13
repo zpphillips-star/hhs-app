@@ -72,17 +72,18 @@ type SetupProfileRow = {
   venmo_clicked_at?: string | null
   payment_review_status?: 'paid' | 'not_paid' | 'not_reviewed' | null
   payment_confirmed_at?: string | null
+  setup_override_at?: string | null
 }
 
 async function readSetupProfile(userId: string): Promise<SetupProfileRow | null> {
-  const fullSelect = 'username, status, tier, native_membership_amount, has_pwa, venmo_clicked_at, payment_review_status, payment_confirmed_at'
+  const fullSelect = 'username, status, tier, native_membership_amount, has_pwa, venmo_clicked_at, payment_review_status, payment_confirmed_at, setup_override_at'
   const fallbackSelect = 'username, status, tier, native_membership_amount, has_pwa, venmo_clicked_at'
   const result = await supabase
     .from('profiles')
     .select(fullSelect)
     .eq('id', userId)
     .maybeSingle()
-  if (result.error && /payment_review_status|payment_confirmed_at/i.test(result.error.message)) {
+  if (result.error && /payment_review_status|payment_confirmed_at|setup_override_at/i.test(result.error.message)) {
     const fallback = await supabase
       .from('profiles')
       .select(fallbackSelect)
@@ -103,6 +104,8 @@ async function isPrelaunchSetupComplete(userId: string): Promise<boolean> {
   }
 
   const profileDone = profile.status === 'approved' && !!profile.username
+  if (profile.status === 'approved' && !!profile.setup_override_at) return true
+
   const membershipDone = !!profile.tier || typeof profile.native_membership_amount === 'number'
   const installDone = runningAsPwa || profile.has_pwa === true
   const paymentDone = profile.payment_review_status === 'paid' || !!profile.payment_confirmed_at

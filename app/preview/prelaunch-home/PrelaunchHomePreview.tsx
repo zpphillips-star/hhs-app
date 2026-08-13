@@ -410,6 +410,22 @@ export default function PrelaunchHomePreview() {
     return () => subscription.unsubscribe()
   }, [refreshLiveState])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refreshLiveState()
+    }
+
+    window.addEventListener('focus', refreshWhenVisible)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+
+    return () => {
+      window.removeEventListener('focus', refreshWhenVisible)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [refreshLiveState])
+
   const memberUsername = profile?.username ? `@${profile.username}` : null
   const chosenMembership = useMemo(
     () => membershipFromProfile({
@@ -437,6 +453,14 @@ export default function PrelaunchHomePreview() {
     : paymentStatus === 'in_process'
       ? `Awaiting Zach’s verification${expectedAmount ? ` · $${expectedAmount}` : ''}`
       : 'Payment not received'
+
+  useEffect(() => {
+    if (paymentStatus !== 'in_process') return
+    const id = window.setInterval(() => {
+      void refreshLiveState()
+    }, 15000)
+    return () => window.clearInterval(id)
+  }, [paymentStatus, refreshLiveState])
 
   const rows: ChecklistRow[] = useMemo(() => [
     {

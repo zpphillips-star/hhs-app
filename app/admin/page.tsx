@@ -221,11 +221,13 @@ export default function AdminPage() {
 
   const updatePaymentConfirmation = async (member: Member, action: PaymentReviewStatus) => {
     const memberName = member.first_name && member.last_name ? `${member.first_name} ${member.last_name}` : member.username
+    const memberIdentifier = member.email ? member.email : `@${member.username}`
+    const memberLabel = `${memberName} (${memberIdentifier})`
     const prompt = action === 'paid'
-      ? `Mark ${memberName} as paid? Only do this after Zach confirms receipt.`
+      ? `Mark ${memberLabel} as paid? Only do this after Zach confirms receipt.`
       : action === 'not_paid'
-        ? `Mark ${memberName} as not paid? Their membership choice and Venmo attempt will stay on file so they can retry payment.`
-        : `Move ${memberName} back to not reviewed? Use this when a Venmo attempt still needs Zach’s verification.`
+        ? `Mark ${memberLabel} as not paid? Their membership choice and Venmo attempt will stay on file so they can retry payment.`
+        : `Move ${memberLabel} back to not reviewed? Use this when a Venmo attempt still needs Zach’s verification.`
     if (!confirm(prompt)) return
     setConfirmingPaidId(member.id)
     try {

@@ -737,62 +737,73 @@ export default function PrelaunchHomePreview() {
           }}
         />
 
-        <div style={{ marginBottom: '1rem' }}>
-          <SectionHeading
-            eyebrow="Membership Checklist"
-            eyebrowColor="var(--gold)"
-            title="Must complete prior to entry"
-            intro={allReady
-              ? 'Everything HHS can verify is in place. You may now enter the member app.'
-              : 'Complete each red row before entering the member app. Install must be completed from real Home Screen app detection, not a manual checkbox.'}
-          />
-        </div>
-
         {allReady ? (
-          <div style={{ border: '1px solid rgba(74, 222, 128, 0.34)', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '16px', padding: '1rem', marginBottom: '1rem', color: '#bbf7d0', fontFamily: bodyFont, fontSize: '1.05rem', lineHeight: 1.6 }}>
-            <p style={{ margin: '0 0 1rem' }}>
-              Congrats — your launch setup is complete. Keep HHS on your Home Screen and watch for the first reveal.
-            </p>
+          <div
+            style={{
+              border: '1px solid rgba(217, 124, 43, 0.32)',
+              background: 'rgba(25, 23, 38, 0.58)',
+              borderRadius: '16px',
+              padding: '1.25rem',
+              marginBottom: '1rem',
+              fontFamily: bodyFont,
+              fontSize: '1.08rem',
+              lineHeight: 1.65,
+            }}
+          >
+            <h2 style={{ color: 'var(--text)', fontFamily: displayFont, fontSize: 'clamp(1.65rem, 4vw, 2.55rem)', lineHeight: 1.08, margin: '0 0 1rem' }}>
+              Congratulations! You&apos;ve successfully completed the difficult setup journey.
+            </h2>
             <button type="button" onClick={() => router.push(HHS_APP_HOME_ROUTE)} style={primaryButtonStyle}>
-              You&apos;ve completed the setup - you may now enter the Hallowed Hop Society
+              you may not enter the Hallowed Hop Society
             </button>
           </div>
-        ) : null}
+        ) : (
+          <>
+            <div style={{ marginBottom: '1rem' }}>
+              <SectionHeading
+                eyebrow="Membership Checklist"
+                eyebrowColor="var(--gold)"
+                title="Must complete prior to entry"
+                intro="Complete each red row before entering the member app. Install must be completed from real Home Screen app detection, not a manual checkbox."
+              />
+            </div>
 
-        <div style={{ display: 'grid', gap: '0.75rem' }}>
-          {rows.map(row => (
-            <button
-              key={row.key}
-              type="button"
-              onClick={() => handleRowClick(row)}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'auto minmax(0, 1fr)',
-                gap: '0.85rem',
-                alignItems: 'center',
-                textAlign: 'left',
-                width: '100%',
-                border: `1px solid ${row.done ? 'rgba(74, 222, 128, 0.28)' : 'rgba(248, 113, 113, 0.22)'}`,
-                background: row.done ? 'rgba(34, 197, 94, 0.07)' : 'rgba(25, 23, 38, 0.48)',
-                borderRadius: '16px',
-                padding: '0.95rem',
-                cursor: 'pointer',
-                color: 'inherit',
-                fontFamily: 'inherit',
-              }}
-            >
-              <CheckIcon done={row.done} />
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', color: 'var(--text)', fontFamily: displayFont, fontSize: '1.02rem', fontWeight: 700 }}>
-                  {row.label}
-                </span>
-                <span style={{ display: 'block', color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '0.95rem', lineHeight: 1.45 }}>
-                  {row.value}
-                </span>
-              </span>
-            </button>
-          ))}
-        </div>
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              {rows.map(row => (
+                <button
+                  key={row.key}
+                  type="button"
+                  onClick={() => handleRowClick(row)}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'auto minmax(0, 1fr)',
+                    gap: '0.85rem',
+                    alignItems: 'center',
+                    textAlign: 'left',
+                    width: '100%',
+                    border: `1px solid ${row.done ? 'rgba(74, 222, 128, 0.28)' : 'rgba(248, 113, 113, 0.22)'}`,
+                    background: row.done ? 'rgba(34, 197, 94, 0.07)' : 'rgba(25, 23, 38, 0.48)',
+                    borderRadius: '16px',
+                    padding: '0.95rem',
+                    cursor: 'pointer',
+                    color: 'inherit',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <CheckIcon done={row.done} />
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', color: 'var(--text)', fontFamily: displayFont, fontSize: '1.02rem', fontWeight: 700 }}>
+                      {row.label}
+                    </span>
+                    <span style={{ display: 'block', color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '0.95rem', lineHeight: 1.45 }}>
+                      {row.value}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {activeRow ? (

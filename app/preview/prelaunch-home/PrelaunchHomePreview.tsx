@@ -170,35 +170,13 @@ function StatusPill({ children, tone = 'gold' }: { children: ReactNode; tone?: '
   )
 }
 
-function Panel({ children, accent = false, ready = false }: { children: ReactNode; accent?: boolean; ready?: boolean }) {
-  return (
-    <div
-      style={{
-        border: ready
-          ? '1px solid rgba(74, 222, 128, 0.58)'
-          : accent ? '1px solid rgba(217, 124, 43, 0.36)' : '1px solid var(--border)',
-        background: ready
-          ? 'linear-gradient(145deg, rgba(34, 197, 94, 0.16), rgba(32, 29, 48, 0.9) 44%, rgba(32, 29, 48, 0.72))'
-          : accent
-            ? 'linear-gradient(145deg, rgba(217, 124, 43, 0.13), rgba(32, 29, 48, 0.9) 42%, rgba(32, 29, 48, 0.72))'
-            : 'rgba(32, 29, 48, 0.72)',
-        borderRadius: '22px',
-        padding: 'clamp(1.25rem, 3vw, 2rem)',
-        boxShadow: ready ? '0 0 0 1px rgba(74, 222, 128, 0.16), 0 22px 70px rgba(34, 197, 94, 0.12)' : '0 22px 60px rgba(0, 0, 0, 0.18)',
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
-function SectionHeading({ eyebrow, title, intro }: { eyebrow: string; title: string; intro?: string }) {
+function SectionHeading({ eyebrow, title, intro, eyebrowColor = 'var(--text-muted)' }: { eyebrow: string; title: string; intro?: string; eyebrowColor?: string }) {
   return (
     <div style={{ marginBottom: '1.35rem' }}>
       <div
         className="uppercase"
         style={{
-          color: 'var(--text-muted)',
+          color: eyebrowColor,
           fontFamily: displayFont,
           fontSize: '0.7rem',
           letterSpacing: '0.28em',
@@ -481,61 +459,66 @@ export default function PrelaunchHomePreview() {
         <HomeCountdownJoin countdown={countdown} showJoinCta={false} compact />
       </section>
 
-      <section className="container mx-auto max-w-6xl px-6 py-8" style={{ paddingBottom: 'clamp(4rem, 8vw, 6rem)' }}>
-        <Panel ready={allReady}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <SectionHeading
-              eyebrow="Membership Checklist"
-              title={allReady ? 'You are ready for October.' : 'Get yourself ready'}
-              intro={allReady
-                ? 'Everything HHS can verify is in place. Keep the app handy for the first reveal when the ritual begins.'
-                : 'Tap on any row in red to complete the action.'}
-            />
-            <StatusPill tone={allReady ? 'green' : 'muted'}>{allReady ? 'Ready' : loadingProfile ? 'Checking' : 'To do'}</StatusPill>
+      <section
+        className="container mx-auto max-w-6xl px-6 py-8"
+        style={{
+          borderTop: '1px solid rgba(217, 124, 43, 0.28)',
+          paddingBottom: 'clamp(4rem, 8vw, 6rem)',
+        }}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <SectionHeading
+            eyebrow="Membership Checklist"
+            eyebrowColor="var(--gold)"
+            title={allReady ? 'You are ready for October.' : 'Get yourself ready'}
+            intro={allReady
+              ? 'Everything HHS can verify is in place. Keep the app handy for the first reveal when the ritual begins.'
+              : 'Tap on any row in red to complete the action.'}
+          />
+          <StatusPill tone={allReady ? 'green' : 'muted'}>{allReady ? 'Ready' : loadingProfile ? 'Checking' : 'To do'}</StatusPill>
+        </div>
+
+        {allReady ? (
+          <div style={{ border: '1px solid rgba(74, 222, 128, 0.34)', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '16px', padding: '1rem', marginBottom: '1rem', color: '#bbf7d0', fontFamily: bodyFont, fontSize: '1.05rem', lineHeight: 1.6 }}>
+            Congrats — your launch setup is complete. Keep HHS on your Home Screen and watch for the first reveal.
           </div>
+        ) : null}
 
-          {allReady ? (
-            <div style={{ border: '1px solid rgba(74, 222, 128, 0.34)', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '16px', padding: '1rem', marginBottom: '1rem', color: '#bbf7d0', fontFamily: bodyFont, fontSize: '1.05rem', lineHeight: 1.6 }}>
-              Congrats — your launch setup is complete. Keep HHS on your Home Screen and watch for the first reveal.
-            </div>
-          ) : null}
-
-          <div style={{ display: 'grid', gap: '0.75rem' }}>
-            {rows.map(row => (
-              <button
-                key={row.key}
-                type="button"
-                onClick={() => { setActiveModal(row.key); setActionMessage(null) }}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'auto minmax(0, 1fr) auto',
-                  gap: '0.85rem',
-                  alignItems: 'center',
-                  textAlign: 'left',
-                  width: '100%',
-                  border: `1px solid ${row.done ? 'rgba(74, 222, 128, 0.28)' : 'rgba(248, 113, 113, 0.22)'}`,
-                  background: row.done ? 'rgba(34, 197, 94, 0.07)' : 'rgba(25, 23, 38, 0.48)',
-                  borderRadius: '16px',
-                  padding: '0.95rem',
-                  cursor: 'pointer',
-                  color: 'inherit',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <CheckIcon done={row.done} />
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', color: 'var(--text)', fontFamily: displayFont, fontSize: '1.02rem', fontWeight: 700 }}>
-                    {row.label}
-                  </span>
-                  <span style={{ display: 'block', color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '0.95rem', lineHeight: 1.45 }}>
-                    {row.value}
-                  </span>
+        <div style={{ display: 'grid', gap: '0.75rem' }}>
+          {rows.map(row => (
+            <button
+              key={row.key}
+              type="button"
+              onClick={() => { setActiveModal(row.key); setActionMessage(null) }}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                gap: '0.85rem',
+                alignItems: 'center',
+                textAlign: 'left',
+                width: '100%',
+                border: `1px solid ${row.done ? 'rgba(74, 222, 128, 0.28)' : 'rgba(248, 113, 113, 0.22)'}`,
+                background: row.done ? 'rgba(34, 197, 94, 0.07)' : 'rgba(25, 23, 38, 0.48)',
+                borderRadius: '16px',
+                padding: '0.95rem',
+                cursor: 'pointer',
+                color: 'inherit',
+                fontFamily: 'inherit',
+              }}
+            >
+              <CheckIcon done={row.done} />
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', color: 'var(--text)', fontFamily: displayFont, fontSize: '1.02rem', fontWeight: 700 }}>
+                  {row.label}
                 </span>
-                <StatusPill tone={row.source === 'live' ? 'green' : 'muted'}>{row.source === 'live' ? 'Live' : 'Action'}</StatusPill>
-              </button>
-            ))}
-          </div>
-        </Panel>
+                <span style={{ display: 'block', color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '0.95rem', lineHeight: 1.45 }}>
+                  {row.value}
+                </span>
+              </span>
+              <StatusPill tone={row.source === 'live' ? 'green' : 'muted'}>{row.source === 'live' ? 'Live' : 'Action'}</StatusPill>
+            </button>
+          ))}
+        </div>
       </section>
 
       {activeRow ? (

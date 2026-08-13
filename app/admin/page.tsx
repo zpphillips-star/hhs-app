@@ -42,11 +42,17 @@ type Member = {
   tier_selected_at: string | null
   venmo_clicked_at: string | null
   native_membership_amount: number | null
+  payment_confirmed_at: string | null
   native_source: string | null
 }
 
+type MemberProfileRow = Omit<Member, 'has_notifications' | 'has_pwa' | 'payment_confirmed_at'> & {
+  has_pwa: boolean | null
+  payment_confirmed_at?: string | null
+}
+
 const MEMBER_ROSTER_GRID_STYLE: CSSProperties = {
-  gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 4.5rem 4rem',
+  gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 5.5rem 4rem 5rem',
 }
 
 async function getAuthHeaders(): Promise<HeadersInit> {
@@ -77,6 +83,7 @@ export default function AdminPage() {
   const [expandedNotif, setExpandedNotif] = useState<string | null>(null)
   const [notifDetail, setNotifDetail] = useState<Record<string, NotifDetail>>({})
   const [members, setMembers] = useState<Member[]>([])
+  const [confirmingPaidId, setConfirmingPaidId] = useState<string | null>(null)
   const [tierSelectionOpen, setTierSelectionOpen] = useState(false)
   const [togglingTier, setTogglingTier] = useState(false)
 
@@ -84,13 +91,15 @@ export default function AdminPage() {
   const [enablingNotif, setEnablingNotif] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
-    fetchBeers()
-    fetchRequests()
-    fetchNotifHistory()
-    fetchMembers()
-    fetchTierStatus()
-    if ('Notification' in window) setMyNotifStatus(Notification.permission)
+    void Promise.resolve().then(() => {
+      supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
+      fetchBeers()
+      fetchRequests()
+      fetchNotifHistory()
+      fetchMembers()
+      fetchTierStatus()
+      if ('Notification' in window) setMyNotifStatus(Notification.permission)
+    })
   }, [])
 
   const enableMyNotifications = async () => {
@@ -119,7 +128,7 @@ export default function AdminPage() {
     setEnablingNotif(false)
   }
 
-  const fetchTierStatus = async () => {
+  async function fetchTierStatus() {
     const { data } = await supabase.from('app_settings').select('tier_selection_open').eq('id', 1).single()
     setTierSelectionOpen(data?.tier_selection_open ?? false)
   }
@@ -132,12 +141,25 @@ export default function AdminPage() {
     setTogglingTier(false)
   }
 
-  const fetchMembers = async () => {
-    const { data: profiles } = await supabase
+  async function fetchMembers() {
+    const memberSelect = 'id, first_name, last_name, username, email, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at, native_membership_amount, payment_confirmed_at, native_source'
+    const fallbackMemberSelect = 'id, first_name, last_name, username, email, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at, native_membership_amount, native_source'
+    const profilesResult = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, username, email, status, created_at, has_pwa, tier, tier_selected_at, venmo_clicked_at, native_membership_amount, native_source')
+      .select(memberSelect)
       .eq('status', 'approved')
       .order('created_at', { ascending: true })
+    let profiles = profilesResult.data as MemberProfileRow[] | null
+    let profilesError = profilesResult.error
+    if (profilesError && /payment_confirmed_at/i.test(profilesError.message)) {
+      const fallback = await supabase
+        .from('profiles')
+        .select(fallbackMemberSelect)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: true })
+      profiles = fallback.data as MemberProfileRow[] | null
+      profilesError = fallback.error
+    }
 
     const { data: subs } = await supabase
       .from('push_subscriptions')
@@ -154,16 +176,37 @@ export default function AdminPage() {
       tier_selected_at: p.tier_selected_at || null,
       venmo_clicked_at: p.venmo_clicked_at || null,
       native_membership_amount: p.native_membership_amount || null,
+      payment_confirmed_at: 'payment_confirmed_at' in p ? p.payment_confirmed_at || null : null,
       native_source: p.native_source || null,
     })))
   }
 
-  const fetchBeers = async () => {
+  const markPaymentPaid = async (member: Member) => {
+    if (!confirm(`Mark ${member.first_name && member.last_name ? `${member.first_name} ${member.last_name}` : member.username} as paid? Only do this after Zach confirms receipt.`)) return
+    setConfirmingPaidId(member.id)
+    try {
+      const res = await fetch('/api/admin/payment-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ member_id: member.id }),
+      })
+      const json = await res.json().catch(() => ({})) as { error?: string }
+      if (!res.ok) {
+        alert(json.error || 'Could not mark payment as paid.')
+      } else {
+        await fetchMembers()
+      }
+    } finally {
+      setConfirmingPaidId(null)
+    }
+  }
+
+  async function fetchBeers() {
     const { data } = await supabase.from('beers').select('*').order('day_number')
     setBeers(data || [])
   }
 
-  const fetchRequests = async () => {
+  async function fetchRequests() {
     const { data } = await supabase
       .from('member_requests')
       .select('*')
@@ -171,7 +214,7 @@ export default function AdminPage() {
     setRequests(data || [])
   }
 
-  const fetchNotifHistory = async () => {
+  async function fetchNotifHistory() {
     const { data: logs } = await supabase
       .from('notification_log')
       .select('id, title, body, total_sent, sent_at')
@@ -393,7 +436,7 @@ export default function AdminPage() {
             <div>
               <h2 className="text-xs font-semibold uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>Members</h2>
               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.72 }}>
-                Push/Install show setup status; Paid tracks Venmo click; Due is expected or recorded amount.
+                Push/Install show setup status; Paid is Zach-confirmed receipt; Due is expected or recorded amount.
               </p>
             </div>
             <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{members.length} approved</span>
@@ -431,9 +474,10 @@ export default function AdminPage() {
                 <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Member</span>
                 <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Push</span>
                 <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Install</span>
-                <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Tier</span>
-                <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Paid</span>
-                <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Due</span>
+                 <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Tier</span>
+                 <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Paid</span>
+                 <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Due</span>
+                 <span className="text-xs uppercase tracking-wider text-center" style={{ color: 'var(--text-muted)' }}>Action</span>
               </div>
               {members.map((m, i) => (
                 <div
@@ -467,8 +511,10 @@ export default function AdminPage() {
                     }
                   </div>
                   <div className="text-center">
-                    {m.venmo_clicked_at
-                      ? <span className="text-green-400 text-xs" title={`Clicked: ${new Date(m.venmo_clicked_at).toLocaleDateString()}`}>✓ sent</span>
+                    {m.payment_confirmed_at
+                      ? <span className="text-green-400 text-xs" title={`Confirmed: ${new Date(m.payment_confirmed_at).toLocaleDateString()}`}>confirmed</span>
+                      : m.venmo_clicked_at
+                        ? <span className="text-xs" style={{ color: 'var(--gold)' }} title={`Clicked: ${new Date(m.venmo_clicked_at).toLocaleDateString()}`}>in process</span>
                       : m.tier
                         ? <span className="text-xs" style={{ color: 'var(--gold)', opacity: 0.6 }}>pending</span>
                         : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
@@ -479,8 +525,25 @@ export default function AdminPage() {
                       ? <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>${m.native_membership_amount}</span>
                       : m.tier
                         ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}>${m.tier === 'hallowed' ? 150 : 100}</span>
-                        : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
+                      : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                     }
+                  </div>
+                  <div className="text-center">
+                    {m.payment_confirmed_at ? (
+                      <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.5 }}>—</span>
+                    ) : m.venmo_clicked_at ? (
+                      <button
+                        type="button"
+                        onClick={() => markPaymentPaid(m)}
+                        disabled={confirmingPaidId === m.id}
+                        className="text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                        style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80' }}
+                      >
+                        {confirmingPaidId === m.id ? '...' : 'Mark paid'}
+                      </button>
+                    ) : (
+                      <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -490,10 +553,11 @@ export default function AdminPage() {
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_notifications).length}/{members.length}</span>
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.has_pwa).length}/{members.length}</span>
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.tier).length}/{members.length}</span>
-                <span className="text-xs text-green-400 text-center">{members.filter(m => m.venmo_clicked_at).length}/{members.length}</span>
+                <span className="text-xs text-green-400 text-center">{members.filter(m => m.payment_confirmed_at).length}/{members.length}</span>
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>
                   ${members.reduce((sum, m) => sum + (m.native_membership_amount || (m.tier === 'hallowed' ? 150 : m.tier === 'oddballs' ? 100 : 0)), 0)}
                 </span>
+                <span className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{members.filter(m => m.venmo_clicked_at && !m.payment_confirmed_at).length} in process</span>
               </div>
             </div>
           )}

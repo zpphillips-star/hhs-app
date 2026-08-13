@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import HomeCountdownJoin from '@/components/HomeCountdownJoin'
 import { supabase } from '@/lib/supabase'
 import { normalizeMembershipTier } from '@/lib/membership'
@@ -21,18 +22,48 @@ type PreviewProfile = {
   hasPwa: boolean | null
   venmoClickedAt: string | null
   nativeMembershipAmount: number | null
+  paymentConfirmedAt: string | null
 }
 
-type ChecklistKey = 'username' | 'membership' | 'install' | 'notifications' | 'paid'
+type ChecklistKey = 'profile' | 'membership' | 'install' | 'notifications' | 'paid'
 
 type ChecklistRow = {
   key: ChecklistKey
   label: string
   value: string
   done: boolean
-  source: 'live' | 'action'
   summary: string
+  actionLabel?: string
 }
+
+type PaymentStatus = 'not_complete' | 'in_process' | 'confirmed'
+
+type ProfileRow = {
+  username?: string | null
+  display_name?: string | null
+  email?: string | null
+  tier?: string | null
+  status?: string | null
+  has_pwa?: boolean | null
+  venmo_clicked_at?: string | null
+  native_membership_amount?: number | null
+  payment_confirmed_at?: string | null
+}
+
+const TIER_CONFIG = {
+  hallowed: {
+    label: 'The Hallowed',
+    amount: 150,
+    venmoNote: 'HHS The Hallowed Membership',
+  },
+  oddballs: {
+    label: 'The Oddballs',
+    amount: 100,
+    venmoNote: 'HHS The Oddballs Membership',
+  },
+} as const
+
+type TierId = keyof typeof TIER_CONFIG
 
 const displayFont = 'var(--font-display), "Modern Antiqua", Georgia, serif'
 const bodyFont = 'var(--font-body), "Crimson Text", Georgia, serif'
@@ -107,9 +138,16 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 function tierLabel(tier: string | null | undefined) {
   const normalized = normalizeMembershipTier(tier)
   if (normalized === 'hallowed') return 'The Hallowed'
-  if (normalized === 'oddballs') return 'Oddballs'
+  if (normalized === 'oddballs') return 'The Oddballs'
   if (tier) return tier
   return 'Not selected'
+}
+
+function tierAmount(tier: string | null | undefined) {
+  const normalized = normalizeMembershipTier(tier)
+  if (normalized === 'hallowed') return TIER_CONFIG.hallowed.amount
+  if (normalized === 'oddballs') return TIER_CONFIG.oddballs.amount
+  return null
 }
 
 function CheckIcon({ done }: { done: boolean }) {
@@ -215,6 +253,7 @@ function GuidanceSteps({ type }: { type: 'install' | 'notifications' }) {
 }
 
 export default function PrelaunchHomePreview() {
+  const router = useRouter()
   const [countdown, setCountdown] = useState<Countdown>({ days: 0, hours: 0, minutes: 0, seconds: 0 })
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [profile, setProfile] = useState<PreviewProfile | null>(null)
@@ -245,7 +284,8 @@ export default function PrelaunchHomePreview() {
   }, [])
 
   const refreshLiveState = useCallback(async () => {
-    setRunningAsPwa(isPWA())
+    const detectedPwa = isPWA()
+    setRunningAsPwa(detectedPwa)
     setNotificationPermission(notificationSupported() ? Notification.permission : 'unsupported')
 
     const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -257,21 +297,40 @@ export default function PrelaunchHomePreview() {
       return
     }
 
-    const { data: profileRow } = await supabase
+    const profileSelect = 'username, display_name, email, tier, status, has_pwa, venmo_clicked_at, native_membership_amount, payment_confirmed_at'
+    const fallbackProfileSelect = 'username, display_name, email, tier, status, has_pwa, venmo_clicked_at, native_membership_amount'
+    const profileResult = await supabase
       .from('profiles')
-      .select('username, display_name, email, tier, status, has_pwa, venmo_clicked_at, native_membership_amount')
+      .select(profileSelect)
       .eq('id', authUser.id)
       .maybeSingle()
+    let profileRow = profileResult.data as ProfileRow | null
+    let profileError = profileResult.error
+    if (profileError && /payment_confirmed_at/i.test(profileError.message)) {
+      const fallback = await supabase
+        .from('profiles')
+        .select(fallbackProfileSelect)
+        .eq('id', authUser.id)
+        .maybeSingle()
+      profileRow = fallback.data as ProfileRow | null
+      profileError = fallback.error
+    }
+    const row = profileError ? null : profileRow
+
+    if (detectedPwa && row?.has_pwa !== true) {
+      await supabase.from('profiles').update({ has_pwa: true }).eq('id', authUser.id)
+    }
 
     setProfile({
-      username: profileRow?.username ?? null,
-      displayName: profileRow?.display_name ?? null,
-      email: profileRow?.email ?? authUser.email ?? null,
-      tier: profileRow?.tier ?? null,
-      status: profileRow?.status ?? null,
-      hasPwa: typeof profileRow?.has_pwa === 'boolean' ? profileRow.has_pwa : null,
-      venmoClickedAt: profileRow?.venmo_clicked_at ?? null,
-      nativeMembershipAmount: profileRow?.native_membership_amount ?? null,
+      username: row?.username ?? null,
+      displayName: row?.display_name ?? null,
+      email: row?.email ?? authUser.email ?? null,
+      tier: row?.tier ?? null,
+      status: row?.status ?? null,
+      hasPwa: detectedPwa ? true : typeof row?.has_pwa === 'boolean' ? row.has_pwa : null,
+      venmoClickedAt: row?.venmo_clicked_at ?? null,
+      nativeMembershipAmount: row?.native_membership_amount ?? null,
+      paymentConfirmedAt: row?.payment_confirmed_at ?? null,
     })
 
     const { data: pushSub } = await supabase
@@ -293,69 +352,79 @@ export default function PrelaunchHomePreview() {
     return () => subscription.unsubscribe()
   }, [refreshLiveState])
 
-  const displayName = profile?.displayName || profile?.username || user?.email || 'Not signed in'
-  const membershipDone = !!user && (normalizeMembershipTier(profile?.tier) === 'hallowed' || normalizeMembershipTier(profile?.tier) === 'oddballs' || profile?.status === 'approved')
+  const memberUsername = profile?.username ? `@${profile.username}` : null
+  const normalizedTier = normalizeMembershipTier(profile?.tier)
+  const selectedTier = normalizedTier === 'hallowed' || normalizedTier === 'oddballs' ? normalizedTier : null
+  const profileDone = !!user && profile?.status === 'approved' && !!profile?.username
+  const membershipDone = !!selectedTier
   const installDone = runningAsPwa || profile?.hasPwa === true
   const notificationDone = notificationPermission === 'granted' && hasPushSubscription
-  const paidDone = !!profile?.nativeMembershipAmount || !!profile?.venmoClickedAt
+  const paymentStatus: PaymentStatus = profile?.paymentConfirmedAt
+    ? 'confirmed'
+    : profile?.venmoClickedAt
+      ? 'in_process'
+      : 'not_complete'
+  const paymentDone = paymentStatus === 'confirmed'
+  const expectedAmount = profile?.nativeMembershipAmount ?? tierAmount(profile?.tier)
+  const paymentValue = paymentStatus === 'confirmed'
+    ? `Payment confirmed${expectedAmount ? ` · $${expectedAmount}` : ''}`
+    : paymentStatus === 'in_process'
+      ? `In process${expectedAmount ? ` · $${expectedAmount}` : ''}`
+      : 'Not complete'
 
   const rows: ChecklistRow[] = useMemo(() => [
     {
-      key: 'username',
-      label: 'Member profile',
-      value: user ? displayName : 'Sign in to view',
-      done: !!user && displayName !== 'Not signed in',
-      source: user ? 'live' : 'action',
-      summary: user ? 'Shows the name or email from your signed-in HHS account.' : 'Sign in with your approved HHS email so this page can show your member profile.',
+      key: 'profile',
+      label: 'Setup member profile',
+      value: user ? memberUsername ?? 'Username missing' : 'Sign in to view',
+      done: profileDone,
+      summary: profileDone
+        ? `Your member profile is active as ${memberUsername}.`
+        : user
+          ? 'Your approved member profile needs a Society username before setup is complete.'
+          : 'Sign in with your approved HHS email so this page can read your member profile.',
+      actionLabel: user ? 'Finish Profile Setup' : 'Sign In',
     },
     {
       key: 'membership',
-      label: 'Society membership',
-      value: membershipDone ? tierLabel(profile?.tier) : user ? 'Membership needs confirmation' : 'Sign in to confirm',
+      label: 'Select society membership',
+      value: membershipDone ? tierLabel(profile?.tier) : 'Not selected',
       done: membershipDone,
-      source: user ? 'live' : 'action',
-      summary: 'Confirms your HHS tier or approved member status from your account.',
+      summary: 'Reads your selected HHS tier from your profile. It is complete only after The Hallowed or The Oddballs is selected.',
+      actionLabel: 'Select Membership',
     },
     {
       key: 'install',
-      label: 'Home Screen app',
-      value: runningAsPwa ? 'Installed on this device' : profile?.hasPwa ? 'Added to your profile' : canNativeInstall ? 'Install available' : 'Add HHS to your Home Screen',
+      label: 'Install app to phone',
+      value: runningAsPwa ? 'Detected from Home Screen' : profile?.hasPwa ? 'Previously detected' : canNativeInstall ? 'Install available' : 'Not detected',
       done: installDone,
-      source: user || runningAsPwa ? 'live' : 'action',
-      summary: 'Checks whether HHS is running from your Home Screen and whether your account has saved that setup.',
+      summary: 'Checks whether HHS is running in standalone/Home Screen mode and saves that detected state to your profile when possible.',
+      actionLabel: canNativeInstall ? 'Install App' : 'View Install Steps',
     },
     {
       key: 'notifications',
-      label: 'Reveal notifications',
-      value: notificationDone ? 'Enabled for reveals' : notificationPermission === 'denied' ? 'Notifications blocked' : notificationPermission === 'unsupported' ? 'Not available in this browser' : 'Enable reveal alerts',
+      label: 'Enable notifications',
+      value: notificationDone ? 'Enabled' : notificationPermission === 'denied' ? 'Notifications blocked' : notificationPermission === 'unsupported' ? 'Not available in this browser' : 'Not enabled',
       done: notificationDone,
-      source: user ? 'live' : 'action',
       summary: 'Checks browser notification permission and the saved HHS push subscription for your account.',
+      actionLabel: 'Enable Notifications',
     },
     {
       key: 'paid',
-      label: 'Membership payment',
-      value: paidDone
-        ? profile?.nativeMembershipAmount ? `$${profile.nativeMembershipAmount} recorded` : 'Venmo handoff recorded'
-        : 'Payment not confirmed here',
-      done: paidDone,
-      source: user ? 'live' : 'action',
-      summary: 'Shows the available payment signals on your member profile; final reconciliation remains with HHS.',
+      label: 'Pay membership dues',
+      value: paymentValue,
+      done: paymentDone,
+      summary: paymentDone
+        ? 'Zach has confirmed your dues as received.'
+        : paymentStatus === 'in_process'
+          ? 'Your Venmo handoff is recorded. This completes when Zach confirms the money was received.'
+          : 'Tap to open Venmo with your selected membership and amount filled in.',
+      actionLabel: paymentStatus === 'not_complete' ? 'Open Venmo' : 'Payment Status',
     },
-  ], [canNativeInstall, displayName, installDone, membershipDone, notificationDone, notificationPermission, paidDone, profile, runningAsPwa, user])
+  ], [canNativeInstall, installDone, memberUsername, membershipDone, notificationDone, notificationPermission, paymentDone, paymentStatus, paymentValue, profile?.hasPwa, profile?.tier, profileDone, runningAsPwa, user])
 
   const allReady = rows.every(row => row.done)
   const activeRow = rows.find(row => row.key === activeModal) ?? null
-
-  const markInstalled = async () => {
-    if (!user) {
-      setActionMessage('Sign in first so HHS can save the Home Screen status to your profile.')
-      return
-    }
-    await supabase.from('profiles').update({ has_pwa: true }).eq('id', user.id)
-    setActionMessage('Saved Home Screen status to your profile. Reopen from the icon for the device check.')
-    await refreshLiveState()
-  }
 
   const handleNativeInstall = async () => {
     if (!deferredPrompt) {
@@ -366,11 +435,75 @@ export default function PrelaunchHomePreview() {
     const { outcome } = await deferredPrompt.userChoice
     deferredPrompt = null
     setCanNativeInstall(false)
-    if (outcome === 'accepted') await markInstalled()
-    else setActionMessage('Install was dismissed. You can still use the manual steps below.')
+    if (outcome === 'accepted') {
+      setActionMessage('Install accepted. Reopen HHS from the Home Screen icon so the app can verify and save the detected install.')
+    } else {
+      setActionMessage('Install was dismissed. You can still use the manual steps below.')
+    }
   }
 
-  const enableNotifications = async () => {
+  const openPaymentLink = async () => {
+    if (!user) {
+      router.push('/auth')
+      return
+    }
+    if (!selectedTier) {
+      setActiveModal('membership')
+      setActionMessage('Select The Hallowed or The Oddballs first so HHS can fill in the right dues amount.')
+      return
+    }
+
+    const tier = TIER_CONFIG[selectedTier as TierId]
+    const now = new Date().toISOString()
+    await supabase
+      .from('profiles')
+      .update({
+        venmo_clicked_at: now,
+        native_membership_amount: profile?.nativeMembershipAmount ?? tier.amount,
+      })
+      .eq('id', user.id)
+
+    await refreshLiveState()
+
+    const note = encodeURIComponent(tier.venmoNote)
+    const venmoUrl = `venmo://paycharge?txn=pay&recipients=zpphillips&amount=${tier.amount}&note=${note}`
+    const venmoWeb = `https://venmo.com/zpphillips?txn=pay&amount=${tier.amount}&note=${note}`
+    const start = Date.now()
+    window.location.href = venmoUrl
+    window.setTimeout(() => {
+      if (Date.now() - start < 1500) window.open(venmoWeb, '_blank')
+    }, 800)
+  }
+
+  const handleRowClick = (row: ChecklistRow) => {
+    setActionMessage(null)
+    if (row.key === 'profile' && !row.done) {
+      router.push(user ? '/auth/complete' : '/auth')
+      return
+    }
+    if (row.key === 'membership' && !row.done) {
+      if (!user) router.push('/auth')
+      else router.push('/wall')
+      return
+    }
+    if (row.key === 'paid' && paymentStatus === 'not_complete') {
+      void openPaymentLink()
+      return
+    }
+    if (row.key === 'install' && canNativeInstall && !row.done) {
+      setActiveModal(row.key)
+      void handleNativeInstall()
+      return
+    }
+    if (row.key === 'notifications' && !row.done && notificationSupported() && notificationPermission !== 'denied') {
+      setActiveModal(row.key)
+      void enableNotifications()
+      return
+    }
+    setActiveModal(row.key)
+  }
+
+  async function enableNotifications() {
     if (!user) {
       setActionMessage('Sign in first so HHS can save the push subscription to your member profile.')
       return
@@ -465,7 +598,7 @@ export default function PrelaunchHomePreview() {
             <button
               key={row.key}
               type="button"
-              onClick={() => { setActiveModal(row.key); setActionMessage(null) }}
+              onClick={() => handleRowClick(row)}
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'auto minmax(0, 1fr)',
@@ -490,6 +623,11 @@ export default function PrelaunchHomePreview() {
                 <span style={{ display: 'block', color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '0.95rem', lineHeight: 1.45 }}>
                   {row.value}
                 </span>
+                {row.actionLabel && !row.done ? (
+                  <span style={{ display: 'block', color: 'var(--gold)', fontFamily: displayFont, fontSize: '0.68rem', letterSpacing: '0.14em', marginTop: '0.35rem', textTransform: 'uppercase' }}>
+                    {row.actionLabel}
+                  </span>
+                ) : null}
               </span>
             </button>
           ))}
@@ -517,15 +655,15 @@ export default function PrelaunchHomePreview() {
               </div>
             </div>
 
-            {activeRow.key === 'username' ? (
+            {activeRow.key === 'profile' ? (
               <p style={modalBodyStyle}>
-                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. If this is red, sign in with your approved HHS email and return to this page.
+                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. Profile setup is detected from your approved profile row and Society username.
               </p>
             ) : null}
 
             {activeRow.key === 'membership' ? (
               <p style={modalBodyStyle}>
-                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. Pick or confirm The Hallowed / Oddballs in Membership if available; otherwise Zach may need to update the profile tier/status.
+                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. Pick The Hallowed or The Oddballs in the membership picker when Zach has it open; otherwise ask Zach to update your profile tier.
               </p>
             ) : null}
 
@@ -540,9 +678,9 @@ export default function PrelaunchHomePreview() {
                   </button>
                 ) : null}
                 <GuidanceSteps type="install" />
-                <button type="button" onClick={markInstalled} style={secondaryButtonStyle}>
-                  I added it — save status
-                </button>
+                <p style={modalBodyStyle}>
+                  HHS no longer marks this complete from an “I did it” button. Reopen from the installed icon and the app will save the detected Home Screen state.
+                </p>
               </>
             ) : null}
 
@@ -561,9 +699,16 @@ export default function PrelaunchHomePreview() {
             ) : null}
 
             {activeRow.key === 'paid' ? (
-              <p style={modalBodyStyle}>
-                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. HHS can only show the payment signals available on your profile here; it does not verify bank settlement. If you paid and this is red, Zach needs to reconcile the roster/payment source.
-              </p>
+              <>
+                <p style={modalBodyStyle}>
+                  Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. The first tap records the Venmo handoff. This is only complete after Zach confirms the payment in the admin roster.
+                </p>
+                {paymentStatus === 'not_complete' ? (
+                  <button type="button" onClick={openPaymentLink} style={primaryButtonStyle}>
+                    Open Venmo
+                  </button>
+                ) : null}
+              </>
             ) : null}
 
             {actionMessage ? (

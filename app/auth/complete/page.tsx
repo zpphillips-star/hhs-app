@@ -12,19 +12,61 @@ export default function CompleteProfilePage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [tier, setTier] = useState<Tier | null>(null)
+  const [checkingLink, setCheckingLink] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [linkError, setLinkError] = useState('')
   const [firstName, setFirstName] = useState('')
   const router = useRouter()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    let cancelled = false
+
+    const readAuthErrorFromUrl = () => {
+      if (typeof window === 'undefined') return ''
+      const search = new URLSearchParams(window.location.search)
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      return search.get('error_description') ||
+        hash.get('error_description') ||
+        search.get('error') ||
+        hash.get('error') ||
+        ''
+    }
+
+    const finishWithUser = async () => {
+      const urlError = readAuthErrorFromUrl()
+      if (urlError) {
+        if (!cancelled) {
+          setLinkError('This setup link is invalid or has expired. Ask Zach to resend your approved member setup link.')
+          setCheckingLink(false)
+        }
+        return
+      }
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (cancelled) return
       if (!user) {
-        router.push('/auth')
+        setLinkError('We could not verify this setup link. Open the latest approval email link, or ask Zach to resend it if it was already used.')
+        setCheckingLink(false)
         return
       }
       setFirstName(user.user_metadata?.first_name || '')
+      setCheckingLink(false)
+    }
+
+    finishWithUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled || !session?.user) return
+      setFirstName(session.user.user_metadata?.first_name || '')
+      setLinkError('')
+      setCheckingLink(false)
     })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,14 +156,43 @@ export default function CompleteProfilePage() {
         <div className="text-center mb-10">
           <Image src="/hhs_no_circles_300dpi.webp" alt="HHS" width={100} height={100} className="mx-auto mb-4 opacity-90" />
           <h1 style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--text)', fontSize: '1.5rem', fontWeight: 700, letterSpacing: '0.1em' }}>
-            {firstName ? `Welcome, ${firstName}.` : 'Welcome.'}
+            {linkError ? 'Setup Link Issue' : firstName ? `Welcome, ${firstName}.` : 'Welcome.'}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.4rem', fontStyle: 'italic' }}>
-            Choose your Society name and set a password to complete your membership.
+            {linkError ? 'Your membership was approved, but this link could not start setup.' : 'Choose your Society name and set a password to complete your membership.'}
           </p>
         </div>
 
         <div style={{ border: '1px solid var(--border)', padding: '2rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
+          {checkingLink ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.7, textAlign: 'center', fontStyle: 'italic' }}>
+              Verifying your invitation...
+            </p>
+          ) : linkError ? (
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: '#e57373', fontSize: '0.92rem', lineHeight: 1.7, marginBottom: '1.25rem' }}>
+                {linkError}
+              </p>
+              <a
+                href="/auth"
+                style={{
+                  display: 'inline-block',
+                  background: 'var(--gold)',
+                  color: 'var(--bg)',
+                  fontFamily: "'Modern Antiqua', serif",
+                  fontSize: '0.75rem',
+                  letterSpacing: '0.2em',
+                  padding: '0.875rem 1.2rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  textDecoration: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                Go to Sign In
+              </a>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
               <label style={labelStyle}>Society Name</label>
@@ -264,6 +335,7 @@ export default function CompleteProfilePage() {
               {loading ? 'Completing...' : 'Enter the Society'}
             </button>
           </form>
+          )}
         </div>
       </div>
     </div>

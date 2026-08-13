@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase'
 
 const PROTECTED_ROUTE_PREFIXES = [
   '/admin',
-  '/auth/complete',
   '/auth/payment',
   '/beers',
   '/feedback',

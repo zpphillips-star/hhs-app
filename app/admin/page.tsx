@@ -367,7 +367,7 @@ export default function AdminPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ''}`,
+          ...(await getAuthHeaders()),
         },
         body: JSON.stringify({ request_id: requestId, action }),
       })

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { welcomeEmail, rejectionEmail } from '@/lib/email-templates'
 import { createApprovalSetupToken } from '@/lib/approval-token'
+import { requireAdminUser } from '@/lib/access'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +26,9 @@ function getResend() {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdminUser(supabaseAdmin, req.headers.get('authorization'))
+    if ('error' in auth) return auth.error
+
     const { request_id, action } = await req.json()
 
     if (!request_id || !['approve', 'reject'].includes(action)) {

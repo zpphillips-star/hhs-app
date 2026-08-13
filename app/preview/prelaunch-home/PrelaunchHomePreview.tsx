@@ -680,7 +680,12 @@ export default function PrelaunchHomePreview() {
                 <p style={modalBodyStyle}>
                   Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>.
                 </p>
-                {canUsePushHere() && notificationPermission !== 'denied' ? (
+                {activeRow.done ? (
+                  <p style={{ ...modalBodyStyle, color: '#bbf7d0' }}>
+                    This step is complete. HHS can verify notification permission and a saved push subscription for your account.
+                  </p>
+                ) : null}
+                {!activeRow.done && canUsePushHere() && notificationPermission !== 'denied' ? (
                   <button type="button" onClick={enableNotifications} disabled={subscribing} style={primaryButtonStyle}>
                     {subscribing ? 'Enabling…' : 'Enable Notifications'}
                   </button>

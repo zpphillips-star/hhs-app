@@ -34,6 +34,7 @@ type Member = {
   last_name: string | null
   username: string
   email: string | null
+  auth_email: string | null
   status: string
   created_at: string
   has_notifications: boolean
@@ -49,7 +50,7 @@ type Member = {
   setup_override_by: string | null
 }
 
-type MemberProfileRow = Omit<Member, 'has_notifications' | 'has_pwa' | 'payment_review_status' | 'payment_confirmed_at'> & {
+type MemberProfileRow = Omit<Member, 'auth_email' | 'has_notifications' | 'has_pwa' | 'payment_review_status' | 'payment_confirmed_at'> & {
   has_pwa: boolean | null
   payment_review_status?: PaymentReviewStatus | null
   payment_confirmed_at?: string | null
@@ -207,11 +208,29 @@ export default function AdminPage() {
 
     const subSet = new Set((subs || []).map(s => s.user_id))
 
-    setMembers((profiles || []).map(p => ({
+    const profileRows = profiles || []
+    let authEmailById = new Map<string, string>()
+    if (profileRows.length) {
+      const emailRes = await fetch('/api/admin/member-auth-emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ member_ids: profileRows.map(p => p.id) }),
+      })
+      if (emailRes.ok) {
+        const emailJson = await emailRes.json().catch(() => null) as { emails?: Record<string, string | null> } | null
+        authEmailById = new Map(
+          Object.entries(emailJson?.emails || {})
+            .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].length > 0),
+        )
+      }
+    }
+
+    setMembers(profileRows.map(p => ({
       ...p,
       has_notifications: subSet.has(p.id),
       has_pwa: p.has_pwa || false,
       email: p.email || null,
+      auth_email: authEmailById.get(p.id) || null,
       tier: p.tier || null,
       tier_selected_at: p.tier_selected_at || null,
       venmo_clicked_at: p.venmo_clicked_at || null,
@@ -226,7 +245,7 @@ export default function AdminPage() {
 
   const updateSetupOverride = async (member: Member, action: 'enable' | 'disable') => {
     const memberName = member.first_name && member.last_name ? `${member.first_name} ${member.last_name}` : member.username
-    const memberIdentifier = member.email ? member.email : `@${member.username}`
+    const memberIdentifier = member.auth_email || member.email || `@${member.username}`
     const prompt = action === 'enable'
       ? `Let ${memberName} (${memberIdentifier}) into HHS now? This bypasses the setup checklist for this member only.`
       : `Remove the entry override for ${memberName} (${memberIdentifier})? They will need to complete the normal setup checklist before entering.`
@@ -581,7 +600,10 @@ export default function AdminPage() {
                       {m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : m.username}
                     </p>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {m.email || `@${m.username}`}
+                      {m.auth_email || m.email || `@${m.username}`}
+                      {m.auth_email && m.email && m.auth_email.toLowerCase() !== m.email.toLowerCase() && (
+                        <span className="ml-1" title={`Profile email: ${m.email}`}>profile: {m.email}</span>
+                      )}
                       {m.native_source && <span className="ml-1 px-1 rounded" style={{ background: 'rgba(217,124,43,0.12)', color: 'var(--gold)', fontSize: '0.65rem' }}>native</span>}
                     </p>
                   </div>

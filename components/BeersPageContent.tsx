@@ -32,6 +32,11 @@ const REACTIONS = [
 
 type ReactionKey = typeof REACTIONS[number]['key']
 
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
 // ── PostCard ──────────────────────────────────────────────────────────────────
 
 function PostCard({
@@ -333,7 +338,9 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: must arm before async fetch
     setBeerAccessLoading(true)
     let cancelled = false
-    fetch(`/api/beer-visibility-preference?user_id=${encodeURIComponent(user.id)}`)
+    void Promise.resolve().then(async () => fetch(`/api/beer-visibility-preference?user_id=${encodeURIComponent(user.id)}`, {
+      headers: await getAuthHeaders(),
+    }))
       .then(async res => {
         const json = await res.json().catch(() => ({})) as {
           tier?: string

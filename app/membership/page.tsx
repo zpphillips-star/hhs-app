@@ -258,7 +258,9 @@ export default function MembershipPage() {
   const [visibilityError, setVisibilityError] = useState<string | null>(null)
 
   const loadMembership = useCallback(async (userId: string) => {
-    const res = await fetch(`/api/beer-visibility-preference?user_id=${encodeURIComponent(userId)}`)
+    const res = await fetch(`/api/beer-visibility-preference?user_id=${encodeURIComponent(userId)}`, {
+      headers: await getAuthHeaders(),
+    })
     const json = await res.json().catch(() => ({})) as {
       tier?: string
       rawTier?: string | null
@@ -395,7 +397,7 @@ export default function MembershipPage() {
     try {
       const res = await fetch('/api/beer-visibility-preference', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
         body: JSON.stringify({ user_id: user.id, preference }),
       })
       const json = await res.json().catch(() => ({})) as { error?: string; supported?: boolean }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase-server'
 import {
   getEffectiveBeerVisibilityPreference,
   isMissingBeerVisibilityColumnError,
@@ -8,15 +8,26 @@ import {
   type BeerVisibilityPreference,
 } from '@/lib/membership'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
-)
+const supabase = createServiceClient()
+
+type AuthenticatedUser = {
+  id: string
+  email?: string | null
+}
 
 export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get('user_id')
+  const authUser = await getAuthenticatedUser(req)
+  if (!authUser) {
+    return NextResponse.json({ error: 'Sign in is required to read beer visibility preferences.' }, { status: 401 })
+  }
+
+  const requestedUserId = req.nextUrl.searchParams.get('user_id')
+  const userId = requestedUserId ?? authUser.id
   if (!userId) {
     return NextResponse.json({ error: 'user_id query param required' }, { status: 400 })
+  }
+  if (userId !== authUser.id) {
+    return NextResponse.json({ error: 'Cannot read beer visibility preferences for another user.' }, { status: 403 })
   }
 
   const { data: tierRow, error: tierError } = await supabase
@@ -69,6 +80,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const authUser = await getAuthenticatedUser(req)
+  if (!authUser) {
+    return NextResponse.json({ error: 'Sign in is required to save beer visibility preferences.' }, { status: 401 })
+  }
+
   let body: { user_id?: unknown; preference?: unknown }
   try {
     body = await req.json()
@@ -76,12 +92,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const userId = typeof body.user_id === 'string' ? body.user_id.trim() : null
+  const requestedUserId = typeof body.user_id === 'string' ? body.user_id.trim() : null
+  if (requestedUserId && requestedUserId !== authUser.id) {
+    return NextResponse.json({ error: 'Cannot save beer visibility preferences for another user.' }, { status: 403 })
+  }
+
+  const userId = authUser.id
   const preference = normalizeBeerVisibilityPreference(typeof body.preference === 'string' ? body.preference : null)
 
-  if (!userId) {
-    return NextResponse.json({ error: 'user_id is required' }, { status: 400 })
-  }
   if (!preference) {
     return NextResponse.json({ error: 'preference must be participating_only or all' }, { status: 400 })
   }
@@ -105,4 +123,14 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, supported: true, preference })
+}
+
+async function getAuthenticatedUser(req: NextRequest): Promise<AuthenticatedUser | null> {
+  const authHeader = req.headers.get('authorization') ?? ''
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  if (!token) return null
+
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data.user) return null
+  return { id: data.user.id, email: data.user.email }
 }

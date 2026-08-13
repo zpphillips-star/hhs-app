@@ -477,8 +477,8 @@ export default function PrelaunchHomePreview() {
         color: 'var(--text)',
       }}
     >
-      <section style={{ paddingTop: 'clamp(1rem, 4vw, 2.25rem)' }}>
-        <HomeCountdownJoin countdown={countdown} showJoinCta={false} />
+      <section style={{ paddingTop: 'clamp(0.5rem, 2vw, 1rem)' }}>
+        <HomeCountdownJoin countdown={countdown} showJoinCta={false} compact />
       </section>
 
       <section className="container mx-auto max-w-6xl px-6 py-8" style={{ paddingBottom: 'clamp(4rem, 8vw, 6rem)' }}>

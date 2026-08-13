@@ -12,18 +12,19 @@ type Countdown = {
 type Props = {
   countdown: Countdown
   showJoinCta?: boolean
+  compact?: boolean
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
-export default function HomeCountdownJoin({ countdown, showJoinCta = true }: Props) {
+export default function HomeCountdownJoin({ countdown, showJoinCta = true, compact = false }: Props) {
   return (
-    <section className="container mx-auto max-w-6xl px-6 py-16">
+    <section className={`container mx-auto max-w-6xl px-6 ${compact ? 'py-6' : 'py-16'}`}>
       <div className="text-center">
-        <p style={{ color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.3em', marginBottom: '2rem' }} className="uppercase">
+        <p style={{ color: 'var(--text-muted)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.75rem', letterSpacing: '0.3em', marginBottom: compact ? '0.8rem' : '2rem' }} className="uppercase">
           The ritual begins in
         </p>
-        <div className="flex justify-center gap-8 mb-8">
+        <div className={`flex justify-center ${compact ? 'gap-4 mb-2' : 'gap-8 mb-8'}`}>
           {[
             { val: countdown.days, label: 'Days' },
             { val: countdown.hours, label: 'Hours' },
@@ -34,7 +35,7 @@ export default function HomeCountdownJoin({ countdown, showJoinCta = true }: Pro
               <div style={{ fontFamily: "'Modern Antiqua', serif", color: 'var(--gold)', fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', fontWeight: 700, lineHeight: 1 }}>
                 {pad(val)}
               </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.15em', marginTop: '0.5rem' }} className="uppercase">
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', letterSpacing: '0.15em', marginTop: compact ? '0.2rem' : '0.5rem' }} className="uppercase">
                 {label}
               </div>
             </div>

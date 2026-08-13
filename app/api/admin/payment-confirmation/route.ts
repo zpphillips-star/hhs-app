@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireAdminUser(supabase, req.headers.get('authorization'))
   if ('error' in auth) return auth.error
 
-  let body: { member_id?: unknown }
+  let body: { member_id?: unknown; action?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -19,12 +19,24 @@ export async function POST(req: NextRequest) {
   if (!memberId) {
     return NextResponse.json({ error: 'member_id is required' }, { status: 400 })
   }
+  const action = typeof body.action === 'string' ? body.action.trim() : 'confirm'
+  if (action !== 'confirm' && action !== 'reset') {
+    return NextResponse.json({ error: 'action must be confirm or reset' }, { status: 400 })
+  }
+
+  const update = action === 'confirm'
+    ? { payment_confirmed_at: new Date().toISOString() }
+    : {
+        payment_confirmed_at: null,
+        venmo_clicked_at: null,
+        native_membership_amount: null,
+      }
 
   const { data, error } = await supabase
     .from('profiles')
-    .update({ payment_confirmed_at: new Date().toISOString() })
+    .update(update)
     .eq('id', memberId)
-    .select('id, payment_confirmed_at')
+    .select('id, payment_confirmed_at, venmo_clicked_at, native_membership_amount')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

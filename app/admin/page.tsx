@@ -52,7 +52,7 @@ type MemberProfileRow = Omit<Member, 'has_notifications' | 'has_pwa' | 'payment_
 }
 
 const MEMBER_ROSTER_GRID_STYLE: CSSProperties = {
-  gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 5.5rem 4rem 5rem',
+  gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 6rem 4rem 6.5rem',
 }
 
 async function getAuthHeaders(): Promise<HeadersInit> {
@@ -181,18 +181,22 @@ export default function AdminPage() {
     })))
   }
 
-  const markPaymentPaid = async (member: Member) => {
-    if (!confirm(`Mark ${member.first_name && member.last_name ? `${member.first_name} ${member.last_name}` : member.username} as paid? Only do this after Zach confirms receipt.`)) return
+  const updatePaymentConfirmation = async (member: Member, action: 'confirm' | 'reset') => {
+    const memberName = member.first_name && member.last_name ? `${member.first_name} ${member.last_name}` : member.username
+    const prompt = action === 'confirm'
+      ? `Mark ${memberName} as paid? Only do this after Zach confirms receipt.`
+      : `Mark ${memberName} as not paid? This clears the Venmo attempt and payment amount so their checklist returns to payment not received.`
+    if (!confirm(prompt)) return
     setConfirmingPaidId(member.id)
     try {
       const res = await fetch('/api/admin/payment-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
-        body: JSON.stringify({ member_id: member.id }),
+        body: JSON.stringify({ member_id: member.id, action }),
       })
       const json = await res.json().catch(() => ({})) as { error?: string }
       if (!res.ok) {
-        alert(json.error || 'Could not mark payment as paid.')
+        alert(json.error || 'Could not update payment status.')
       } else {
         await fetchMembers()
       }
@@ -200,6 +204,9 @@ export default function AdminPage() {
       setConfirmingPaidId(null)
     }
   }
+
+  const markPaymentPaid = (member: Member) => updatePaymentConfirmation(member, 'confirm')
+  const markPaymentNotPaid = (member: Member) => updatePaymentConfirmation(member, 'reset')
 
   async function fetchBeers() {
     const { data } = await supabase.from('beers').select('*').order('day_number')
@@ -514,9 +521,9 @@ export default function AdminPage() {
                     {m.payment_confirmed_at
                       ? <span className="text-green-400 text-xs" title={`Confirmed: ${new Date(m.payment_confirmed_at).toLocaleDateString()}`}>confirmed</span>
                       : m.venmo_clicked_at
-                        ? <span className="text-xs" style={{ color: 'var(--gold)' }} title={`Clicked: ${new Date(m.venmo_clicked_at).toLocaleDateString()}`}>in process</span>
+                        ? <span className="text-xs" style={{ color: 'var(--gold)' }} title={`Clicked: ${new Date(m.venmo_clicked_at).toLocaleDateString()}`}>needs check</span>
                       : m.tier
-                        ? <span className="text-xs" style={{ color: 'var(--gold)', opacity: 0.6 }}>pending</span>
+                        ? <span className="text-xs" style={{ color: 'var(--gold)', opacity: 0.6 }}>not paid</span>
                         : <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                     }
                   </div>
@@ -530,17 +537,36 @@ export default function AdminPage() {
                   </div>
                   <div className="text-center">
                     {m.payment_confirmed_at ? (
-                      <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.5 }}>—</span>
-                    ) : m.venmo_clicked_at ? (
                       <button
                         type="button"
-                        onClick={() => markPaymentPaid(m)}
+                        onClick={() => markPaymentNotPaid(m)}
                         disabled={confirmingPaidId === m.id}
                         className="text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
-                        style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80' }}
+                        style={{ background: 'rgba(248,113,113,0.12)', color: '#fca5a5' }}
                       >
-                        {confirmingPaidId === m.id ? '...' : 'Mark paid'}
+                        {confirmingPaidId === m.id ? '...' : 'Not paid'}
                       </button>
+                    ) : m.venmo_clicked_at ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => markPaymentPaid(m)}
+                          disabled={confirmingPaidId === m.id}
+                          className="text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                          style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80' }}
+                        >
+                          {confirmingPaidId === m.id ? '...' : 'Mark paid'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => markPaymentNotPaid(m)}
+                          disabled={confirmingPaidId === m.id}
+                          className="text-xs px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+                          style={{ background: 'rgba(248,113,113,0.1)', color: '#fca5a5' }}
+                        >
+                          {confirmingPaidId === m.id ? '...' : 'Not paid'}
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
                     )}
@@ -557,7 +583,7 @@ export default function AdminPage() {
                 <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>
                   ${members.reduce((sum, m) => sum + (m.native_membership_amount || (m.tier === 'hallowed' ? 150 : m.tier === 'oddballs' ? 100 : 0)), 0)}
                 </span>
-                <span className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{members.filter(m => m.venmo_clicked_at && !m.payment_confirmed_at).length} in process</span>
+                <span className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{members.filter(m => m.venmo_clicked_at && !m.payment_confirmed_at).length} need check</span>
               </div>
             </div>
           )}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { openHhsVenmoPayment } from '@/lib/venmo'
 
 const TIERS = [
   {
@@ -44,21 +45,14 @@ export default function TierSelectionModal({ userId, onComplete }: { userId: str
   }
 
   const handleVenmo = async () => {
-    if (!tier) return
+    if (!tier || !selected) return
     // Log the click
     await supabase.from('profiles').update({
       venmo_clicked_at: new Date().toISOString(),
     }).eq('id', userId)
     setVenmoClicked(true)
 
-    // Try Venmo app deep link first, fall back to web
-    const note = encodeURIComponent(tier.venmoNote)
-    const appLink = `venmo://paycharge?txn=pay&recipients=zpphillips&amount=${tier.price}&note=${note}`
-    const webLink = `https://venmo.com/zpphillips?txn=pay&amount=${tier.price}&note=${note}`
-
-    // Attempt app link; after short delay open web as fallback
-    window.location.href = appLink
-    setTimeout(() => { window.open(webLink, '_blank') }, 1500)
+    openHhsVenmoPayment(selected)
   }
 
   return (

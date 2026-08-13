@@ -8,3 +8,6 @@
 -- venmo_clicked_at remains the member-side "handoff started" signal.
 alter table profiles add column if not exists payment_confirmed_at timestamp with time zone;
 
+-- Ask PostgREST/Supabase API to refresh its schema cache so admin selects and
+-- updates can reference payment_confirmed_at immediately after the migration.
+notify pgrst, 'reload schema';

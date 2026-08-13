@@ -365,8 +365,8 @@ export default function PrelaunchHomePreview() {
   const paymentValue = paymentStatus === 'confirmed'
     ? `Payment confirmed${expectedAmount ? ` · $${expectedAmount}` : ''}`
     : paymentStatus === 'in_process'
-      ? `In process${expectedAmount ? ` · $${expectedAmount}` : ''}`
-      : 'Not complete'
+      ? `Awaiting Zach’s verification${expectedAmount ? ` · $${expectedAmount}` : ''}`
+      : 'Payment not received'
 
   const rows: ChecklistRow[] = useMemo(() => [
     {
@@ -419,7 +419,7 @@ export default function PrelaunchHomePreview() {
       summary: paymentDone
         ? 'Zach has confirmed your dues as received.'
         : paymentStatus === 'in_process'
-          ? 'Your Venmo handoff is recorded. This completes when Zach confirms the money was received.'
+          ? 'You attempted to send payment. Zach now needs to verify the payment was received.'
           : 'Tap to open Venmo with your selected membership and amount filled in.',
       actionLabel: paymentStatus === 'not_complete' ? 'Open Venmo' : 'Payment Status',
     },
@@ -631,11 +631,6 @@ export default function PrelaunchHomePreview() {
                 <span style={{ display: 'block', color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '0.95rem', lineHeight: 1.45 }}>
                   {row.value}
                 </span>
-                {row.actionLabel && !row.done ? (
-                  <span style={{ display: 'block', color: 'var(--gold)', fontFamily: displayFont, fontSize: '0.68rem', letterSpacing: '0.14em', marginTop: '0.35rem', textTransform: 'uppercase' }}>
-                    {row.actionLabel}
-                  </span>
-                ) : null}
               </span>
             </button>
           ))}
@@ -714,8 +709,21 @@ export default function PrelaunchHomePreview() {
             {activeRow.key === 'paid' ? (
               <>
                 <p style={modalBodyStyle}>
-                  Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. The first tap records the Venmo handoff. This is only complete after Zach confirms the payment in the admin roster.
+                  Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>.
                 </p>
+                {paymentStatus === 'confirmed' ? (
+                  <p style={{ ...modalBodyStyle, color: '#bbf7d0' }}>
+                    Zach has verified your membership dues were received. This step is complete.
+                  </p>
+                ) : paymentStatus === 'in_process' ? (
+                  <p style={modalBodyStyle}>
+                    You attempted to send payment. Zach now needs to verify the payment was received. If Zach cannot confirm it, this step will reopen so you can send dues again.
+                  </p>
+                ) : (
+                  <p style={modalBodyStyle}>
+                    Tap Open Venmo to send your membership dues to Zach. HHS records that you started payment, and Zach confirms this step after the payment is received.
+                  </p>
+                )}
                 {paymentStatus === 'not_complete' ? (
                   <button type="button" onClick={openPaymentLink} style={primaryButtonStyle}>
                     Open Venmo

@@ -144,7 +144,7 @@ function StatusPill({ children, tone = 'gold' }: { children: ReactNode; tone?: '
     gold: ['rgba(217, 124, 43, 0.42)', 'rgba(217, 124, 43, 0.12)', 'var(--gold)'],
     green: ['rgba(74, 222, 128, 0.42)', 'rgba(34, 197, 94, 0.12)', '#4ade80'],
     red: ['rgba(248, 113, 113, 0.42)', 'rgba(239, 68, 68, 0.12)', '#f87171'],
-    muted: ['rgba(217, 124, 43, 0.18)', 'rgba(255, 255, 255, 0.035)', 'var(--text-muted)'],
+    muted: ['var(--border)', 'rgba(255, 255, 255, 0.035)', 'var(--text-muted)'],
   }[tone]
 
   return (
@@ -198,7 +198,7 @@ function SectionHeading({ eyebrow, title, intro }: { eyebrow: string; title: str
       <div
         className="uppercase"
         style={{
-          color: 'var(--gold)',
+          color: 'var(--text-muted)',
           fontFamily: displayFont,
           fontSize: '0.7rem',
           letterSpacing: '0.28em',
@@ -473,7 +473,7 @@ export default function PrelaunchHomePreview() {
       style={{
         minHeight: '100vh',
         background:
-          'radial-gradient(circle at 18% 8%, rgba(217, 124, 43, 0.14), transparent 31rem), radial-gradient(circle at 88% 18%, rgba(111, 86, 160, 0.18), transparent 28rem), var(--bg)',
+          'radial-gradient(circle at 88% 18%, rgba(111, 86, 160, 0.18), transparent 28rem), var(--bg)',
         color: 'var(--text)',
       }}
     >
@@ -485,13 +485,13 @@ export default function PrelaunchHomePreview() {
         <Panel ready={allReady}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <SectionHeading
-              eyebrow="Member readiness"
-              title={allReady ? 'You are ready for October.' : 'Complete your launch setup'}
+              eyebrow="Membership Checklist"
+              title={allReady ? 'You are ready for October.' : 'Get yourself ready'}
               intro={allReady
                 ? 'Everything HHS can verify is in place. Keep the app handy for the first reveal when the ritual begins.'
-                : 'Tap any row for guidance. Green checks reflect the account, device, and notification signals HHS can verify today.'}
+                : 'Tap on any row in red to complete the action.'}
             />
-            <StatusPill tone={allReady ? 'green' : 'gold'}>{allReady ? 'Ready' : loadingProfile ? 'Checking' : 'To do'}</StatusPill>
+            <StatusPill tone={allReady ? 'green' : 'muted'}>{allReady ? 'Ready' : loadingProfile ? 'Checking' : 'To do'}</StatusPill>
           </div>
 
           {allReady ? (

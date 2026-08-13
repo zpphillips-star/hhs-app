@@ -40,9 +40,9 @@ function getBrowserName() {
 function oneTapInstallUnavailableMessage() {
   const browser = getBrowserName()
   if (browser === 'Chrome') {
-    return 'Chrome has not offered the one-tap install button here. That can happen if HHS is already installed, this page was opened inside another app, or Chrome has not made the prompt available yet. Use the Chrome menu and choose Install app or Add to Home screen.'
+    return 'Chrome did not show a one-tap install button. Use the Chrome menu: Install app or Add to Home screen.'
   }
-  return `${browser} has not offered a one-tap install button here. Use the browser menu and choose Install app or Add to Home screen.`
+  return `${browser} did not show a one-tap install button. Use the browser menu: Install app or Add to Home screen.`
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let deferredPrompt: any = null
@@ -220,12 +220,12 @@ export default function WelcomePage() {
         {step === 'install' && (
           <div>
             <StepIndicator current={1} total={2} />
-            <h2 style={heading}>Add to your Home Screen</h2>
+            <h2 style={heading}>Install HHS</h2>
             <p style={installReminder}>
-              Once you install HHS, use the installed app on your phone from now on.
+              After you install HHS, open and use the phone app you just installed from now on.
             </p>
             <p style={body}>
-              Install HHS first, then enable beer notifications from this same setup flow where your browser supports it.
+              Add HHS to your Home Screen, then continue to beer notifications.
             </p>
 
             {canNativeInstall ? (
@@ -240,9 +240,9 @@ export default function WelcomePage() {
             ) : isIOS() ? (
               <>
                 <div style={infoBox}>
-                  <p style={infoStep}><span style={dot}>1</span> Open this page in Safari if you are not already there.</p>
+                  <p style={infoStep}><span style={dot}>1</span> Open this page in Safari.</p>
                   <p style={infoStep}><span style={dot}>2</span> Tap Share → <strong style={{ color: 'var(--gold)' }}>Add to Home Screen</strong> → Add.</p>
-                  <p style={infoStep}><span style={dot}>3</span> Open HHS from the new Home Screen icon to enable notifications.</p>
+                  <p style={infoStep}><span style={dot}>3</span> Open HHS from the new Home Screen icon.</p>
                 </div>
                 <button onClick={goToNotify} style={{ ...btnPrimary, marginTop: '1.25rem' }}>
                   I added it — continue →
@@ -266,7 +266,7 @@ export default function WelcomePage() {
               <>
                 <div style={infoBox}>
                   <p style={{ color: 'var(--text)', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
-                    If your browser offers <strong style={{ color: 'var(--gold)' }}>Install app</strong> in the address bar or menu, use it here. Otherwise, open hallowedhopsociety.com on your phone and add it to your Home Screen.
+                    Use <strong style={{ color: 'var(--gold)' }}>Install app</strong> if it appears. Otherwise, open hallowedhopsociety.com on your phone and add HHS to your Home Screen.
                   </p>
                 </div>
                 <button onClick={() => setStep('notify')} style={{ ...btnPrimary, marginTop: '1.25rem' }}>
@@ -405,10 +405,14 @@ const body: React.CSSProperties = {
 const installReminder: React.CSSProperties = {
   color: 'var(--text)',
   fontFamily: "'Modern Antiqua', serif",
-  fontSize: '1.35rem',
+  fontSize: '1.18rem',
   fontWeight: 700,
   lineHeight: 1.35,
-  marginBottom: '1.5rem',
+  marginBottom: '1.25rem',
+  padding: '1rem',
+  border: '1px solid rgba(255,140,0,0.28)',
+  borderRadius: '12px',
+  background: 'rgba(255,140,0,0.08)',
   textAlign: 'center',
 }
 

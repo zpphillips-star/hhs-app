@@ -83,7 +83,7 @@ export default function PaymentPage() {
 
   const handleContinue = async () => {
     setContinuing(true)
-    router.push('/welcome')
+    router.push('/')
   }
 
   if (loading) {
@@ -203,7 +203,7 @@ export default function PaymentPage() {
                 borderRadius: 'var(--radius-sm)',
               }}
             >
-              {continuing ? 'Entering the Society...' : venmoClicked ? "I've Paid — Set Up App" : 'Pay with Venmo first'}
+              {continuing ? 'Entering the Society...' : venmoClicked ? "I've Paid — Enter App" : 'Pay with Venmo first'}
             </button>
             {!venmoClicked && (
               <p style={{ textAlign: 'center', fontFamily: "'Crimson Text', serif", fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>

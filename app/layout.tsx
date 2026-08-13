@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Modern_Antiqua, Crimson_Text } from "next/font/google";
 import "./globals.css";
-import SetupBanner from "@/components/SetupBanner";
 import RouteAuthGuard from "@/components/RouteAuthGuard";
 
 const modernAntiqua = Modern_Antiqua({
@@ -59,7 +58,6 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
         <RouteAuthGuard>{children}</RouteAuthGuard>
-        <SetupBanner />
         <script dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {

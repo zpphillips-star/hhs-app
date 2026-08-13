@@ -588,7 +588,7 @@ export default function MembershipPage() {
                     </>
                   ) : (
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.7, margin: 0 }}>
-                      Hallowed: full 31-day calendar. Oddballs: odd-day beers by default.
+                      The Hallowed: All 31 beers will be visible on your calendar.
                     </p>
                   )}
                   {visibilitySaving && <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.75rem' }}>Saving beer visibility...</p>}

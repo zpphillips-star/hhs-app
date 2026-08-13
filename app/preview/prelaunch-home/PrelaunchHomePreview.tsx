@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import HomeHeroIntro from '@/components/HomeHeroIntro'
 import HomeCountdownJoin from '@/components/HomeCountdownJoin'
 import { supabase } from '@/lib/supabase'
 import { normalizeMembershipTier } from '@/lib/membership'
@@ -481,19 +480,6 @@ export default function PrelaunchHomePreview() {
       <section style={{ paddingTop: 'clamp(1rem, 4vw, 2.25rem)' }}>
         <HomeCountdownJoin countdown={countdown} showJoinCta={false} />
       </section>
-
-      <HomeHeroIntro
-        showAbout={false}
-        media={
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src="/mughhs.webp"
-            alt="Hallowed Hop Society"
-            className="hhs-hero-img"
-            style={{ opacity: 0.9 }}
-          />
-        }
-      />
 
       <section className="container mx-auto max-w-6xl px-6 py-8" style={{ paddingBottom: 'clamp(4rem, 8vw, 6rem)' }}>
         <Panel ready={allReady}>

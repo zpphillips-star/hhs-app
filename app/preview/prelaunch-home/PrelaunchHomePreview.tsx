@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
 import HomeCountdownJoin from '@/components/HomeCountdownJoin'
 import { supabase } from '@/lib/supabase'
 import { normalizeMembershipTier } from '@/lib/membership'
@@ -139,37 +138,6 @@ function CheckIcon({ done }: { done: boolean }) {
   )
 }
 
-function StatusPill({ children, tone = 'gold' }: { children: ReactNode; tone?: 'gold' | 'green' | 'red' | 'muted' }) {
-  const palette = {
-    gold: ['rgba(217, 124, 43, 0.42)', 'rgba(217, 124, 43, 0.12)', 'var(--gold)'],
-    green: ['rgba(74, 222, 128, 0.42)', 'rgba(34, 197, 94, 0.12)', '#4ade80'],
-    red: ['rgba(248, 113, 113, 0.42)', 'rgba(239, 68, 68, 0.12)', '#f87171'],
-    muted: ['var(--border)', 'rgba(255, 255, 255, 0.035)', 'var(--text-muted)'],
-  }[tone]
-
-  return (
-    <span
-      className="uppercase"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        width: 'fit-content',
-        border: `1px solid ${palette[0]}`,
-        background: palette[1],
-        color: palette[2],
-        borderRadius: 999,
-        padding: '0.35rem 0.7rem',
-        fontFamily: displayFont,
-        fontSize: '0.58rem',
-        letterSpacing: '0.18em',
-        lineHeight: 1.2,
-      }}
-    >
-      {children}
-    </span>
-  )
-}
-
 function SectionHeading({ eyebrow, title, intro, eyebrowColor = 'var(--text-muted)' }: { eyebrow: string; title: string; intro?: string; eyebrowColor?: string }) {
   return (
     <div style={{ marginBottom: '1.35rem' }}>
@@ -250,7 +218,7 @@ export default function PrelaunchHomePreview() {
   const [countdown, setCountdown] = useState<Countdown>({ days: 0, hours: 0, minutes: 0, seconds: 0 })
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [profile, setProfile] = useState<PreviewProfile | null>(null)
-  const [loadingProfile, setLoadingProfile] = useState(true)
+  const [, setLoadingProfile] = useState(true)
   const [runningAsPwa, setRunningAsPwa] = useState(false)
   const [canNativeInstall, setCanNativeInstall] = useState(false)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('unsupported')
@@ -462,11 +430,20 @@ export default function PrelaunchHomePreview() {
       <section
         className="container mx-auto max-w-6xl px-6 py-8"
         style={{
-          borderTop: '1px solid rgba(217, 124, 43, 0.28)',
           paddingBottom: 'clamp(4rem, 8vw, 6rem)',
         }}
       >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <div
+          aria-hidden="true"
+          style={{
+            width: 'min(54rem, calc(100% - 2rem))',
+            height: 1,
+            margin: '0 auto clamp(1.75rem, 4vw, 2.25rem)',
+            background: 'rgba(217, 124, 43, 0.28)',
+          }}
+        />
+
+        <div style={{ marginBottom: '1rem' }}>
           <SectionHeading
             eyebrow="Membership Checklist"
             eyebrowColor="var(--gold)"
@@ -475,7 +452,6 @@ export default function PrelaunchHomePreview() {
               ? 'Everything HHS can verify is in place. Keep the app handy for the first reveal when the ritual begins.'
               : 'Tap on any row in red to complete the action.'}
           />
-          <StatusPill tone={allReady ? 'green' : 'muted'}>{allReady ? 'Ready' : loadingProfile ? 'Checking' : 'To do'}</StatusPill>
         </div>
 
         {allReady ? (
@@ -492,7 +468,7 @@ export default function PrelaunchHomePreview() {
               onClick={() => { setActiveModal(row.key); setActionMessage(null) }}
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                gridTemplateColumns: 'auto minmax(0, 1fr)',
                 gap: '0.85rem',
                 alignItems: 'center',
                 textAlign: 'left',
@@ -515,7 +491,6 @@ export default function PrelaunchHomePreview() {
                   {row.value}
                 </span>
               </span>
-              <StatusPill tone={row.source === 'live' ? 'green' : 'muted'}>{row.source === 'live' ? 'Live' : 'Action'}</StatusPill>
             </button>
           ))}
         </div>

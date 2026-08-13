@@ -4,23 +4,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { HHS_PAYMENT_TIERS, openHhsVenmoPayment } from '@/lib/venmo'
 
-const TIER_CONFIG = {
-  hallowed: {
-    label: 'Hallowed',
-    amount: 150,
-    beers: 31,
-    desc: 'Every day of October',
-  },
-  oddballs: {
-    label: 'Oddballs',
-    amount: 100,
-    beers: 16,
-    desc: 'Odd days only',
-  },
-} as const
-
-type Tier = keyof typeof TIER_CONFIG
+type Tier = keyof typeof HHS_PAYMENT_TIERS
 
 export default function PaymentPage() {
   const [tier, setTier] = useState<Tier | null>(null)
@@ -63,22 +49,8 @@ export default function PaymentPage() {
     }
     setVenmoClicked(true)
 
-    const config = tier ? TIER_CONFIG[tier] : null
-    if (!config) return
-
-    const note = encodeURIComponent(`HHS ${config.label} Membership 2026`)
-    // Try Venmo app deep link first, fallback to web
-    const venmoUrl = `venmo://paycharge?txn=pay&recipients=zpphillips&amount=${config.amount}&note=${note}`
-    const venmoWeb = `https://venmo.com/zpphillips?txn=pay&amount=${config.amount}&note=${note}`
-
-    // Attempt app deep link; if it fails after a short delay, open web
-    const start = Date.now()
-    window.location.href = venmoUrl
-    setTimeout(() => {
-      if (Date.now() - start < 1500) {
-        window.open(venmoWeb, '_blank')
-      }
-    }, 800)
+    if (!tier) return
+    openHhsVenmoPayment(tier)
   }
 
   const handleContinue = async () => {
@@ -94,7 +66,7 @@ export default function PaymentPage() {
     )
   }
 
-  const config = tier ? TIER_CONFIG[tier] : null
+  const config = tier ? HHS_PAYMENT_TIERS[tier] : null
   if (!config) return null
 
   return (

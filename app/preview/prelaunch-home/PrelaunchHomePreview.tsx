@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import HomeCountdownJoin from '@/components/HomeCountdownJoin'
 import { supabase } from '@/lib/supabase'
 import { normalizeMembershipTier } from '@/lib/membership'
+import { HHS_PAYMENT_TIERS, type HhsPaymentTier, openHhsVenmoPayment } from '@/lib/venmo'
 
 type Countdown = {
   days: number
@@ -49,21 +50,6 @@ type ProfileRow = {
   native_membership_amount?: number | null
   payment_confirmed_at?: string | null
 }
-
-const TIER_CONFIG = {
-  hallowed: {
-    label: 'The Hallowed',
-    amount: 150,
-    venmoNote: 'HHS The Hallowed Membership',
-  },
-  oddballs: {
-    label: 'The Oddballs',
-    amount: 100,
-    venmoNote: 'HHS The Oddballs Membership',
-  },
-} as const
-
-type TierId = keyof typeof TIER_CONFIG
 
 const displayFont = 'var(--font-display), "Modern Antiqua", Georgia, serif'
 const bodyFont = 'var(--font-body), "Crimson Text", Georgia, serif'
@@ -130,6 +116,12 @@ function notificationSupported() {
   return typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window
 }
 
+function canUsePushHere() {
+  if (!notificationSupported()) return false
+  if (isIOS() && !isPWA()) return false
+  return true
+}
+
 async function getAuthHeaders(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
@@ -145,8 +137,8 @@ function tierLabel(tier: string | null | undefined) {
 
 function tierAmount(tier: string | null | undefined) {
   const normalized = normalizeMembershipTier(tier)
-  if (normalized === 'hallowed') return TIER_CONFIG.hallowed.amount
-  if (normalized === 'oddballs') return TIER_CONFIG.oddballs.amount
+  if (normalized === 'hallowed') return HHS_PAYMENT_TIERS.hallowed.amount
+  if (normalized === 'oddballs') return HHS_PAYMENT_TIERS.oddballs.amount
   return null
 }
 
@@ -390,7 +382,9 @@ export default function PrelaunchHomePreview() {
       label: 'Select society membership',
       value: membershipDone ? tierLabel(profile?.tier) : 'Not selected',
       done: membershipDone,
-      summary: 'Reads your selected HHS tier from your profile. It is complete only after The Hallowed or The Oddballs is selected.',
+      summary: membershipDone
+        ? `Your Society membership is set to ${tierLabel(profile?.tier)}.`
+        : 'Choose The Hallowed or The Oddballs in the approved member setup flow.',
       actionLabel: 'Select Membership',
     },
     {
@@ -406,7 +400,11 @@ export default function PrelaunchHomePreview() {
       label: 'Enable notifications',
       value: notificationDone ? 'Enabled' : notificationPermission === 'denied' ? 'Notifications blocked' : notificationPermission === 'unsupported' ? 'Not available in this browser' : 'Not enabled',
       done: notificationDone,
-      summary: 'Checks browser notification permission and the saved HHS push subscription for your account.',
+      summary: notificationDone
+        ? 'Notifications are enabled and HHS has a saved push subscription for your account.'
+        : isIOS() && !installDone
+          ? 'Install HHS to your Home Screen first; iPhone notifications can only be enabled from the installed app.'
+          : 'Tap to enable notifications and save the HHS push subscription for your account.',
       actionLabel: 'Enable Notifications',
     },
     {
@@ -448,12 +446,11 @@ export default function PrelaunchHomePreview() {
       return
     }
     if (!selectedTier) {
-      setActiveModal('membership')
-      setActionMessage('Select The Hallowed or The Oddballs first so HHS can fill in the right dues amount.')
+      router.push(user ? '/auth/complete' : '/auth')
       return
     }
 
-    const tier = TIER_CONFIG[selectedTier as TierId]
+    const tier = HHS_PAYMENT_TIERS[selectedTier as HhsPaymentTier]
     const now = new Date().toISOString()
     await supabase
       .from('profiles')
@@ -465,14 +462,7 @@ export default function PrelaunchHomePreview() {
 
     await refreshLiveState()
 
-    const note = encodeURIComponent(tier.venmoNote)
-    const venmoUrl = `venmo://paycharge?txn=pay&recipients=zpphillips&amount=${tier.amount}&note=${note}`
-    const venmoWeb = `https://venmo.com/zpphillips?txn=pay&amount=${tier.amount}&note=${note}`
-    const start = Date.now()
-    window.location.href = venmoUrl
-    window.setTimeout(() => {
-      if (Date.now() - start < 1500) window.open(venmoWeb, '_blank')
-    }, 800)
+    openHhsVenmoPayment(selectedTier as HhsPaymentTier)
   }
 
   const handleRowClick = (row: ChecklistRow) => {
@@ -482,8 +472,7 @@ export default function PrelaunchHomePreview() {
       return
     }
     if (row.key === 'membership' && !row.done) {
-      if (!user) router.push('/auth')
-      else router.push('/wall')
+      router.push(user ? '/auth/complete' : '/auth')
       return
     }
     if (row.key === 'paid' && paymentStatus === 'not_complete') {
@@ -495,7 +484,7 @@ export default function PrelaunchHomePreview() {
       void handleNativeInstall()
       return
     }
-    if (row.key === 'notifications' && !row.done && notificationSupported() && notificationPermission !== 'denied') {
+    if (row.key === 'notifications' && !row.done && canUsePushHere() && notificationPermission !== 'denied') {
       setActiveModal(row.key)
       void enableNotifications()
       return
@@ -508,8 +497,10 @@ export default function PrelaunchHomePreview() {
       setActionMessage('Sign in first so HHS can save the push subscription to your member profile.')
       return
     }
-    if (!notificationSupported()) {
-      setActionMessage('This browser does not expose the web push APIs here. Use the platform steps below.')
+    if (!canUsePushHere()) {
+      setActionMessage(isIOS() && !isPWA()
+        ? 'On iPhone, install HHS to your Home Screen first, then open the installed app to enable notifications.'
+        : 'This browser does not expose the web push APIs here. Use the platform steps below.')
       return
     }
     setSubscribing(true)
@@ -657,13 +648,13 @@ export default function PrelaunchHomePreview() {
 
             {activeRow.key === 'profile' ? (
               <p style={modalBodyStyle}>
-                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. Profile setup is detected from your approved profile row and Society username.
+                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. If this is missing, use your approved member setup link to finish your Society name and membership setup.
               </p>
             ) : null}
 
             {activeRow.key === 'membership' ? (
               <p style={modalBodyStyle}>
-                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. Pick The Hallowed or The Oddballs in the membership picker when Zach has it open; otherwise ask Zach to update your profile tier.
+                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. If this is missing, use the approved member setup flow to choose The Hallowed or The Oddballs.
               </p>
             ) : null}
 
@@ -689,7 +680,7 @@ export default function PrelaunchHomePreview() {
                 <p style={modalBodyStyle}>
                   Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>.
                 </p>
-                {notificationSupported() && notificationPermission !== 'denied' ? (
+                {canUsePushHere() && notificationPermission !== 'denied' ? (
                   <button type="button" onClick={enableNotifications} disabled={subscribing} style={primaryButtonStyle}>
                     {subscribing ? 'Enabling…' : 'Enable Notifications'}
                   </button>

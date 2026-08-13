@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type Step = 'browser' | 'install' | 'notify' | 'done'
@@ -34,11 +34,30 @@ function canUsePushHere() {
 function detectInAppBrowser(): InAppType {
   const ua = navigator.userAgent
   const referrer = document.referrer
-  if (referrer.startsWith('android-app://com.google.android.gm')) return 'gmail-android'
+  const androidGmailReferrer = referrer.startsWith('android-app://com.google.android.gm')
+  const androidWebView = /Android/i.test(ua) && (/; wv\)?/i.test(ua) || /\bwv\)/i.test(ua))
+  // Gmail hands Chrome the original android-app:// referrer when a member taps
+  // "open in Chrome". Referrer alone is therefore stale after the browser
+  // switch; only block when the current UA is still a WebView/in-app surface.
+  if (androidGmailReferrer && androidWebView) return 'gmail-android'
   if (/GSA\//.test(ua) && isIOS()) return 'gmail-ios'
-  if (/wv\)/.test(ua) || /; wv/.test(ua)) return 'webview'
+  if (androidWebView) return 'webview'
   if (/FBAN|FBAV|Instagram/.test(ua)) return 'webview'
   return null
+}
+
+function clearStaleBrowserWarningState() {
+  if (typeof window === 'undefined') return
+  const keys = [
+    'hhs_in_app_browser_warning',
+    'hhs_browser_warning',
+    'hhs_gmail_browser_warning',
+    '__hhs_in_app_browser__',
+  ]
+  for (const key of keys) {
+    try { window.localStorage.removeItem(key) } catch { /* ignore */ }
+    try { window.sessionStorage.removeItem(key) } catch { /* ignore */ }
+  }
 }
 
 function detectCurrentBrowser(): BrowserName {
@@ -69,8 +88,10 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let deferredInstallPrompt: any = null
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
 
 export default function SetupGuide({ userId }: { userId: string }) {
   const [step, setStep] = useState<Step | null>(null)
@@ -80,16 +101,18 @@ export default function SetupGuide({ userId }: { userId: string }) {
   const [canPromptInstall, setCanPromptInstall] = useState(false)
   const [notifBlocked, setNotifBlocked] = useState(false)
   const [inAppBrowser, setInAppBrowser] = useState<InAppType>(null)
+  const [installAccepted, setInstallAccepted] = useState(false)
   const [currentBrowser] = useState<BrowserName>(() =>
     typeof navigator === 'undefined' ? 'other' : detectCurrentBrowser()
   )
+  const deferredInstallPrompt = useRef<BeforeInstallPromptEvent | null>(null)
   const nativeApp = isNativeApp()
 
   // Don't render at all in the native app — install/PWA prompts are not applicable
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault()
-      deferredInstallPrompt = e
+      deferredInstallPrompt.current = e as BeforeInstallPromptEvent
       setCanPromptInstall(true)
     }
     window.addEventListener('beforeinstallprompt', handler)
@@ -141,30 +164,33 @@ export default function SetupGuide({ userId }: { userId: string }) {
       return
     }
 
-    window.setTimeout(() => proceedToSetup(), 0)
+    clearStaleBrowserWarningState()
+    window.setTimeout(() => {
+      setInAppBrowser(null)
+      void proceedToSetup()
+    }, 0)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, dismissed, nativeApp])
 
   const triggerInstallPrompt = async () => {
-    if (!deferredInstallPrompt) return
-    deferredInstallPrompt.prompt()
-    const { outcome } = await deferredInstallPrompt.userChoice
-    deferredInstallPrompt = null
+    const prompt = deferredInstallPrompt.current
+    if (!prompt) return
+    await prompt.prompt()
+    const { outcome } = await prompt.userChoice
+    deferredInstallPrompt.current = null
     setCanPromptInstall(false)
     if (outcome === 'accepted') {
-      supabase.from('profiles').update({ has_pwa: true }).eq('id', userId).then(() => {})
-      setTimeout(() => setStep('notify'), 1500)
+      setInstallAccepted(true)
     }
   }
 
   const continueToNotifications = async () => {
     if (isPWA()) {
       await supabase.from('profiles').update({ has_pwa: true }).eq('id', userId)
+      setStep('notify')
+      return
     }
-    const notifPerm = 'Notification' in window ? Notification.permission : 'denied'
-    setNotifStatus(notifPerm)
-    setNotifBlocked(notifPerm === 'denied')
-    setStep('notify')
+    setInstallAccepted(true)
   }
 
   // Always get a FRESH push subscription — never reuse a potentially stale one
@@ -260,7 +286,15 @@ export default function SetupGuide({ userId }: { userId: string }) {
             To receive beer notifications, <strong style={{ color: 'var(--gold)' }}>add this app to your Home Screen</strong> first.
           </p>
 
-          {canPromptInstall && (
+          {installAccepted && (
+            <div style={{ background: 'rgba(34,197,94,0.09)', border: '1px solid rgba(74,222,128,0.28)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+              <p style={{ color: '#bbf7d0', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
+                Install started. Continue by opening <strong>HHS</strong> from the new Home Screen app icon. When it opens there, HHS will detect the install and show notifications as the only setup action left.
+              </p>
+            </div>
+          )}
+
+          {canPromptInstall && !installAccepted && (
             <button
               onClick={triggerInstallPrompt}
               style={{
@@ -273,7 +307,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
             >Add to Home Screen</button>
           )}
 
-          {!canPromptInstall && isIOS() && (
+          {!canPromptInstall && isIOS() && !installAccepted && (
             <div style={{ background: 'rgba(255,140,0,0.07)', border: '1px solid rgba(255,140,0,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
               <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>iPhone / iPad — 3 quick steps</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -291,7 +325,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
             </div>
           )}
 
-          {!canPromptInstall && !isIOS() && (
+          {!canPromptInstall && !isIOS() && !installAccepted && (
             <div style={{ background: 'rgba(255,140,0,0.07)', border: '1px solid rgba(255,140,0,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
               <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
                 {browserLabel(currentBrowser)}
@@ -303,9 +337,9 @@ export default function SetupGuide({ userId }: { userId: string }) {
           )}
 
           <button
-            onClick={continueToNotifications}
+            onClick={installAccepted ? () => setDismissed(true) : continueToNotifications}
             style={{ width: '100%', padding: '0.75rem', background: 'transparent', border: '1px solid rgba(255,140,0,0.4)', borderRadius: '10px', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.82rem', cursor: 'pointer', letterSpacing: '0.1em', marginBottom: '0.65rem' }}
-          >I added it — continue to notifications →</button>
+          >{installAccepted ? 'I’ll open HHS from the app icon' : 'I installed it — check again →'}</button>
 
           <button
             onClick={() => setDismissed(true)}

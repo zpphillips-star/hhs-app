@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import HomeCountdownJoin from '@/components/HomeCountdownJoin'
 import { supabase } from '@/lib/supabase'
@@ -54,8 +54,10 @@ type ProfileRow = {
 const displayFont = 'var(--font-display), "Modern Antiqua", Georgia, serif'
 const bodyFont = 'var(--font-body), "Crimson Text", Georgia, serif'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let deferredPrompt: any = null
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
 
 function getOctFirstTarget() {
   const now = new Date()
@@ -257,6 +259,8 @@ export default function PrelaunchHomePreview() {
   const [activeModal, setActiveModal] = useState<ChecklistKey | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [subscribing, setSubscribing] = useState(false)
+  const [autoOpenedInstall, setAutoOpenedInstall] = useState(false)
+  const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
     const tick = () => setCountdown(buildCountdown())
@@ -268,7 +272,7 @@ export default function PrelaunchHomePreview() {
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault()
-      deferredPrompt = e
+      deferredPrompt.current = e as BeforeInstallPromptEvent
       setCanNativeInstall(true)
     }
     window.addEventListener('beforeinstallprompt', handler)
@@ -424,14 +428,27 @@ export default function PrelaunchHomePreview() {
   const allReady = rows.every(row => row.done)
   const activeRow = rows.find(row => row.key === activeModal) ?? null
 
+  useEffect(() => {
+    if (autoOpenedInstall || typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('setup') !== 'install') return
+    if (!user || installDone) return
+    window.setTimeout(() => {
+      setAutoOpenedInstall(true)
+      setActiveModal('install')
+      setActionMessage('Install HHS now. If your browser shows the install button, tap it, then continue from the new Home Screen app icon.')
+    }, 0)
+  }, [autoOpenedInstall, installDone, user])
+
   const handleNativeInstall = async () => {
-    if (!deferredPrompt) {
+    const prompt = deferredPrompt.current
+    if (!prompt) {
       setActionMessage(oneTapInstallUnavailableMessage())
       return
     }
-    deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    deferredPrompt = null
+    await prompt.prompt()
+    const { outcome } = await prompt.userChoice
+    deferredPrompt.current = null
     setCanNativeInstall(false)
     if (outcome === 'accepted') {
       setActionMessage('Install accepted. Reopen HHS from the Home Screen icon so the app can verify and save the detected install.')

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -43,8 +43,10 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let deferredPrompt: any = null
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
 
 type Step = 'install' | 'notify' | 'done'
 
@@ -54,8 +56,10 @@ export default function SetupBanner() {
   const [step, setStep] = useState<Step | null>(null)
   const [canNativeInstall, setCanNativeInstall] = useState(false)
   const [showInstallSteps, setShowInstallSteps] = useState(false)
+  const [installAccepted, setInstallAccepted] = useState(false)
   const [subscribing, setSubscribing] = useState(false)
   const [notifBlocked, setNotifBlocked] = useState(false)
+  const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null)
   const isNative = isNativeApp()
   const suppressOnRoute =
     pathname === '/welcome' ||
@@ -67,7 +71,7 @@ export default function SetupBanner() {
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault()
-      deferredPrompt = e
+      deferredPrompt.current = e as BeforeInstallPromptEvent
       setCanNativeInstall(true)
     }
     window.addEventListener('beforeinstallprompt', handler)
@@ -138,17 +142,22 @@ export default function SetupBanner() {
 
   const markInstalled = async () => {
     if (!userId) return
-    await supabase.from('profiles').update({ has_pwa: true }).eq('id', userId)
-    setStep('notify')
+    if (isPWA()) {
+      await supabase.from('profiles').update({ has_pwa: true }).eq('id', userId)
+      setStep('notify')
+      return
+    }
+    setInstallAccepted(true)
   }
 
   const handleNativeInstall = async () => {
-    if (!deferredPrompt) return
-    deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    deferredPrompt = null
+    const prompt = deferredPrompt.current
+    if (!prompt) return
+    await prompt.prompt()
+    const { outcome } = await prompt.userChoice
+    deferredPrompt.current = null
     setCanNativeInstall(false)
-    if (outcome === 'accepted') await markInstalled()
+    if (outcome === 'accepted') setInstallAccepted(true)
   }
 
   const handleEnableNotifications = async () => {
@@ -232,12 +241,20 @@ export default function SetupBanner() {
               Install the app on your phone so you can receive notifications when your beer drops.
             </p>
 
-            {canNativeInstall ? (
+            {installAccepted && (
+              <div style={{ ...infoBox, borderColor: 'rgba(74,222,128,0.28)', background: 'rgba(34,197,94,0.09)' }}>
+                <p style={{ color: '#bbf7d0', fontSize: '0.88rem', margin: 0, lineHeight: 1.6 }}>
+                  Install started. Open <strong>HHS</strong> from the new Home Screen app icon. When it opens there, HHS will detect the install and continue with notifications.
+                </p>
+              </div>
+            )}
+
+            {canNativeInstall && !installAccepted ? (
               <button onClick={handleNativeInstall} style={btnPrimary}>
                 Add to Home Screen
               </button>
             ) : (
-              <>
+              !installAccepted && <>
                 <button
                   onClick={() => setShowInstallSteps(s => !s)}
                   style={btnPrimary}
@@ -270,10 +287,15 @@ export default function SetupBanner() {
                 {/* Once they've done it manually, let them confirm */}
                 {showInstallSteps && (
                   <button onClick={markInstalled} style={{ ...btnPrimary, marginTop: '0.75rem', background: 'transparent', border: '1px solid rgba(255,140,0,0.4)', color: 'var(--gold)' }}>
-                    I added it — Next →
+                    I installed it — check again →
                   </button>
                 )}
               </>
+            )}
+            {installAccepted && (
+              <button onClick={() => setStep(null)} style={{ ...btnPrimary, marginTop: '0.75rem', background: 'transparent', border: '1px solid rgba(255,140,0,0.4)', color: 'var(--gold)' }}>
+                I’ll open HHS from the app icon
+              </button>
             )}
           </>
         )}

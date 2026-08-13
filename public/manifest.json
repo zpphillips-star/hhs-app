@@ -6,6 +6,9 @@
   "start_url": "/today",
   "scope": "/",
   "display": "standalone",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "background_color": "#0d0b0f",
   "theme_color": "#0d0b0f",
   "icons": [

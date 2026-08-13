@@ -17,7 +17,7 @@ self.addEventListener('push', function (event) {
 
 self.addEventListener('notificationclick', function (event) {
   event.notification.close()
-  const url = event.notification.data?.url || '/beers'
+  const url = withNotificationMarker(event.notification.data?.url || '/beers')
   const notificationId = event.notification.data?.notificationId
   const userId = event.notification.data?.userId
 
@@ -45,3 +45,14 @@ self.addEventListener('notificationclick', function (event) {
     ])
   )
 })
+
+function withNotificationMarker(url) {
+  try {
+    const target = new URL(url, self.location.origin)
+    if (target.origin !== self.location.origin) return url
+    target.searchParams.set('hhs_notification', '1')
+    return `${target.pathname}${target.search}${target.hash}`
+  } catch {
+    return url
+  }
+}

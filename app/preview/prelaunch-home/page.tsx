@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import PrelaunchHomePreview from './PrelaunchHomePreview'
 
 export const metadata: Metadata = {
-  title: 'Draft Prelaunch Home — HHS',
-  description: 'Non-discoverable HHS prelaunch home concept draft.',
+  title: 'Prelaunch Home — HHS',
+  description: 'Non-discoverable HHS prelaunch home.',
   robots: {
     index: false,
     follow: false,

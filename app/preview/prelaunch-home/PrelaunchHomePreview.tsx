@@ -32,7 +32,7 @@ type ChecklistRow = {
   label: string
   value: string
   done: boolean
-  source: 'real' | 'preview'
+  source: 'live' | 'action'
   summary: string
 }
 
@@ -357,45 +357,45 @@ export default function PrelaunchHomePreview() {
   const rows: ChecklistRow[] = useMemo(() => [
     {
       key: 'username',
-      label: 'Username',
-      value: user ? displayName : 'Sign-in required',
+      label: 'Member profile',
+      value: user ? displayName : 'Sign in to view',
       done: !!user && displayName !== 'Not signed in',
-      source: user ? 'real' : 'preview',
-      summary: user ? 'Loaded from the current Supabase auth session/profile.' : 'Preview fallback because no member session is active.',
+      source: user ? 'live' : 'action',
+      summary: user ? 'Shows the name or email from your signed-in HHS account.' : 'Sign in with your approved HHS email so this page can show your member profile.',
     },
     {
       key: 'membership',
-      label: 'Membership',
-      value: membershipDone ? tierLabel(profile?.tier) : user ? 'Needs tier/status' : 'Not signed in',
+      label: 'Society membership',
+      value: membershipDone ? tierLabel(profile?.tier) : user ? 'Membership needs confirmation' : 'Sign in to confirm',
       done: membershipDone,
-      source: user ? 'real' : 'preview',
-      summary: 'Uses the current profile tier/status when signed in.',
+      source: user ? 'live' : 'action',
+      summary: 'Confirms your HHS tier or approved member status from your account.',
     },
     {
       key: 'install',
-      label: 'Added to Home Screen',
-      value: runningAsPwa ? 'Installed now' : profile?.hasPwa ? 'Profile says added' : canNativeInstall ? 'Install available' : 'Needs setup',
+      label: 'Home Screen app',
+      value: runningAsPwa ? 'Installed on this device' : profile?.hasPwa ? 'Added to your profile' : canNativeInstall ? 'Install available' : 'Add HHS to your Home Screen',
       done: installDone,
-      source: user || runningAsPwa ? 'real' : 'preview',
-      summary: 'Uses browser standalone mode plus the existing profiles.has_pwa flag.',
+      source: user || runningAsPwa ? 'live' : 'action',
+      summary: 'Checks whether HHS is running from your Home Screen and whether your account has saved that setup.',
     },
     {
       key: 'notifications',
-      label: 'Notifications enabled',
-      value: notificationDone ? 'Enabled + subscribed' : notificationPermission === 'denied' ? 'Blocked' : notificationPermission === 'unsupported' ? 'Unsupported here' : 'Needs setup',
+      label: 'Reveal notifications',
+      value: notificationDone ? 'Enabled for reveals' : notificationPermission === 'denied' ? 'Notifications blocked' : notificationPermission === 'unsupported' ? 'Not available in this browser' : 'Enable reveal alerts',
       done: notificationDone,
-      source: user ? 'real' : 'preview',
-      summary: 'Uses browser permission plus the existing push_subscriptions row.',
+      source: user ? 'live' : 'action',
+      summary: 'Checks browser notification permission and the saved HHS push subscription for your account.',
     },
     {
       key: 'paid',
-      label: 'Paid',
+      label: 'Membership payment',
       value: paidDone
-        ? profile?.nativeMembershipAmount ? `$${profile.nativeMembershipAmount} preview signal` : 'Venmo handoff seen'
-        : 'No confirmed payment field',
+        ? profile?.nativeMembershipAmount ? `$${profile.nativeMembershipAmount} recorded` : 'Venmo handoff recorded'
+        : 'Payment not confirmed here',
       done: paidDone,
-      source: 'preview',
-      summary: 'Preview proxy only: HHS currently exposes Venmo/native membership signals here, not bank-confirmed payment settlement.',
+      source: user ? 'live' : 'action',
+      summary: 'Shows the available payment signals on your member profile; final reconciliation remains with HHS.',
     },
   ], [canNativeInstall, displayName, installDone, membershipDone, notificationDone, notificationPermission, paidDone, profile, runningAsPwa, user])
 
@@ -408,7 +408,7 @@ export default function PrelaunchHomePreview() {
       return
     }
     await supabase.from('profiles').update({ has_pwa: true }).eq('id', user.id)
-    setActionMessage('Saved preview Home Screen status to your profile. Reopen from the icon for the real standalone check.')
+    setActionMessage('Saved Home Screen status to your profile. Reopen from the icon for the device check.')
     await refreshLiveState()
   }
 
@@ -445,7 +445,7 @@ export default function PrelaunchHomePreview() {
       }
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
       if (!vapidKey) {
-        setActionMessage('Preview cannot subscribe because NEXT_PUBLIC_VAPID_PUBLIC_KEY is not configured.')
+        setActionMessage('Notifications cannot be enabled because the public push key is not configured.')
         return
       }
       const reg = await navigator.serviceWorker.ready
@@ -483,6 +483,7 @@ export default function PrelaunchHomePreview() {
       </section>
 
       <HomeHeroIntro
+        showAbout={false}
         media={
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -494,44 +495,22 @@ export default function PrelaunchHomePreview() {
         }
       />
 
-      <section className="container mx-auto max-w-6xl px-6 py-8">
-        <Panel accent>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <SectionHeading
-              eyebrow="Member memo"
-              title="Before the first pour"
-              intro="This hidden preview keeps the launch message close to the existing HHS home style while the real calendar remains sealed."
-            />
-            <StatusPill>Preview memo</StatusPill>
-          </div>
-          <div style={{ borderLeft: '3px solid var(--gold)', paddingLeft: '1rem', color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '1.08rem', lineHeight: 1.75 }}>
-            <p style={{ marginTop: 0 }}>
-              Members, use this page as the launch readiness board: confirm your account, pick your membership lane,
-              add HHS to your Home Screen, enable reveal notifications, and make sure payment is squared away.
-            </p>
-            <p style={{ marginBottom: 0 }}>
-              Pickup party timing and host notes can live in this memo area once Zach is ready to publish the final details.
-            </p>
-          </div>
-        </Panel>
-      </section>
-
       <section className="container mx-auto max-w-6xl px-6 py-8" style={{ paddingBottom: 'clamp(4rem, 8vw, 6rem)' }}>
         <Panel ready={allReady}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <SectionHeading
-              eyebrow="Launch checklist"
-              title={allReady ? 'You are ready for October.' : 'Finish your Society setup'}
+              eyebrow="Member readiness"
+              title={allReady ? 'You are ready for October.' : 'Complete your launch setup'}
               intro={allReady
-                ? 'All preview checks are green. HHS will be ready to reveal the first beer when the ritual begins.'
-                : 'Tap any row for exact guidance. Green checks use live data when available; the payment row is marked as a preview proxy until a confirmed paid field exists.'}
+                ? 'Everything HHS can verify is in place. Keep the app handy for the first reveal when the ritual begins.'
+                : 'Tap any row for guidance. Green checks reflect the account, device, and notification signals HHS can verify today.'}
             />
-            <StatusPill tone={allReady ? 'green' : 'gold'}>{allReady ? 'Ready' : loadingProfile ? 'Checking' : 'Action needed'}</StatusPill>
+            <StatusPill tone={allReady ? 'green' : 'gold'}>{allReady ? 'Ready' : loadingProfile ? 'Checking' : 'To do'}</StatusPill>
           </div>
 
           {allReady ? (
             <div style={{ border: '1px solid rgba(74, 222, 128, 0.34)', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '16px', padding: '1rem', marginBottom: '1rem', color: '#bbf7d0', fontFamily: bodyFont, fontSize: '1.05rem', lineHeight: 1.6 }}>
-              Congrats — your preview checklist is complete. Keep HHS on your Home Screen and watch for the first reveal.
+              Congrats — your launch setup is complete. Keep HHS on your Home Screen and watch for the first reveal.
             </div>
           ) : null}
 
@@ -566,7 +545,7 @@ export default function PrelaunchHomePreview() {
                     {row.value}
                   </span>
                 </span>
-                <StatusPill tone={row.source === 'real' ? 'green' : 'muted'}>{row.source}</StatusPill>
+                <StatusPill tone={row.source === 'live' ? 'green' : 'muted'}>{row.source === 'live' ? 'Live' : 'Action'}</StatusPill>
               </button>
             ))}
           </div>
@@ -596,7 +575,7 @@ export default function PrelaunchHomePreview() {
 
             {activeRow.key === 'username' ? (
               <p style={modalBodyStyle}>
-                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. If this is red, sign in with your approved HHS email and return to this hidden preview URL.
+                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. If this is red, sign in with your approved HHS email and return to this page.
               </p>
             ) : null}
 
@@ -618,7 +597,7 @@ export default function PrelaunchHomePreview() {
                 ) : null}
                 <GuidanceSteps type="install" />
                 <button type="button" onClick={markInstalled} style={secondaryButtonStyle}>
-                  I added it — save preview status
+                  I added it — save status
                 </button>
               </>
             ) : null}
@@ -639,7 +618,7 @@ export default function PrelaunchHomePreview() {
 
             {activeRow.key === 'paid' ? (
               <p style={modalBodyStyle}>
-                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. This preview only sees existing Venmo/native membership fields; it does not verify settled payment. If you paid and this is red, Zach needs to reconcile the roster/payment source.
+                Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>. HHS can only show the payment signals available on your profile here; it does not verify bank settlement. If you paid and this is red, Zach needs to reconcile the roster/payment source.
               </p>
             ) : null}
 

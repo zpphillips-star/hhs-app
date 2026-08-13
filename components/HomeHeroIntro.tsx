@@ -5,9 +5,10 @@ import AboutHHSContent from '@/components/AboutHHSContent'
 
 type Props = {
   media: ReactNode
+  showAbout?: boolean
 }
 
-export default function HomeHeroIntro({ media }: Props) {
+export default function HomeHeroIntro({ media, showAbout = true }: Props) {
   return (
     <section className="hhs-hero">
       <style>{`
@@ -26,7 +27,7 @@ export default function HomeHeroIntro({ media }: Props) {
       </h1>
 
       {media}
-      <AboutHHSContent />
+      {showAbout ? <AboutHHSContent /> : null}
       <div style={{ clear: 'both' }} />
     </section>
   )

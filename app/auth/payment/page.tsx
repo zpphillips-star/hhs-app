@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { HHS_SETUP_GATE_ROUTE } from '@/lib/routes'
 import { HHS_PAYMENT_TIERS, openHhsVenmoPayment } from '@/lib/venmo'
 
 type Tier = keyof typeof HHS_PAYMENT_TIERS
@@ -55,11 +56,14 @@ export default function PaymentPage() {
 
     if (!tier) return
     openHhsVenmoPayment(tier)
+    window.setTimeout(() => {
+      router.push(`${HHS_SETUP_GATE_ROUTE}?setup=install`)
+    }, 1800)
   }
 
   const handleContinue = async () => {
     setContinuing(true)
-    router.push('/preview/prelaunch-home?setup=install')
+    router.push(`${HHS_SETUP_GATE_ROUTE}?setup=install`)
   }
 
   if (loading) {
@@ -179,7 +183,7 @@ export default function PaymentPage() {
                 borderRadius: 'var(--radius-sm)',
               }}
             >
-              {continuing ? 'Opening checklist...' : venmoClicked ? 'Continue to App Setup' : 'Pay with Venmo first'}
+              {continuing ? 'Opening guided install...' : venmoClicked ? 'Continue to Guided App Install' : 'Pay with Venmo first'}
             </button>
             {!venmoClicked && (
               <p style={{ textAlign: 'center', fontFamily: "'Crimson Text', serif", fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>

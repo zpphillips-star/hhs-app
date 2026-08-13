@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import HomeCountdownJoin from '@/components/HomeCountdownJoin'
 import { supabase } from '@/lib/supabase'
 import { normalizeMembershipTier } from '@/lib/membership'
+import { HHS_APP_HOME_ROUTE } from '@/lib/routes'
 import { HHS_PAYMENT_TIERS, type HhsPaymentTier, openHhsVenmoPayment } from '@/lib/venmo'
 
 type Countdown = {
@@ -40,6 +41,7 @@ type ChecklistRow = {
 
 type PaymentStatus = 'not_complete' | 'in_process' | 'confirmed'
 type PaymentReviewStatus = 'paid' | 'not_paid' | 'not_reviewed'
+type InAppBrowser = 'gmail-android' | 'gmail-ios' | 'webview' | null
 
 type ProfileRow = {
   username?: string | null
@@ -112,6 +114,20 @@ function getBrowserName() {
   if (/CriOS|Chrome/.test(ua)) return 'Chrome'
   if (/Safari/.test(ua)) return 'Safari'
   return 'your browser'
+}
+
+function detectInAppBrowser(): InAppBrowser {
+  if (typeof navigator === 'undefined' || typeof document === 'undefined') return null
+  const ua = navigator.userAgent
+  const referrer = document.referrer
+  const androidGmailReferrer = referrer.startsWith('android-app://com.google.android.gm')
+  const androidWebView = /Android/i.test(ua) && (/; wv\)?/i.test(ua) || /\bwv\)/i.test(ua))
+  // Gmail can leave a stale android-app:// referrer after "open in Chrome"; only
+  // treat it as Gmail when the current UA is still a WebView.
+  if (androidGmailReferrer && androidWebView) return 'gmail-android'
+  if (/GSA\//.test(ua) && isIOS()) return 'gmail-ios'
+  if (androidWebView || /FBAN|FBAV|Instagram/.test(ua)) return 'webview'
+  return null
 }
 
 function oneTapInstallUnavailableMessage() {
@@ -226,13 +242,30 @@ function SectionHeading({ eyebrow, title, intro, eyebrowColor = 'var(--text-mute
 
 function GuidanceSteps({ type }: { type: 'install' | 'notifications' }) {
   if (type === 'install') {
+    const inAppBrowser = detectInAppBrowser()
+    if (inAppBrowser) {
+      return (
+        <ol style={modalListStyle}>
+          <li>
+            {inAppBrowser === 'gmail-android'
+              ? 'You are still inside Gmail’s in-app browser. Tap the browser icon or menu and choose Open in Chrome.'
+              : inAppBrowser === 'gmail-ios'
+                ? 'You are still inside Gmail. Choose Open in Safari from the Gmail browser controls.'
+              : 'You are inside an in-app browser. Open this page in Safari, Chrome, Edge, or Samsung Internet before installing.'}
+          </li>
+          <li>After the real browser opens, return to this setup page and tap the install button if it appears.</li>
+          <li>If no one-tap install appears, use the browser menu to install HHS or add it to your Home Screen.</li>
+          <li>Then open <strong>HHS</strong> from the new Home Screen app icon.</li>
+        </ol>
+      )
+    }
     if (isIOS()) {
       return (
         <ol style={modalListStyle}>
-          <li>Open this page in Safari. iOS only allows Home Screen installs from Safari.</li>
+          <li>Use Safari. iOS only allows Home Screen installs from Safari.</li>
           <li>Tap the Share button at the bottom of Safari.</li>
           <li>Choose <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li>
-          <li>Reopen HHS from the new Home Screen icon so the app can detect standalone mode.</li>
+          <li>Open <strong>HHS</strong> from the new Home Screen icon so the app can detect the install.</li>
         </ol>
       )
     }
@@ -242,14 +275,15 @@ function GuidanceSteps({ type }: { type: 'install' | 'notifications' }) {
           <li>Use Chrome, Edge, or Samsung Internet if possible.</li>
           <li>Tap the browser menu (⋮ or ···).</li>
           <li>Choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
-          <li>Reopen HHS from the installed icon.</li>
+          <li>Open <strong>HHS</strong> from the installed Home Screen icon.</li>
         </ol>
       )
     }
     return (
       <ol style={modalListStyle}>
-        <li>Desktop install prompts only appear in supported browsers when the PWA criteria are met.</li>
-        <li>If no install button is shown, open hallowedhopsociety.com on your phone and add it to your Home Screen there.</li>
+        <li>Desktop browsers may show an install option, but HHS setup is meant to finish on your phone.</li>
+        <li>If no install button is shown here, open hallowedhopsociety.com on your phone and add HHS to your Home Screen there.</li>
+        <li>After installing on your phone, open <strong>HHS</strong> from the Home Screen icon.</li>
       </ol>
     )
   }
@@ -432,8 +466,10 @@ export default function PrelaunchHomePreview() {
       label: 'Install app to phone',
       value: runningAsPwa ? 'Detected from Home Screen' : profile?.hasPwa ? 'Previously detected' : canNativeInstall ? 'Install available' : 'Not detected',
       done: installDone,
-      summary: 'Checks whether HHS is running in standalone/Home Screen mode and saves that detected state to your profile when possible.',
-      actionLabel: canNativeInstall ? 'Install App' : 'View Install Steps',
+      summary: installDone
+        ? 'HHS has detected the installed Home Screen app state.'
+        : 'Install HHS to your Home Screen, then open it from the new app icon so HHS can detect and save the install.',
+      actionLabel: canNativeInstall ? 'Install HHS' : 'Open install guide',
     },
     {
       key: 'notifications',
@@ -473,11 +509,11 @@ export default function PrelaunchHomePreview() {
     const params = new URLSearchParams(window.location.search)
     if (params.get('setup') !== 'install') return
     if (!user || installDone) return
-    window.setTimeout(() => {
-      setAutoOpenedInstall(true)
-      setActiveModal('install')
-      setActionMessage('Install HHS now. If your browser shows the install button, tap it, then continue from the new Home Screen app icon.')
-    }, 0)
+      window.setTimeout(() => {
+        setAutoOpenedInstall(true)
+        setActiveModal('install')
+        setActionMessage('Next step: install HHS to this phone. Use the guided button or platform steps below, then open HHS from the new Home Screen app icon.')
+      }, 0)
   }, [autoOpenedInstall, installDone, user])
 
   const handleNativeInstall = async () => {
@@ -565,6 +601,11 @@ export default function PrelaunchHomePreview() {
     }
 
     openHhsVenmoPayment(latestMembership.tier)
+    window.setTimeout(() => {
+      if (installDone) return
+      setActiveModal('install')
+      setActionMessage('After sending dues, install HHS to this phone. Use the guided button or platform steps below, then open HHS from the new Home Screen app icon.')
+    }, 1200)
     void refreshLiveState()
   }
 
@@ -582,9 +623,11 @@ export default function PrelaunchHomePreview() {
       void openPaymentLink()
       return
     }
-    if (row.key === 'install' && canNativeInstall && !row.done) {
+    if (row.key === 'install' && !row.done) {
       setActiveModal(row.key)
-      void handleNativeInstall()
+      setActionMessage(canNativeInstall
+        ? 'This browser can install HHS directly. Tap the install button below, then open HHS from the new Home Screen app icon.'
+        : 'Use the instructions below to add HHS to your Home Screen, then open HHS from the new app icon.')
       return
     }
     if (row.key === 'notifications' && !row.done && canUsePushHere() && notificationPermission !== 'denied') {
@@ -674,16 +717,21 @@ export default function PrelaunchHomePreview() {
           <SectionHeading
             eyebrow="Membership Checklist"
             eyebrowColor="var(--gold)"
-            title={allReady ? 'You are ready for October.' : 'Get yourself ready'}
+            title="Must complete prior to entry"
             intro={allReady
-              ? 'Everything HHS can verify is in place. Keep the app handy for the first reveal when the ritual begins.'
-              : 'Tap on any row in red to complete the action.'}
+              ? 'Everything HHS can verify is in place. You may now enter the member app.'
+              : 'Complete each red row before entering the member app. Install must be completed from real Home Screen app detection, not a manual checkbox.'}
           />
         </div>
 
         {allReady ? (
           <div style={{ border: '1px solid rgba(74, 222, 128, 0.34)', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '16px', padding: '1rem', marginBottom: '1rem', color: '#bbf7d0', fontFamily: bodyFont, fontSize: '1.05rem', lineHeight: 1.6 }}>
-            Congrats — your launch setup is complete. Keep HHS on your Home Screen and watch for the first reveal.
+            <p style={{ margin: '0 0 1rem' }}>
+              Congrats — your launch setup is complete. Keep HHS on your Home Screen and watch for the first reveal.
+            </p>
+            <button type="button" onClick={() => router.push(HHS_APP_HOME_ROUTE)} style={primaryButtonStyle}>
+              You&apos;ve completed the setup - you may now enter the Hallowed Hop Society
+            </button>
           </div>
         ) : null}
 
@@ -761,14 +809,19 @@ export default function PrelaunchHomePreview() {
                 <p style={modalBodyStyle}>
                   Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>.
                 </p>
+                {detectInAppBrowser() ? (
+                  <p style={{ ...modalBodyStyle, border: '1px solid rgba(248,113,113,0.28)', borderRadius: '12px', padding: '0.75rem', background: 'rgba(239,68,68,0.08)' }}>
+                    HHS can only be installed from a real browser. This looks like an in-app browser, so follow the first step below to open Safari, Chrome, Edge, or Samsung Internet.
+                  </p>
+                ) : null}
                 {canNativeInstall ? (
                   <button type="button" onClick={handleNativeInstall} style={primaryButtonStyle}>
-                    Add to Home Screen
+                    Install HHS to this phone
                   </button>
                 ) : null}
                 <GuidanceSteps type="install" />
                 <p style={modalBodyStyle}>
-                  HHS no longer marks this complete from an “I did it” button. Reopen from the installed icon and the app will save the detected Home Screen state.
+                  After installing, open <strong style={{ color: 'var(--text)' }}>HHS</strong> from the new Home Screen app icon. The installed app will reopen this setup checklist and mark the install row green when standalone mode is detected.
                 </p>
               </>
             ) : null}

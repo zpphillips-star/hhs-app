@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { HHS_SETUP_GATE_ROUTE } from '@/lib/routes'
-import { HHS_PAYMENT_TIERS, openHhsVenmoPayment } from '@/lib/venmo'
+import { DEFAULT_HHS_PAYMENT_TIER, HHS_PAYMENT_TIERS, openHhsVenmoPayment } from '@/lib/venmo'
 
 type Tier = keyof typeof HHS_PAYMENT_TIERS
 
@@ -28,14 +28,20 @@ export default function PaymentPage() {
         .eq('id', user.id)
         .single()
 
-      if (!profile?.tier) {
-        // No tier set — send back to complete
-        router.push('/auth/complete')
-        return
+      let paymentTier = profile?.tier as Tier | null
+      if (!paymentTier) {
+        paymentTier = DEFAULT_HHS_PAYMENT_TIER
+        await supabase
+          .from('profiles')
+          .update({
+            tier: paymentTier,
+            tier_selected_at: new Date().toISOString(),
+          })
+          .eq('id', user.id)
       }
 
-      setTier(profile.tier as Tier)
-      if (profile.venmo_clicked_at) setVenmoClicked(true)
+      setTier(paymentTier)
+      if (profile?.venmo_clicked_at) setVenmoClicked(true)
       setLoading(false)
     })
   }, [router])

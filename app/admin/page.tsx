@@ -60,7 +60,8 @@ type PaymentReviewStatus = 'paid' | 'not_paid' | 'not_reviewed'
 type AdminPaymentState = 'paid' | 'not_paid' | 'not_reviewed'
 
 const MEMBER_ROSTER_GRID_STYLE: CSSProperties = {
-  gridTemplateColumns: 'minmax(0, 1fr) 3rem 3rem 5.75rem 7rem 4rem 7rem 12rem',
+  gridTemplateColumns: 'minmax(14rem, 1fr) 3rem 3rem 5.75rem 7rem 4rem 7rem 12rem',
+  minWidth: '760px',
 }
 
 function getAdminPaymentState(member: Member): AdminPaymentState {
@@ -126,8 +127,6 @@ export default function AdminPage() {
   const [members, setMembers] = useState<Member[]>([])
   const [confirmingPaidId, setConfirmingPaidId] = useState<string | null>(null)
   const [updatingOverrideId, setUpdatingOverrideId] = useState<string | null>(null)
-  const [tierSelectionOpen, setTierSelectionOpen] = useState(false)
-  const [togglingTier, setTogglingTier] = useState(false)
 
   const [myNotifStatus, setMyNotifStatus] = useState<NotificationPermission | null>(null)
   const [enablingNotif, setEnablingNotif] = useState(false)
@@ -139,7 +138,6 @@ export default function AdminPage() {
       fetchRequests()
       fetchNotifHistory()
       fetchMembers()
-      fetchTierStatus()
       if ('Notification' in window) setMyNotifStatus(Notification.permission)
     })
   }, [])
@@ -168,19 +166,6 @@ export default function AdminPage() {
       console.error(e)
     }
     setEnablingNotif(false)
-  }
-
-  async function fetchTierStatus() {
-    const { data } = await supabase.from('app_settings').select('tier_selection_open').eq('id', 1).single()
-    setTierSelectionOpen(data?.tier_selection_open ?? false)
-  }
-
-  const toggleTierSelection = async () => {
-    setTogglingTier(true)
-    const newVal = !tierSelectionOpen
-    await supabase.from('app_settings').update({ tier_selection_open: newVal }).eq('id', 1)
-    setTierSelectionOpen(newVal)
-    setTogglingTier(false)
   }
 
   async function fetchMembers() {
@@ -535,37 +520,21 @@ export default function AdminPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-xs font-semibold uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>Members</h2>
+              {members.length > 0 && (
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Swipe or scroll sideways to reach entry and payment actions.
+                </p>
+              )}
             </div>
             <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{members.length} approved</span>
-          </div>
-
-          {/* Tier Selection Control */}
-          <div className="mb-4 px-4 py-3 rounded-xl flex items-center justify-between" style={{
-            border: tierSelectionOpen ? '1px solid rgba(217,124,43,0.4)' : '1px solid var(--border)',
-            background: tierSelectionOpen ? 'rgba(217,124,43,0.08)' : 'var(--bg-card)',
-          }}>
-            <div>
-              <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>Tier Selection</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                {tierSelectionOpen
-                  ? 'Open — members will see the tier picker when they open the app'
-                  : 'Closed — members see nothing until you open this'}
-              </p>
-            </div>
-            <button
-              onClick={toggleTierSelection}
-              disabled={togglingTier}
-              className="text-xs font-bold px-4 py-2 rounded-lg transition-colors"
-              style={{ background: 'rgba(217,124,43,0.15)', color: 'var(--gold)' }}
-            >
-              {togglingTier ? '...' : tierSelectionOpen ? 'Close' : 'Open'}
-            </button>
           </div>
 
           {members.length === 0 ? (
             <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No approved members yet.</p>
           ) : (
-            <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <div style={{ minWidth: '760px' }}>
               {/* Header row */}
               <div className="grid gap-3 px-4 py-2" style={{ ...MEMBER_ROSTER_GRID_STYLE, borderBottom: '1px solid var(--border)' }}>
                 <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Member</span>
@@ -703,6 +672,8 @@ export default function AdminPage() {
                  </span>
                  <span className="text-xs text-center" style={{ color: 'var(--gold)' }}>{members.filter(m => m.setup_override_at).length} opened</span>
                   <span className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{members.filter(m => getAdminPaymentState(m) === 'not_reviewed').length} need check</span>
+              </div>
+              </div>
               </div>
             </div>
           )}

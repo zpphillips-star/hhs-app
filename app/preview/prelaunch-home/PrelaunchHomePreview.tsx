@@ -7,6 +7,13 @@ import { supabase } from '@/lib/supabase'
 import { normalizeMembershipTier } from '@/lib/membership'
 import { HHS_APP_HOME_ROUTE } from '@/lib/routes'
 import { HHS_PAYMENT_TIERS, type HhsPaymentTier, openHhsVenmoPayment } from '@/lib/venmo'
+import {
+  NotificationPermissionRecovery,
+  canUseWebPushHere,
+  detectNotificationBrowser,
+  getNotificationPermissionState,
+  type NotificationPermissionState,
+} from '@/components/NotificationPermissionRecovery'
 
 type Countdown = {
   days: number
@@ -142,16 +149,6 @@ function oneTapInstallUnavailableMessage() {
 
 function canProbeForNativeInstall() {
   return typeof window !== 'undefined' && isAndroid() && !isPWA() && !detectInAppBrowser()
-}
-
-function notificationSupported() {
-  return typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window
-}
-
-function canUsePushHere() {
-  if (!notificationSupported()) return false
-  if (isIOS() && !isPWA()) return false
-  return true
 }
 
 async function getAuthHeaders(): Promise<HeadersInit> {
@@ -300,7 +297,7 @@ function GuidanceSteps({ type }: { type: 'install' | 'notifications' }) {
         <li>Install HHS to your Home Screen first; iOS web push works from the installed app.</li>
         <li>Open HHS from the Home Screen icon, not an in-browser tab.</li>
         <li>Tap <strong>Enable Notifications</strong> and approve the system prompt.</li>
-        <li>If blocked, open iOS Settings → Notifications → HHS/Safari and allow notifications, then return.</li>
+      <li>If blocked, open iOS Settings → Notifications → HHS and allow notifications, then return.</li>
       </ol>
     )
   }
@@ -308,7 +305,7 @@ function GuidanceSteps({ type }: { type: 'install' | 'notifications' }) {
     <ol style={modalListStyle}>
       <li>Tap <strong>Enable Notifications</strong> and approve the browser permission prompt.</li>
       <li>If blocked, open {getBrowserName()} settings → Site settings → Notifications.</li>
-      <li>Allow hallowedhopsociety.com, reload this page, and tap the row again.</li>
+      <li>Allow hallowedhopsociety.com, then return here. The row will re-check automatically.</li>
     </ol>
   )
 }
@@ -321,7 +318,7 @@ export default function PrelaunchHomePreview() {
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [runningAsPwa, setRunningAsPwa] = useState(false)
   const [canNativeInstall, setCanNativeInstall] = useState(false)
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('unsupported')
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionState>('unsupported')
   const [hasPushSubscription, setHasPushSubscription] = useState(false)
   const [activeModal, setActiveModal] = useState<ChecklistKey | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
@@ -404,7 +401,7 @@ export default function PrelaunchHomePreview() {
   const refreshLiveState = useCallback(async () => {
     const detectedPwa = isPWA()
     setRunningAsPwa(detectedPwa)
-    setNotificationPermission(notificationSupported() ? Notification.permission : 'unsupported')
+    setNotificationPermission(getNotificationPermissionState())
 
     const { data: { user: authUser } } = await supabase.auth.getUser()
     setUser(authUser)
@@ -480,10 +477,12 @@ export default function PrelaunchHomePreview() {
     }
 
     window.addEventListener('focus', refreshWhenVisible)
+    window.addEventListener('pageshow', refreshWhenVisible)
     document.addEventListener('visibilitychange', refreshWhenVisible)
 
     return () => {
       window.removeEventListener('focus', refreshWhenVisible)
+      window.removeEventListener('pageshow', refreshWhenVisible)
       document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
   }, [refreshLiveState])
@@ -746,7 +745,7 @@ export default function PrelaunchHomePreview() {
       }
       return
     }
-    if (row.key === 'notifications' && !row.done && canUsePushHere() && notificationPermission !== 'denied') {
+    if (row.key === 'notifications' && !row.done && canUseWebPushHere() && notificationPermission !== 'denied') {
       setActiveModal(row.key)
       void enableNotifications()
       return
@@ -759,19 +758,25 @@ export default function PrelaunchHomePreview() {
       setActionMessage('Sign in first so HHS can save the push subscription to your member profile.')
       return
     }
-    if (!canUsePushHere()) {
+    const currentPermission = getNotificationPermissionState()
+    setNotificationPermission(currentPermission)
+    if (!canUseWebPushHere() || currentPermission === 'unsupported') {
       setActionMessage(isIOS() && !isPWA()
         ? 'On iPhone, install HHS to your Home Screen first, then open the installed app to enable notifications.'
         : 'This browser does not expose the web push APIs here. Use the platform steps below.')
       return
     }
+    if (currentPermission === 'denied') {
+      setActionMessage('Notifications are blocked in browser settings. Use the recovery steps below, then return to HHS.')
+      return
+    }
     setSubscribing(true)
     setActionMessage(null)
     try {
-      const perm = await Notification.requestPermission()
+      const perm = currentPermission === 'granted' ? 'granted' : await Notification.requestPermission()
       setNotificationPermission(perm)
       if (perm !== 'granted') {
-        setActionMessage(perm === 'denied' ? 'Notifications are blocked. Use browser settings, then reload.' : 'Notification permission was not granted.')
+        setActionMessage(perm === 'denied' ? 'Notifications are blocked in browser settings. Use the recovery steps below, then return to HHS.' : 'Notification permission was not granted.')
         return
       }
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
@@ -1002,10 +1007,17 @@ export default function PrelaunchHomePreview() {
                     This step is complete. HHS can verify notification permission and a saved push subscription for your account.
                   </p>
                 ) : null}
-                {!activeRow.done && canUsePushHere() && notificationPermission !== 'denied' ? (
+                {!activeRow.done && canUseWebPushHere() && notificationPermission !== 'denied' && notificationPermission !== 'unsupported' ? (
                   <button type="button" onClick={enableNotifications} disabled={subscribing} style={primaryButtonStyle}>
-                    {subscribing ? 'Enabling…' : 'Enable Notifications'}
+                    {subscribing ? 'Enabling…' : notificationPermission === 'granted' ? 'Finish Enabling Notifications' : 'Enable Notifications'}
                   </button>
+                ) : null}
+                {!activeRow.done && (notificationPermission === 'denied' || !canUseWebPushHere() || notificationPermission === 'unsupported') ? (
+                  <NotificationPermissionRecovery
+                    permission={notificationPermission === 'denied' ? 'denied' : 'unsupported'}
+                    browser={detectNotificationBrowser()}
+                    style={{ border: '1px solid rgba(217,124,43,0.22)', borderRadius: '12px', padding: '0.75rem', background: 'rgba(217,124,43,0.08)', marginBottom: '1rem' }}
+                  />
                 ) : null}
                 <GuidanceSteps type="notifications" />
               </>

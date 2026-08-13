@@ -1,9 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
+import {
+  NotificationPermissionRecovery,
+  canUseWebPushHere,
+  detectNotificationBrowser,
+  getNotificationPermissionState,
+  type NotificationPermissionState,
+} from '@/components/NotificationPermissionRecovery'
 
 type Step = 'welcome' | 'install' | 'notify' | 'done'
 function isPWA() {
@@ -37,15 +44,6 @@ function oneTapInstallUnavailableMessage() {
   }
   return `${browser} has not offered a one-tap install button here. Use the browser menu and choose Install app or Add to Home screen.`
 }
-function canUsePushHere() {
-  if (typeof window === 'undefined') return false
-  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return false
-  // iOS Safari only exposes web push to installed Home Screen web apps. A normal
-  // browser tab cannot grant the permission that the installed PWA will use.
-  if (isIOS() && !isPWA()) return false
-  return true
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let deferredPrompt: any = null
 
@@ -55,10 +53,27 @@ export default function WelcomePage() {
   const [firstName, setFirstName] = useState('')
   const [userId, setUserId] = useState('')
   const [canNativeInstall, setCanNativeInstall] = useState(false)
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() =>
-    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
-  )
+  const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(() => getNotificationPermissionState())
   const [subscribing, setSubscribing] = useState(false)
+
+  const refreshNotificationPermission = useCallback(() => {
+    setNotifPermission(getNotificationPermissionState())
+  }, [])
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return
+      refreshNotificationPermission()
+    }
+    window.addEventListener('focus', refresh)
+    window.addEventListener('pageshow', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('pageshow', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [refreshNotificationPermission])
 
   // Capture Android install prompt
   useEffect(() => {
@@ -117,13 +132,14 @@ export default function WelcomePage() {
   }
 
   const subscribeNotifications = async () => {
-    if (!canUsePushHere()) {
-      setStep('done')
+    const currentPermission = getNotificationPermissionState()
+    setNotifPermission(currentPermission)
+    if (!canUseWebPushHere() || currentPermission === 'denied' || currentPermission === 'unsupported') {
       return
     }
     setSubscribing(true)
     try {
-      const perm = await Notification.requestPermission()
+      const perm = currentPermission === 'granted' ? 'granted' : await Notification.requestPermission()
       setNotifPermission(perm)
       if (perm === 'granted') {
         const reg = await navigator.serviceWorker.ready
@@ -138,9 +154,9 @@ export default function WelcomePage() {
           body: JSON.stringify({ subscription: sub.toJSON(), user_id: userId }),
         })
       }
-      setStep('done')
+      if (perm === 'granted') setStep('done')
     } catch {
-      setStep('done')
+      refreshNotificationPermission()
     }
     setSubscribing(false)
   }
@@ -263,7 +279,7 @@ export default function WelcomePage() {
           <div style={{ textAlign: 'center' }}>
             <StepIndicator current={2} total={2} />
             <h2 style={heading}>Enable Notifications</h2>
-            {canUsePushHere() ? (
+            {canUseWebPushHere() ? (
               <p style={body}>
                 This permission is for <strong style={{ color: 'var(--gold)' }}>hallowedhopsociety.com</strong>, so it applies to the installed HHS app on this origin too. Tap the button, then choose Allow.
               </p>
@@ -275,17 +291,19 @@ export default function WelcomePage() {
               </p>
             )}
 
-            {notifPermission === 'denied' && (
+            {(notifPermission === 'denied' || !canUseWebPushHere() || notifPermission === 'unsupported') && (
               <div style={{ ...infoBox, marginBottom: '1.5rem' }}>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', lineHeight: 1.6, margin: 0 }}>
-                  Notifications are blocked. Go to <strong style={{ color: 'var(--gold)' }}>Settings → {isIOS() ? 'Safari' : 'Chrome'} → Notifications</strong> and allow hallowedhopsociety.com, then come back.
-                </p>
+                <NotificationPermissionRecovery
+                  permission={notifPermission === 'denied' ? 'denied' : 'unsupported'}
+                  browser={detectNotificationBrowser()}
+                  textStyle={{ fontSize: '0.875rem' }}
+                />
               </div>
             )}
 
-            {notifPermission !== 'denied' && canUsePushHere() && (
+            {notifPermission !== 'denied' && notifPermission !== 'unsupported' && canUseWebPushHere() && (
               <button onClick={subscribeNotifications} disabled={subscribing} style={{ ...btnPrimary, marginBottom: '0.75rem' }}>
-                {subscribing ? 'Enabling...' : 'Enable Notifications'}
+                {subscribing ? 'Enabling...' : notifPermission === 'granted' ? 'Finish Enabling Notifications' : 'Enable Notifications'}
               </button>
             )}
             <button onClick={() => setStep('done')} style={btnSecondary}>

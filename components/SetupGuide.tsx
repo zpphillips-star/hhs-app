@@ -1,7 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import {
+  NotificationPermissionRecovery,
+  canUseWebPushHere,
+  detectNotificationBrowser,
+  getNotificationPermissionState,
+} from '@/components/NotificationPermissionRecovery'
 
 type Step = 'browser' | 'install' | 'notify' | 'done'
 type InAppType = 'gmail-android' | 'gmail-ios' | 'webview' | null
@@ -22,15 +28,6 @@ function isPWA() {
   return window.matchMedia('(display-mode: standalone)').matches ||
     ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
 }
-function canUsePushHere() {
-  if (typeof window === 'undefined') return false
-  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return false
-  // iOS web push is only available from the installed Home Screen app. Safari
-  // tabs can show the install guide, but they cannot enable the PWA permission.
-  if (isIOS() && !isPWA()) return false
-  return true
-}
-
 function detectInAppBrowser(): InAppType {
   const ua = navigator.userAgent
   const referrer = document.referrer
@@ -121,8 +118,8 @@ export default function SetupGuide({ userId }: { userId: string }) {
 
   async function proceedToSetup() {
     const installed = isPWA()
-    const notifPerm = 'Notification' in window ? Notification.permission : 'denied'
-    setNotifStatus(notifPerm)
+    const notifPerm = getNotificationPermissionState()
+    if (notifPerm !== 'unsupported') setNotifStatus(notifPerm)
     setNotifBlocked(notifPerm === 'denied')
 
     if (installed) {
@@ -132,10 +129,10 @@ export default function SetupGuide({ userId }: { userId: string }) {
       supabase.from('profiles').update({ has_pwa: false }).eq('id', userId).then(() => {})
     }
 
-    const { data: pushSub } = canUsePushHere()
+    const { data: pushSub } = canUseWebPushHere()
       ? await supabase.from('push_subscriptions').select('user_id').eq('user_id', userId).maybeSingle()
       : { data: null }
-    const notifDone = canUsePushHere() ? notifPerm === 'granted' && !!pushSub : false
+    const notifDone = canUseWebPushHere() ? notifPerm === 'granted' && !!pushSub : false
 
     if (!installed) {
       setStep('install')
@@ -171,6 +168,35 @@ export default function SetupGuide({ userId }: { userId: string }) {
     }, 0)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, dismissed, nativeApp])
+
+  const refreshNotificationState = useCallback(async () => {
+    const perm = getNotificationPermissionState()
+    if (perm !== 'unsupported') setNotifStatus(perm)
+    setNotifBlocked(perm === 'denied')
+    if (step !== 'notify' || !canUseWebPushHere() || perm !== 'granted') return
+    const { data: pushSub } = await supabase
+      .from('push_subscriptions')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (pushSub) setStep('done')
+  }, [step, userId])
+
+  useEffect(() => {
+    if (nativeApp || dismissed) return
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return
+      void refreshNotificationState()
+    }
+    window.addEventListener('focus', refresh)
+    window.addEventListener('pageshow', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('pageshow', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [dismissed, nativeApp, refreshNotificationState])
 
   const triggerInstallPrompt = async () => {
     const prompt = deferredInstallPrompt.current
@@ -212,10 +238,13 @@ export default function SetupGuide({ userId }: { userId: string }) {
   }
 
   const requestNotifications = async () => {
-    if (!canUsePushHere()) return
+    const currentPermission = getNotificationPermissionState()
+    if (currentPermission !== 'unsupported') setNotifStatus(currentPermission)
+    setNotifBlocked(currentPermission === 'denied')
+    if (!canUseWebPushHere() || currentPermission === 'denied' || currentPermission === 'unsupported') return
     setSubscribing(true)
     try {
-      const perm = await Notification.requestPermission()
+      const perm = currentPermission === 'granted' ? 'granted' : await Notification.requestPermission()
       setNotifStatus(perm)
       setNotifBlocked(perm === 'denied')
       if (perm === 'granted') {
@@ -353,7 +382,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
           <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
             Get notified each time your next beer is revealed.
           </p>
-          {canUsePushHere() && !notifBlocked ? (
+          {canUseWebPushHere() && !notifBlocked ? (
             <button
               onClick={requestNotifications}
               disabled={subscribing}
@@ -367,13 +396,11 @@ export default function SetupGuide({ userId }: { userId: string }) {
             >{subscribing ? 'Enabling...' : 'Enable Notifications'}</button>
           ) : (
             <div style={{ background: 'rgba(255,140,0,0.07)', border: '1px solid rgba(255,140,0,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
-              <p style={{ color: 'var(--text)', fontSize: '0.875rem', lineHeight: 1.6, margin: 0 }}>
-                {notifBlocked
-                  ? <>Notifications are blocked. Open <strong style={{ color: 'var(--gold)' }}>{isIOS() ? 'iOS Settings → Notifications' : `${browserLabel(currentBrowser)} settings → Site settings → Notifications`}</strong>, allow HHS, then return.</>
-                  : isIOS()
-                  ? <>On iPhone/iPad, notifications are enabled from the installed Home Screen app. Open HHS from the icon you added, then tap <strong style={{ color: 'var(--gold)' }}>Enable Notifications</strong> there.</>
-                  : <>This browser cannot enable HHS push notifications here. Open HHS in Chrome, Edge, or the installed app and tap <strong style={{ color: 'var(--gold)' }}>Enable Notifications</strong>.</>}
-              </p>
+              <NotificationPermissionRecovery
+                permission={notifBlocked ? 'denied' : 'unsupported'}
+                browser={detectNotificationBrowser()}
+                textStyle={{ color: 'var(--text)', fontSize: '0.875rem' }}
+              />
             </div>
           )}
           <button

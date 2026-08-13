@@ -1,8 +1,15 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import {
+  NotificationPermissionRecovery,
+  canUseWebPushHere,
+  detectNotificationBrowser,
+  getNotificationPermissionState,
+  type NotificationPermissionState,
+} from '@/components/NotificationPermissionRecovery'
 
 function isPWA() {
   if (typeof window === 'undefined') return false
@@ -59,6 +66,7 @@ export default function SetupBanner() {
   const [installAccepted, setInstallAccepted] = useState(false)
   const [subscribing, setSubscribing] = useState(false)
   const [notifBlocked, setNotifBlocked] = useState(false)
+  const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(() => getNotificationPermissionState())
   const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null)
   const isNative = isNativeApp()
   const suppressOnRoute =
@@ -78,8 +86,7 @@ export default function SetupBanner() {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  // On every page load: check real state from Supabase + browser
-  useEffect(() => {
+  const evaluateSetupState = useCallback(async () => {
     if (isNative || suppressOnRoute) return
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
@@ -116,26 +123,51 @@ export default function SetupBanner() {
       }
 
       // Check notifications: browser permission + push subscription in DB
-      const notifPermission = 'Notification' in window ? Notification.permission : 'denied'
+      const currentPermission = getNotificationPermissionState()
+      setNotifPermission(currentPermission)
+      setNotifBlocked(currentPermission === 'denied')
       const { data: pushSub } = await supabase
         .from('push_subscriptions')
         .select('user_id')
         .eq('user_id', user.id)
         .maybeSingle()
 
-      const notifDone = notifPermission === 'granted' && !!pushSub
+      const notifDone = currentPermission === 'granted' && !!pushSub
 
       // Decide which step to show
       if (!installDone) {
         setStep('install')
       } else if (!notifDone) {
-        setNotifBlocked(notifPermission === 'denied')
         setStep('notify')
       } else {
         setStep('done')
       }
     })
   }, [isNative, suppressOnRoute])
+
+  // On every page load: check real state from Supabase + browser.
+  useEffect(() => {
+    void evaluateSetupState()
+  }, [evaluateSetupState])
+
+  // Browser notification settings can change while HHS is backgrounded. Re-check
+  // on return so a blocked user who fixes site settings gets the enable button
+  // back without needing a reload.
+  useEffect(() => {
+    if (isNative || suppressOnRoute) return
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return
+      void evaluateSetupState()
+    }
+    window.addEventListener('focus', refresh)
+    window.addEventListener('pageshow', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('pageshow', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [evaluateSetupState, isNative, suppressOnRoute])
 
   // Don't render until we know what to show; never render inside native app
   if (isNative || suppressOnRoute || !userId || !step || step === 'done') return null
@@ -162,9 +194,14 @@ export default function SetupBanner() {
 
   const handleEnableNotifications = async () => {
     if (!userId) return
+    const currentPermission = getNotificationPermissionState()
+    setNotifPermission(currentPermission)
+    setNotifBlocked(currentPermission === 'denied')
+    if (!canUseWebPushHere() || currentPermission === 'denied' || currentPermission === 'unsupported') return
     setSubscribing(true)
     try {
-      const perm = await Notification.requestPermission()
+      const perm = currentPermission === 'granted' ? 'granted' : await Notification.requestPermission()
+      setNotifPermission(perm)
       if (perm === 'granted') {
         try {
           const reg = await navigator.serviceWorker.ready
@@ -308,19 +345,16 @@ export default function SetupBanner() {
               Get notified the moment each beer is revealed — just for you, based on your membership.
             </p>
 
-            {notifBlocked ? (
+            {notifBlocked || !canUseWebPushHere() || notifPermission === 'unsupported' ? (
               <div style={infoBox}>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0, lineHeight: 1.7 }}>
-                  Notifications are blocked. Go to{' '}
-                  <strong style={{ color: 'var(--gold)' }}>
-                    Settings → {isIOS() ? 'Safari' : getBrowserName()} → Notifications
-                  </strong>{' '}
-                  → allow <strong style={{ color: 'var(--gold)' }}>hallowedhopsociety.com</strong>, then reload this page.
-                </p>
+                <NotificationPermissionRecovery
+                  permission={notifPermission === 'denied' ? 'denied' : 'unsupported'}
+                  browser={detectNotificationBrowser()}
+                />
               </div>
             ) : (
               <button onClick={handleEnableNotifications} disabled={subscribing} style={btnPrimary}>
-                {subscribing ? 'Enabling...' : 'Enable Notifications'}
+                {subscribing ? 'Enabling...' : notifPermission === 'granted' ? 'Finish Enabling Notifications' : 'Enable Notifications'}
               </button>
             )}
           </>

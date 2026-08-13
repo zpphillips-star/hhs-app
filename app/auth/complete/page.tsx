@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { DEFAULT_HHS_PAYMENT_TIER } from '@/lib/venmo'
+
+type Tier = 'hallowed' | 'oddballs'
 
 export default function CompleteProfilePage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [tier, setTier] = useState<Tier | null>(null)
   const [checkingLink, setCheckingLink] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -99,6 +101,11 @@ export default function CompleteProfilePage() {
       setError('Please choose a Society name.')
       return
     }
+    if (!tier) {
+      setError('Please choose your membership tier.')
+      return
+    }
+
     setLoading(true)
 
     // Check username availability
@@ -130,7 +137,7 @@ export default function CompleteProfilePage() {
         username: username.trim().toLowerCase(),
         display_name: username.trim(),
         status: 'approved',
-        tier: DEFAULT_HHS_PAYMENT_TIER,
+        tier,
         tier_selected_at: new Date().toISOString(),
       }, { onConflict: 'id' })
     }
@@ -242,19 +249,83 @@ export default function CompleteProfilePage() {
               />
             </div>
 
-            <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg)', padding: '1rem' }}>
-              <p style={{ ...labelStyle, marginBottom: '0.35rem' }}>Membership</p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '1rem' }}>
-                <span style={{ fontFamily: "'Modern Antiqua', serif", fontSize: '0.95rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)', fontWeight: 700 }}>
-                  The Hallowed
-                </span>
-                <span style={{ fontFamily: "'Modern Antiqua', serif", fontSize: '1.1rem', color: 'var(--gold)', fontWeight: 700 }}>
-                  $150
-                </span>
+            {/* Tier Selection */}
+            <div>
+              <label style={{ ...labelStyle, marginBottom: '0.75rem' }}>Membership Tier</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                {([
+                  {
+                    key: 'hallowed' as Tier,
+                    name: 'The Hallowed',
+                    price: '$150',
+                    count: '31 Beers',
+                    desc: 'Every day of October',
+                  },
+                  {
+                    key: 'oddballs' as Tier,
+                    name: 'The Oddballs',
+                    price: '$100',
+                    count: '16 Beers',
+                    desc: 'Odd days only',
+                  },
+                ] as const).map(({ key, name, price, count, desc }) => {
+                  const selected = tier === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setTier(key)}
+                      style={{
+                        padding: '1rem 0.75rem',
+                        border: `2px solid ${selected ? 'var(--gold)' : 'var(--border)'}`,
+                        borderRadius: 'var(--radius-sm)',
+                        background: selected ? 'rgba(var(--gold-rgb, 180,130,50), 0.08)' : 'var(--bg)',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'border-color 0.2s, background 0.2s',
+                      }}
+                    >
+                      <div style={{
+                        fontFamily: "'Modern Antiqua', serif",
+                        fontSize: '0.8rem',
+                        letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                        color: selected ? 'var(--gold)' : 'var(--text)',
+                        fontWeight: 700,
+                        marginBottom: '0.3rem',
+                      }}>
+                        {name}
+                      </div>
+                      <div style={{
+                        fontFamily: "'Crimson Text', serif",
+                        fontSize: '1rem',
+                        color: selected ? 'var(--gold)' : 'var(--text)',
+                        fontWeight: 700,
+                        marginBottom: '0.2rem',
+                      }}>
+                        {price}
+                      </div>
+                      <div style={{
+                        fontFamily: "'Crimson Text', serif",
+                        fontSize: '1.1rem',
+                        color: selected ? 'var(--gold)' : 'var(--text)',
+                        fontWeight: 600,
+                        marginBottom: '0.2rem',
+                      }}>
+                        {count}
+                      </div>
+                      <div style={{
+                        fontFamily: "'Crimson Text', serif",
+                        fontSize: '0.8rem',
+                        color: 'var(--text-muted)',
+                        fontStyle: 'italic',
+                      }}>
+                        {desc}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.5, margin: '0.4rem 0 0', fontStyle: 'italic' }}>
-                Includes all 31 October beers. No tier choice is needed for the current HHS flow.
-              </p>
             </div>
 
             {error && <p style={{ color: '#e57373', fontSize: '0.9rem' }}>{error}</p>}

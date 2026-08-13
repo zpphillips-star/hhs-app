@@ -52,8 +52,8 @@ export async function GET(req: NextRequest) {
   }
 
   // Reusable approval links are valid only until the member commits the first
-  // setup page (Society name/password plus the default Hallowed membership).
-  // Landing on setup does not consume the link; submitting setup does.
+  // setup page (Society name/password/tier). Landing on setup does not consume
+  // the link; choosing a tier and submitting does.
   if (profile.tier || profile.tier_selected_at) {
     return redirectToComplete(req, 'already_completed')
   }

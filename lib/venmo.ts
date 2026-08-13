@@ -1,5 +1,4 @@
 export type HhsPaymentTier = 'hallowed' | 'oddballs'
-export const DEFAULT_HHS_PAYMENT_TIER: HhsPaymentTier = 'hallowed'
 
 export const HHS_PAYMENT_TIERS = {
   hallowed: {

@@ -78,6 +78,11 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
 }
 
+type InstallPromptWindow = Window & {
+  __hhsInstallPrompt?: BeforeInstallPromptEvent | null
+  __hhsInstallPromptListenerAttached?: boolean
+}
+
 function getOctFirstTarget() {
   const now = new Date()
   const target = new Date(now.getFullYear(), 9, 1, 0, 0, 0, 0)
@@ -150,6 +155,29 @@ function oneTapInstallUnavailableMessage() {
 function canProbeForNativeInstall() {
   return typeof window !== 'undefined' && isAndroid() && !isPWA() && !detectInAppBrowser()
 }
+
+function getCachedInstallPrompt() {
+  if (typeof window === 'undefined') return null
+  return (window as InstallPromptWindow).__hhsInstallPrompt ?? null
+}
+
+function setCachedInstallPrompt(prompt: BeforeInstallPromptEvent | null) {
+  if (typeof window === 'undefined') return
+  ;(window as InstallPromptWindow).__hhsInstallPrompt = prompt
+}
+
+function ensureInstallPromptCapture() {
+  if (typeof window === 'undefined') return
+  const installWindow = window as InstallPromptWindow
+  if (installWindow.__hhsInstallPromptListenerAttached) return
+  installWindow.__hhsInstallPromptListenerAttached = true
+  window.addEventListener('beforeinstallprompt', (e: Event) => {
+    e.preventDefault()
+    installWindow.__hhsInstallPrompt = e as BeforeInstallPromptEvent
+  })
+}
+
+ensureInstallPromptCapture()
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -317,7 +345,7 @@ export default function PrelaunchHomePreview() {
   const [profile, setProfile] = useState<PreviewProfile | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [runningAsPwa, setRunningAsPwa] = useState(false)
-  const [canNativeInstall, setCanNativeInstall] = useState(false)
+  const [canNativeInstall, setCanNativeInstall] = useState(() => !!getCachedInstallPrompt())
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionState>('unsupported')
   const [hasPushSubscription, setHasPushSubscription] = useState(false)
   const [activeModal, setActiveModal] = useState<ChecklistKey | null>(null)
@@ -325,7 +353,7 @@ export default function PrelaunchHomePreview() {
   const [subscribing, setSubscribing] = useState(false)
   const [autoOpenedInstall, setAutoOpenedInstall] = useState(false)
   const [installPromptChecking, setInstallPromptChecking] = useState(false)
-  const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null)
+  const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(getCachedInstallPrompt())
   const installPromptCheckTimer = useRef<number | null>(null)
   const activeModalRef = useRef<ChecklistKey | null>(null)
 
@@ -337,9 +365,21 @@ export default function PrelaunchHomePreview() {
   }, [])
 
   useEffect(() => {
+    ensureInstallPromptCapture()
+    const syncCachedPrompt = window.setTimeout(() => {
+      const cachedPrompt = getCachedInstallPrompt()
+      if (cachedPrompt) {
+        deferredPrompt.current = cachedPrompt
+        setCanNativeInstall(true)
+        setInstallPromptChecking(false)
+      }
+    }, 0)
+
     const handler = (e: Event) => {
       e.preventDefault()
-      deferredPrompt.current = e as BeforeInstallPromptEvent
+      const prompt = e as BeforeInstallPromptEvent
+      setCachedInstallPrompt(prompt)
+      deferredPrompt.current = prompt
       setCanNativeInstall(true)
       setInstallPromptChecking(false)
       if (activeModalRef.current === 'install') {
@@ -351,7 +391,10 @@ export default function PrelaunchHomePreview() {
       }
     }
     window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    return () => {
+      window.clearTimeout(syncCachedPrompt)
+      window.removeEventListener('beforeinstallprompt', handler)
+    }
   }, [])
 
   const startInstallPromptCheck = useCallback(() => {
@@ -360,7 +403,14 @@ export default function PrelaunchHomePreview() {
       window.clearTimeout(installPromptCheckTimer.current)
       installPromptCheckTimer.current = null
     }
-    if (deferredPrompt.current || !canProbeForNativeInstall()) {
+    const cachedPrompt = deferredPrompt.current ?? getCachedInstallPrompt()
+    if (cachedPrompt) {
+      deferredPrompt.current = cachedPrompt
+      setCanNativeInstall(true)
+      setInstallPromptChecking(false)
+      return
+    }
+    if (!canProbeForNativeInstall()) {
       setInstallPromptChecking(false)
       return
     }
@@ -375,7 +425,7 @@ export default function PrelaunchHomePreview() {
   }, [])
 
   useEffect(() => {
-    startInstallPromptCheck()
+    const initialCheck = window.setTimeout(startInstallPromptCheck, 0)
 
     const checkWhenPageReturns = () => {
       if (document.visibilityState === 'hidden') return
@@ -387,6 +437,7 @@ export default function PrelaunchHomePreview() {
     document.addEventListener('visibilitychange', checkWhenPageReturns)
 
     return () => {
+      window.clearTimeout(initialCheck)
       if (installPromptCheckTimer.current) window.clearTimeout(installPromptCheckTimer.current)
       window.removeEventListener('focus', checkWhenPageReturns)
       window.removeEventListener('pageshow', checkWhenPageReturns)
@@ -625,22 +676,30 @@ export default function PrelaunchHomePreview() {
     if (!user || installDone) return
       window.setTimeout(() => {
         setAutoOpenedInstall(true)
+        activeModalRef.current = 'install'
         setActiveModal('install')
-        setActionMessage(installPromptChecking
+        startInstallPromptCheck()
+        const installPromptReady = !!(deferredPrompt.current ?? getCachedInstallPrompt())
+        setActionMessage(installPromptReady
+          ? 'Next step: install HHS to this phone. Tap the install button below, then open HHS from the new Home Screen app icon.'
+          : installPromptChecking || canProbeForNativeInstall()
           ? 'Next step: install HHS to this phone. HHS is waiting briefly for the browser install prompt after returning to this page; the install button will appear automatically if the browser exposes it.'
           : 'Next step: install HHS to this phone. Use the guided button or platform steps below, then open HHS from the new Home Screen app icon.')
       }, 0)
-  }, [autoOpenedInstall, installDone, installPromptChecking, user])
+  }, [autoOpenedInstall, installDone, installPromptChecking, startInstallPromptCheck, user])
 
   const handleNativeInstall = async () => {
-    const prompt = deferredPrompt.current
+    const prompt = deferredPrompt.current ?? getCachedInstallPrompt()
     if (!prompt) {
+      startInstallPromptCheck()
       setActionMessage(oneTapInstallUnavailableMessage())
       return
     }
+    deferredPrompt.current = prompt
     await prompt.prompt()
     const { outcome } = await prompt.userChoice
     deferredPrompt.current = null
+    setCachedInstallPrompt(null)
     setCanNativeInstall(false)
     if (outcome === 'accepted') {
       setActionMessage('Install accepted. Reopen HHS from the Home Screen icon so the app can verify and save the detected install.')
@@ -743,10 +802,13 @@ export default function PrelaunchHomePreview() {
       return
     }
     if (row.key === 'install' && !row.done) {
+      activeModalRef.current = 'install'
       setActiveModal(row.key)
-      if (canNativeInstall) {
+      startInstallPromptCheck()
+      const installPromptReady = canNativeInstall || !!(deferredPrompt.current ?? getCachedInstallPrompt())
+      if (installPromptReady) {
         setActionMessage('This browser can install HHS directly. Tap the install button below, then open HHS from the new Home Screen app icon.')
-      } else if (installPromptChecking) {
+      } else if (installPromptChecking || canProbeForNativeInstall()) {
         setActionMessage('One moment — HHS is waiting for this browser to report whether one-tap install is available. If it appears, the install button will show here automatically.')
       } else {
         setActionMessage('Use the instructions below to add HHS to your Home Screen, then open HHS from the new app icon.')
@@ -953,7 +1015,21 @@ export default function PrelaunchHomePreview() {
                 <h3 id="prelaunch-modal-title" style={{ color: 'var(--text)', fontFamily: displayFont, fontSize: '1.45rem', lineHeight: 1.1, margin: 0 }}>
                   {activeRow.label}
                 </h3>
-                <p style={{ color: 'var(--text-muted)', fontFamily: bodyFont, fontSize: '0.96rem', lineHeight: 1.5, margin: '0.35rem 0 0' }}>
+                <p style={{
+                  color: activeRow.key === 'install' && !activeRow.done ? 'var(--gold)' : 'var(--text-muted)',
+                  fontFamily: bodyFont,
+                  fontSize: '0.96rem',
+                  lineHeight: 1.5,
+                  margin: '0.35rem 0 0',
+                  ...(activeRow.key === 'install' && !activeRow.done
+                    ? {
+                        border: '1px solid rgba(217,124,43,0.28)',
+                        borderRadius: '10px',
+                        background: 'rgba(217,124,43,0.08)',
+                        padding: '0.55rem 0.7rem',
+                      }
+                    : {}),
+                }}>
                   {activeRow.summary}
                 </p>
               </div>
@@ -986,20 +1062,7 @@ export default function PrelaunchHomePreview() {
                     Install HHS to this phone
                   </button>
                 ) : null}
-                {!canNativeInstall && installPromptChecking && !detectInAppBrowser() ? (
-                  <p style={{ ...modalBodyStyle, border: '1px solid rgba(217,124,43,0.22)', borderRadius: '12px', padding: '0.75rem', background: 'rgba(217,124,43,0.08)' }}>
-                    Checking whether {getBrowserName()} can show a one-tap install prompt… keep this open for a moment. If the prompt becomes available, the install button will appear here automatically.
-                  </p>
-                ) : null}
-                {!canNativeInstall && !installPromptChecking && !detectInAppBrowser() ? (
-                  <p style={{ ...modalBodyStyle, border: '1px solid rgba(217,124,43,0.22)', borderRadius: '12px', padding: '0.75rem', background: 'rgba(217,124,43,0.08)' }}>
-                    {oneTapInstallUnavailableMessage()}
-                  </p>
-                ) : null}
                 <GuidanceSteps type="install" />
-                <p style={modalBodyStyle}>
-                  After installing, open <strong style={{ color: 'var(--text)' }}>HHS</strong> from the new Home Screen app icon. The installed app will reopen this setup checklist and mark the install row green when standalone mode is detected.
-                </p>
               </>
             ) : null}
 

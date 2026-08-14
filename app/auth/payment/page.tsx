@@ -68,14 +68,11 @@ export default function PaymentPage() {
 
     if (!tier) return
     openHhsVenmoPayment(tier)
-    window.setTimeout(() => {
-      router.push(`${HHS_SETUP_GATE_ROUTE}?setup=install`)
-    }, 1800)
   }
 
   const handleContinue = async () => {
     setContinuing(true)
-    router.push(`${HHS_SETUP_GATE_ROUTE}?setup=install`)
+    router.push(HHS_SETUP_GATE_ROUTE)
   }
 
   if (loading) {
@@ -200,7 +197,7 @@ export default function PaymentPage() {
                 borderRadius: 'var(--radius-sm)',
               }}
             >
-              {continuing ? 'Opening guided install...' : venmoClicked ? 'Continue to Guided App Install' : 'Pay with Venmo first'}
+              {continuing ? 'Opening membership checklist...' : venmoClicked ? 'Continue to Membership checklist' : 'Pay with Venmo first'}
             </button>
             {!venmoClicked && (
               <p style={{ textAlign: 'center', fontFamily: "'Crimson Text', serif", fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>

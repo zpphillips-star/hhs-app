@@ -359,6 +359,7 @@ export default function PrelaunchHomePreview() {
   const [subscribing, setSubscribing] = useState(false)
   const [autoOpenedInstall, setAutoOpenedInstall] = useState(false)
   const [installPromptChecking, setInstallPromptChecking] = useState(false)
+  const [installAccepted, setInstallAccepted] = useState(false)
   const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(getCachedInstallPrompt())
   const installPromptCheckTimer = useRef<number | null>(null)
   const activeModalRef = useRef<ChecklistKey | null>(null)
@@ -708,8 +709,10 @@ export default function PrelaunchHomePreview() {
     setCachedInstallPrompt(null)
     setCanNativeInstall(false)
     if (outcome === 'accepted') {
-      setActionMessage('Install accepted. Reopen HHS from the Home Screen icon so the app can verify and save the detected install.')
+      setInstallAccepted(true)
+      setActionMessage(null)
     } else {
+      setInstallAccepted(false)
       setActionMessage('Install was dismissed. You can still use the manual steps below.')
     }
   }
@@ -1050,6 +1053,16 @@ export default function PrelaunchHomePreview() {
                 <p style={modalBodyStyle}>
                   Current value: <strong style={{ color: 'var(--text)' }}>{activeRow.value}</strong>.
                 </p>
+                {installAccepted ? (
+                  <div style={installAcceptedBox}>
+                    <p style={installAcceptedTitle}>
+                      HHS is installed. Now close this browser and open HHS from your phone Home Screen.
+                    </p>
+                    <p style={installAcceptedHelp}>
+                      If this step still looks red, you’re probably still in your browser. Open the HHS icon from your Home Screen.
+                    </p>
+                  </div>
+                ) : null}
                 {detectInAppBrowser() ? (
                   <p style={{ ...modalBodyStyle, border: '1px solid rgba(248,113,113,0.28)', borderRadius: '12px', padding: '0.75rem', background: 'rgba(239,68,68,0.08)' }}>
                     HHS can only be installed from a real browser. This looks like an in-app browser, so follow the first step below to open Safari, Chrome, Edge, or Samsung Internet.
@@ -1189,6 +1202,33 @@ const secondaryButtonStyle: React.CSSProperties = {
   padding: '0.8rem 1rem',
   textTransform: 'uppercase',
 }
+
+
+const installAcceptedBox: React.CSSProperties = {
+  background: 'rgba(255,140,0,0.13)',
+  border: '2px solid rgba(255,140,0,0.65)',
+  borderRadius: '12px',
+  padding: '1rem',
+  marginBottom: '1rem',
+}
+
+const installAcceptedTitle: React.CSSProperties = {
+  color: '#ff8c00',
+  fontFamily: displayFont,
+  fontSize: '1.12rem',
+  fontWeight: 900,
+  lineHeight: 1.35,
+  margin: '0 0 0.65rem',
+}
+
+const installAcceptedHelp: React.CSSProperties = {
+  color: 'var(--text)',
+  fontFamily: bodyFont,
+  fontSize: '0.96rem',
+  lineHeight: 1.55,
+  margin: 0,
+}
+
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)

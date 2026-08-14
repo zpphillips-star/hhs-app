@@ -74,6 +74,7 @@ export default function WelcomePage() {
   const [canNativeInstall, setCanNativeInstall] = useState(() => !!getCachedInstallPrompt())
   const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(() => getNotificationPermissionState())
   const [subscribing, setSubscribing] = useState(false)
+  const [installAccepted, setInstallAccepted] = useState(false)
 
   const refreshNotificationPermission = useCallback(() => {
     setNotifPermission(getNotificationPermissionState())
@@ -200,14 +201,17 @@ export default function WelcomePage() {
     setCachedInstallPrompt(null)
     setCanNativeInstall(false)
     if (outcome === 'accepted') {
-      await markPWA(userId)
-      setTimeout(() => setStep('notify'), 500)
+      setInstallAccepted(true)
     }
   }
 
   const goToNotify = async () => {
-    await markPWA(userId)
-    setStep('notify')
+    if (isPWA()) {
+      await markPWA(userId)
+      setStep('notify')
+      return
+    }
+    setInstallAccepted(true)
   }
 
   const finish = () => {
@@ -260,7 +264,18 @@ export default function WelcomePage() {
               Add HHS to your Home Screen, then continue to beer notifications.
             </p>
 
-            {canNativeInstall ? (
+            {installAccepted ? (
+              <>
+                <div style={installAcceptedBox}>
+                  <p style={installAcceptedTitle}>
+                    HHS is installed. Now close this browser and open HHS from your phone Home Screen.
+                  </p>
+                  <p style={installAcceptedHelp}>
+                    If this step still looks red, you’re probably still in your browser. Open the HHS icon from your Home Screen.
+                  </p>
+                </div>
+              </>
+            ) : canNativeInstall ? (
               <>
                 <button onClick={handleAndroidInstall} style={{ ...btnPrimary, marginBottom: '0.75rem' }}>
                   Install HHS
@@ -462,6 +477,34 @@ const infoBox: React.CSSProperties = {
   flexDirection: 'column',
   gap: '0.75rem',
 }
+
+
+const installAcceptedBox: React.CSSProperties = {
+  background: 'rgba(255,140,0,0.13)',
+  border: '2px solid rgba(255,140,0,0.65)',
+  borderRadius: '12px',
+  padding: '1rem',
+  marginBottom: '1rem',
+}
+
+const installAcceptedTitle: React.CSSProperties = {
+  color: '#ff8c00',
+  fontFamily: "'Modern Antiqua', serif",
+  fontSize: '1.15rem',
+  fontWeight: 900,
+  lineHeight: 1.35,
+  margin: '0 0 0.65rem',
+  textAlign: 'center',
+}
+
+const installAcceptedHelp: React.CSSProperties = {
+  color: 'var(--text)',
+  fontSize: '0.9rem',
+  lineHeight: 1.55,
+  margin: 0,
+  textAlign: 'center',
+}
+
 
 const infoStep: React.CSSProperties = {
   color: 'var(--text)',

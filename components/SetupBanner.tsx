@@ -308,9 +308,12 @@ export default function SetupBanner() {
             </p>
 
             {installAccepted && (
-              <div style={{ ...infoBox, borderColor: 'rgba(74,222,128,0.28)', background: 'rgba(34,197,94,0.09)' }}>
-                <p style={{ color: '#bbf7d0', fontSize: '0.88rem', margin: 0, lineHeight: 1.6 }}>
-                  Install started. Open <strong>HHS</strong> from the new Home Screen app icon. When it opens there, HHS will detect the install and continue with notifications.
+              <div style={installAcceptedBox}>
+                <p style={installAcceptedTitle}>
+                  HHS is installed. Now close this browser and open HHS from your phone Home Screen.
+                </p>
+                <p style={installAcceptedHelp}>
+                  If this step still looks red, you’re probably still in your browser. Open the HHS icon from your Home Screen.
                 </p>
               </div>
             )}
@@ -457,4 +460,30 @@ function urlBase64ToUint8Array(base64String: string) {
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
   const rawData = window.atob(base64)
   return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)))
+}
+
+const installAcceptedBox: React.CSSProperties = {
+  background: 'rgba(255,140,0,0.13)',
+  border: '2px solid rgba(255,140,0,0.65)',
+  borderRadius: '12px',
+  padding: '1rem',
+  marginBottom: '1rem',
+}
+
+const installAcceptedTitle: React.CSSProperties = {
+  color: '#ff8c00',
+  fontFamily: "'Modern Antiqua', serif",
+  fontSize: '1.08rem',
+  fontWeight: 900,
+  lineHeight: 1.35,
+  margin: '0 0 0.65rem',
+  textAlign: 'center',
+}
+
+const installAcceptedHelp: React.CSSProperties = {
+  color: 'var(--text)',
+  fontSize: '0.88rem',
+  lineHeight: 1.55,
+  margin: 0,
+  textAlign: 'center',
 }

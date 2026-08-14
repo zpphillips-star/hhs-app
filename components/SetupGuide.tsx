@@ -73,6 +73,31 @@ function browserLabel(b: BrowserName): string {
   return { chrome: 'Chrome', edge: 'Edge', brave: 'Brave', samsung: 'Samsung Internet', opera: 'Opera', firefox: 'Firefox', safari: 'Safari', other: 'your browser' }[b]
 }
 
+
+const installAcceptedBox: React.CSSProperties = {
+  background: 'rgba(255,140,0,0.13)',
+  border: '2px solid rgba(255,140,0,0.65)',
+  borderRadius: '12px',
+  padding: '1rem',
+  marginBottom: '1rem',
+}
+
+const installAcceptedTitle: React.CSSProperties = {
+  color: '#ff8c00',
+  fontFamily: "'Modern Antiqua', serif",
+  fontSize: '1.08rem',
+  fontWeight: 900,
+  lineHeight: 1.35,
+  margin: '0 0 0.65rem',
+}
+
+const installAcceptedHelp: React.CSSProperties = {
+  color: 'var(--text)',
+  fontSize: '0.88rem',
+  lineHeight: 1.55,
+  margin: 0,
+}
+
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
@@ -345,9 +370,12 @@ export default function SetupGuide({ userId }: { userId: string }) {
           </p>
 
           {installAccepted && (
-            <div style={{ background: 'rgba(34,197,94,0.09)', border: '1px solid rgba(74,222,128,0.28)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
-              <p style={{ color: '#bbf7d0', fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
-                Install started. Continue by opening <strong>HHS</strong> from the new Home Screen app icon. When it opens there, HHS will detect the install and show notifications as the only setup action left.
+            <div style={installAcceptedBox}>
+              <p style={installAcceptedTitle}>
+                HHS is installed. Now close this browser and open HHS from your phone Home Screen.
+              </p>
+              <p style={installAcceptedHelp}>
+                If this step still looks red, you’re probably still in your browser. Open the HHS icon from your Home Screen.
               </p>
             </div>
           )}

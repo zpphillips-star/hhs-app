@@ -1016,7 +1016,7 @@ export default function PrelaunchHomePreview() {
                   {activeRow.label}
                 </h3>
                 <p style={{
-                  color: 'var(--text-muted)',
+                  color: activeRow.key === 'install' ? 'var(--gold)' : 'var(--text-muted)',
                   fontFamily: bodyFont,
                   fontSize: '0.96rem',
                   lineHeight: 1.5,

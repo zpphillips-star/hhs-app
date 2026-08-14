@@ -1010,25 +1010,17 @@ export default function PrelaunchHomePreview() {
           />
           <div style={{ position: 'fixed', zIndex: 41, left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: 'min(460px, 92vw)', maxHeight: '86vh', overflow: 'auto', background: 'var(--bg-card)', border: '1px solid rgba(217,124,43,0.34)', borderRadius: '18px', padding: '1.5rem', boxShadow: '0 32px 96px rgba(0,0,0,0.75)' }}>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
-              <CheckIcon done={activeRow.done} />
+              {activeRow.key === 'install' && !activeRow.done ? null : <CheckIcon done={activeRow.done} />}
               <div>
                 <h3 id="prelaunch-modal-title" style={{ color: 'var(--text)', fontFamily: displayFont, fontSize: '1.45rem', lineHeight: 1.1, margin: 0 }}>
                   {activeRow.label}
                 </h3>
                 <p style={{
-                  color: activeRow.key === 'install' && !activeRow.done ? 'var(--gold)' : 'var(--text-muted)',
+                  color: 'var(--text-muted)',
                   fontFamily: bodyFont,
                   fontSize: '0.96rem',
                   lineHeight: 1.5,
                   margin: '0.35rem 0 0',
-                  ...(activeRow.key === 'install' && !activeRow.done
-                    ? {
-                        border: '1px solid rgba(217,124,43,0.28)',
-                        borderRadius: '10px',
-                        background: 'rgba(217,124,43,0.08)',
-                        padding: '0.55rem 0.7rem',
-                      }
-                    : {}),
                 }}>
                   {activeRow.summary}
                 </p>
@@ -1118,7 +1110,7 @@ export default function PrelaunchHomePreview() {
               </>
             ) : null}
 
-            {actionMessage ? (
+            {actionMessage && activeRow.key !== 'install' ? (
               <p style={{ ...modalBodyStyle, border: '1px solid rgba(217,124,43,0.22)', borderRadius: '12px', padding: '0.75rem', background: 'rgba(217,124,43,0.08)' }}>
                 {actionMessage}
               </p>

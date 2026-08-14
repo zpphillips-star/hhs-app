@@ -44,15 +44,34 @@ function oneTapInstallUnavailableMessage() {
   }
   return `${browser} did not show a one-tap install button. Use the browser menu: Install app or Add to Home screen.`
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let deferredPrompt: any = null
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
+type InstallPromptWindow = Window & {
+  __hhsInstallPrompt?: BeforeInstallPromptEvent | null
+}
+function getCachedInstallPrompt() {
+  if (typeof window === 'undefined') return null
+  return (window as InstallPromptWindow).__hhsInstallPrompt ?? null
+}
+function setCachedInstallPrompt(prompt: BeforeInstallPromptEvent | null) {
+  if (typeof window === 'undefined') return
+  ;(window as InstallPromptWindow).__hhsInstallPrompt = prompt
+}
+function canRefreshForNativeInstall() {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  return isAndroid() && !isPWA() && (/Chrome\/|EdgA\//.test(ua)) && !/SamsungBrowser|OPR\/|Opera|Firefox|FBAN|FBAV|Instagram|; wv\)?|\bwv\)/i.test(ua)
+}
+let deferredPrompt: BeforeInstallPromptEvent | null = null
 
 export default function WelcomePage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>('welcome')
   const [firstName, setFirstName] = useState('')
   const [userId, setUserId] = useState('')
-  const [canNativeInstall, setCanNativeInstall] = useState(false)
+  const [canNativeInstall, setCanNativeInstall] = useState(() => !!getCachedInstallPrompt())
   const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(() => getNotificationPermissionState())
   const [subscribing, setSubscribing] = useState(false)
 
@@ -77,13 +96,25 @@ export default function WelcomePage() {
 
   // Capture Android install prompt
   useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault()
-      deferredPrompt = e
+    const syncCachedPrompt = () => {
+      const cachedPrompt = getCachedInstallPrompt()
+      if (!cachedPrompt) return
+      deferredPrompt = cachedPrompt
       setCanNativeInstall(true)
     }
+    const handler = (e: Event) => {
+      e.preventDefault()
+      deferredPrompt = e as BeforeInstallPromptEvent
+      setCachedInstallPrompt(deferredPrompt)
+      setCanNativeInstall(true)
+    }
+    syncCachedPrompt()
     window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    window.addEventListener('hhs-beforeinstallprompt', syncCachedPrompt)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('hhs-beforeinstallprompt', syncCachedPrompt)
+    }
   }, [])
 
   // Native app guard — if running inside the HHS native WebView, this page is
@@ -166,6 +197,7 @@ export default function WelcomePage() {
     deferredPrompt.prompt()
     const { outcome } = await deferredPrompt.userChoice
     deferredPrompt = null
+    setCachedInstallPrompt(null)
     setCanNativeInstall(false)
     if (outcome === 'accepted') {
       await markPWA(userId)
@@ -258,6 +290,11 @@ export default function WelcomePage() {
                     {oneTapInstallUnavailableMessage()}
                   </p>
                 </div>
+                {canRefreshForNativeInstall() && (
+                  <button onClick={() => window.location.reload()} style={{ ...btnSecondary, marginBottom: '0.75rem' }}>
+                    Refresh install check
+                  </button>
+                )}
                 <button onClick={goToNotify} style={{ ...btnPrimary, marginTop: '1.25rem' }}>
                   Continue to notifications →
                 </button>

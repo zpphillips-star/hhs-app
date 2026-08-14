@@ -156,6 +156,12 @@ function canProbeForNativeInstall() {
   return typeof window !== 'undefined' && isAndroid() && !isPWA() && !detectInAppBrowser()
 }
 
+function canRefreshForNativeInstall() {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  return canProbeForNativeInstall() && (/Chrome\/|EdgA\//.test(ua)) && !/SamsungBrowser|OPR\/|Opera|Firefox|FBAN|FBAV|Instagram|; wv\)?|\bwv\)/i.test(ua)
+}
+
 function getCachedInstallPrompt() {
   if (typeof window === 'undefined') return null
   return (window as InstallPromptWindow).__hhsInstallPrompt ?? null
@@ -1055,6 +1061,16 @@ export default function PrelaunchHomePreview() {
                   </button>
                 ) : null}
                 <GuidanceSteps type="install" />
+                {!canNativeInstall && canRefreshForNativeInstall() ? (
+                  <div style={{ border: '1px solid rgba(217,124,43,0.22)', borderRadius: '12px', padding: '0.75rem', background: 'rgba(217,124,43,0.08)', marginTop: '0.85rem' }}>
+                    <p style={{ ...modalBodyStyle, marginBottom: '0.75rem' }}>
+                      If this is your first time opening HHS in Chrome or Edge and the install button is missing, the browser may still be finishing its first PWA installability check. Refresh once, then reopen this install step.
+                    </p>
+                    <button type="button" onClick={() => window.location.reload()} style={secondaryButtonStyle}>
+                      Refresh install check
+                    </button>
+                  </div>
+                ) : null}
               </>
             ) : null}
 

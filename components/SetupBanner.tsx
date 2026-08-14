@@ -54,6 +54,22 @@ type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
 }
+type InstallPromptWindow = Window & {
+  __hhsInstallPrompt?: BeforeInstallPromptEvent | null
+}
+function getCachedInstallPrompt() {
+  if (typeof window === 'undefined') return null
+  return (window as InstallPromptWindow).__hhsInstallPrompt ?? null
+}
+function setCachedInstallPrompt(prompt: BeforeInstallPromptEvent | null) {
+  if (typeof window === 'undefined') return
+  ;(window as InstallPromptWindow).__hhsInstallPrompt = prompt
+}
+function canRefreshForNativeInstall() {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  return isAndroid() && !isPWA() && (/Chrome\/|EdgA\//.test(ua)) && !/SamsungBrowser|OPR\/|Opera|Firefox|FBAN|FBAV|Instagram|; wv\)?|\bwv\)/i.test(ua)
+}
 
 type Step = 'install' | 'notify' | 'done'
 
@@ -61,13 +77,13 @@ export default function SetupBanner() {
   const pathname = usePathname()
   const [userId, setUserId] = useState<string | null>(null)
   const [step, setStep] = useState<Step | null>(null)
-  const [canNativeInstall, setCanNativeInstall] = useState(false)
+  const [canNativeInstall, setCanNativeInstall] = useState(() => !!getCachedInstallPrompt())
   const [showInstallSteps, setShowInstallSteps] = useState(false)
   const [installAccepted, setInstallAccepted] = useState(false)
   const [subscribing, setSubscribing] = useState(false)
   const [notifBlocked, setNotifBlocked] = useState(false)
   const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(() => getNotificationPermissionState())
-  const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null)
+  const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(getCachedInstallPrompt())
   const isNative = isNativeApp()
   const suppressOnRoute =
     pathname === '/welcome' ||
@@ -77,13 +93,25 @@ export default function SetupBanner() {
 
   // Capture native install prompt (Android/desktop Chrome/Edge)
   useEffect(() => {
+    const syncCachedPrompt = () => {
+      const cachedPrompt = getCachedInstallPrompt()
+      if (!cachedPrompt) return
+      deferredPrompt.current = cachedPrompt
+      setCanNativeInstall(true)
+    }
     const handler = (e: Event) => {
       e.preventDefault()
       deferredPrompt.current = e as BeforeInstallPromptEvent
+      setCachedInstallPrompt(deferredPrompt.current)
       setCanNativeInstall(true)
     }
+    syncCachedPrompt()
     window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    window.addEventListener('hhs-beforeinstallprompt', syncCachedPrompt)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('hhs-beforeinstallprompt', syncCachedPrompt)
+    }
   }, [])
 
   const evaluateSetupState = useCallback(async () => {
@@ -188,6 +216,7 @@ export default function SetupBanner() {
     await prompt.prompt()
     const { outcome } = await prompt.userChoice
     deferredPrompt.current = null
+    setCachedInstallPrompt(null)
     setCanNativeInstall(false)
     if (outcome === 'accepted') setInstallAccepted(true)
   }
@@ -319,6 +348,11 @@ export default function SetupBanner() {
                       </p>
                     )}
                   </div>
+                )}
+                {canRefreshForNativeInstall() && (
+                  <button onClick={() => window.location.reload()} style={{ ...btnPrimary, background: 'transparent', border: '1px solid rgba(255,140,0,0.4)', color: 'var(--gold)' }}>
+                    Refresh install check
+                  </button>
                 )}
 
                 {/* Once they've done it manually, let them confirm */}

@@ -89,31 +89,59 @@ type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
 }
+type InstallPromptWindow = Window & {
+  __hhsInstallPrompt?: BeforeInstallPromptEvent | null
+}
+function getCachedInstallPrompt() {
+  if (typeof window === 'undefined') return null
+  return (window as InstallPromptWindow).__hhsInstallPrompt ?? null
+}
+function setCachedInstallPrompt(prompt: BeforeInstallPromptEvent | null) {
+  if (typeof window === 'undefined') return
+  ;(window as InstallPromptWindow).__hhsInstallPrompt = prompt
+}
+function canRefreshForNativeInstall() {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  return !isIOS() && /Android/i.test(ua) && !isPWA() && (/Chrome\/|EdgA\//.test(ua)) && !/SamsungBrowser|OPR\/|Opera|Firefox|FBAN|FBAV|Instagram|; wv\)?|\bwv\)/i.test(ua)
+}
 
 export default function SetupGuide({ userId }: { userId: string }) {
   const [step, setStep] = useState<Step | null>(null)
   const [, setNotifStatus] = useState<NotificationPermission | null>(null)
   const [subscribing, setSubscribing] = useState(false)
   const [dismissed, setDismissed] = useState(false)
-  const [canPromptInstall, setCanPromptInstall] = useState(false)
+  const [canPromptInstall, setCanPromptInstall] = useState(() => !!getCachedInstallPrompt())
   const [notifBlocked, setNotifBlocked] = useState(false)
   const [inAppBrowser, setInAppBrowser] = useState<InAppType>(null)
   const [installAccepted, setInstallAccepted] = useState(false)
   const [currentBrowser] = useState<BrowserName>(() =>
     typeof navigator === 'undefined' ? 'other' : detectCurrentBrowser()
   )
-  const deferredInstallPrompt = useRef<BeforeInstallPromptEvent | null>(null)
+  const deferredInstallPrompt = useRef<BeforeInstallPromptEvent | null>(getCachedInstallPrompt())
   const nativeApp = isNativeApp()
 
   // Don't render at all in the native app — install/PWA prompts are not applicable
   useEffect(() => {
+    const syncCachedPrompt = () => {
+      const cachedPrompt = getCachedInstallPrompt()
+      if (!cachedPrompt) return
+      deferredInstallPrompt.current = cachedPrompt
+      setCanPromptInstall(true)
+    }
     const handler = (e: Event) => {
       e.preventDefault()
       deferredInstallPrompt.current = e as BeforeInstallPromptEvent
+      setCachedInstallPrompt(deferredInstallPrompt.current)
       setCanPromptInstall(true)
     }
+    syncCachedPrompt()
     window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    window.addEventListener('hhs-beforeinstallprompt', syncCachedPrompt)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('hhs-beforeinstallprompt', syncCachedPrompt)
+    }
   }, [])
 
   async function proceedToSetup() {
@@ -204,6 +232,7 @@ export default function SetupGuide({ userId }: { userId: string }) {
     await prompt.prompt()
     const { outcome } = await prompt.userChoice
     deferredInstallPrompt.current = null
+    setCachedInstallPrompt(null)
     setCanPromptInstall(false)
     if (outcome === 'accepted') {
       setInstallAccepted(true)
@@ -354,18 +383,24 @@ export default function SetupGuide({ userId }: { userId: string }) {
             </div>
           )}
 
-          {!canPromptInstall && !isIOS() && !installAccepted && (
-            <div style={{ background: 'rgba(255,140,0,0.07)', border: '1px solid rgba(255,140,0,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+              {!canPromptInstall && !isIOS() && !installAccepted && (
+                <div style={{ background: 'rgba(255,140,0,0.07)', border: '1px solid rgba(255,140,0,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
               <p style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
                 {browserLabel(currentBrowser)}
               </p>
               <p style={{ color: 'var(--text)', fontSize: '0.875rem', lineHeight: 1.6, margin: 0 }}>
                 {androidManualInstallInstructions[currentBrowser]}
               </p>
-            </div>
-          )}
+                </div>
+              )}
+              {!canPromptInstall && canRefreshForNativeInstall() && !installAccepted && (
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{ width: '100%', padding: '0.75rem', background: 'transparent', border: '1px solid rgba(255,140,0,0.4)', borderRadius: '10px', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.82rem', cursor: 'pointer', letterSpacing: '0.1em', marginBottom: '0.65rem' }}
+                >Refresh install check</button>
+              )}
 
-          <button
+              <button
             onClick={installAccepted ? () => setDismissed(true) : continueToNotifications}
             style={{ width: '100%', padding: '0.75rem', background: 'transparent', border: '1px solid rgba(255,140,0,0.4)', borderRadius: '10px', color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.82rem', cursor: 'pointer', letterSpacing: '0.1em', marginBottom: '0.65rem' }}
           >{installAccepted ? 'I’ll open HHS from the app icon' : 'I installed it — check again →'}</button>

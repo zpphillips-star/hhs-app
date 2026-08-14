@@ -1,3 +1,8 @@
+self.addEventListener('fetch', function () {
+  // Intentionally no custom fetch handling. Registering the fetch listener keeps
+  // the PWA install contract explicit while preserving normal network behavior.
+})
+
 self.addEventListener('push', function (event) {
   const data = event.data ? event.data.json() : {}
   const title = data.title || 'Hallowed Hop Society'

@@ -56,16 +56,30 @@ export default function RootLayout({
             } catch (_) {}
           })();
         `}} />
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            try {
+              if (window.__hhsInstallPromptListenerAttached) return;
+              window.__hhsInstallPromptListenerAttached = true;
+              window.addEventListener('beforeinstallprompt', function(event) {
+                event.preventDefault();
+                window.__hhsInstallPrompt = event;
+                try { window.dispatchEvent(new Event('hhs-beforeinstallprompt')); } catch (_) {}
+              });
+            } catch (_) {}
+          })();
+        `}} />
       </head>
       <body className="min-h-full flex flex-col" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
         <LaunchHomeRedirect />
         <RouteAuthGuard>{children}</RouteAuthGuard>
         <script dangerouslySetInnerHTML={{ __html: `
-          if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-              navigator.serviceWorker.register('/sw.js');
-            });
-          }
+          (function() {
+            if (!('serviceWorker' in navigator)) return;
+            try {
+              navigator.serviceWorker.register('/sw.js').catch(function() {});
+            } catch (_) {}
+          })();
         `}} />
       </body>
     </html>

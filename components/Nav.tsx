@@ -164,7 +164,7 @@ export default function Nav({ user }: Props) {
           >
             {mobileLinks.map(link => {
               const activePaths = 'activePaths' in link && link.activePaths ? link.activePaths : [link.href]
-              const isActive = link.href === '/' ? pathname === '/' : activePaths.includes(pathname)
+              const isActive = link.href === '/' ? (pathname === '/' || pathname === '/pre-october') : activePaths.includes(pathname)
               return (
                 <Link
                   key={link.href}

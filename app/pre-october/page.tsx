@@ -184,6 +184,22 @@ export default function PreOctoberPage() {
           ))}
         </div>
 
+        {/* ── Brewery map ── */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brewery-map-north-sound-v3.png"
+          alt="North Sound Brewery Map — Hallowed Hop Society 2026 territory"
+          style={{
+            display: 'block',
+            margin: '0 auto 2.5rem',
+            maxWidth: '100%',
+            width: '680px',
+            height: 'auto',
+            borderRadius: '14px',
+            opacity: 0.93,
+          }}
+        />
+
         {/* ── Daily Beer Fact ── */}
         {dailyFact && (
           <div style={{
@@ -216,22 +232,6 @@ export default function PreOctoberPage() {
             </p>
           </div>
         )}
-
-        {/* ── Brewery map ── */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/brewery-map-north-sound-v2.png"
-          alt="North Sound Brewery Map — Hallowed Hop Society 2026 territory"
-          style={{
-            display: 'block',
-            margin: '0 auto',
-            maxWidth: '100%',
-            width: '680px',
-            height: 'auto',
-            borderRadius: '14px',
-            opacity: 0.93,
-          }}
-        />
 
       </section>
     </div>

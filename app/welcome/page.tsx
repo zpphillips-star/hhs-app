@@ -288,7 +288,7 @@ export default function WelcomePage() {
               <>
                 <div style={infoBox}>
                   <p style={infoStep}><span style={dot}>1</span> Open this page in Safari.</p>
-                  <p style={infoStep}><span style={dot}>2</span> Tap Share → <strong style={{ color: 'var(--gold)' }}>Add to Home Screen</strong> → Add.</p>
+                  <p style={infoStep}><span style={dot}>2</span> Tap the More button (3 ellipsis) → tap Share → <strong style={{ color: 'var(--gold)' }}>Add to Home Screen</strong> → Add.</p>
                   <p style={infoStep}><span style={dot}>3</span> Open HHS from the new Home Screen icon.</p>
                 </div>
                 <button onClick={goToNotify} style={{ ...btnPrimary, marginTop: '1.25rem' }}>

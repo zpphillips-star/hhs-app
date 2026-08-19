@@ -1,36 +1,53 @@
 'use client'
 
-/**
- * Pre-October landing page (temporary)
- * ─────────────────────────────────────
- * Step 1 of pre-Oct launch work.
- * Isolated route – NOT yet wired to any nav or redirect.
- * Shows an Oct 1 countdown (same typography as /about) and
- * the "Brewery Map – North Sound" apparel image beneath it.
- *
- * To wire later: replace the redirect target in LaunchHomeRedirect /
- * the Home button with `/pre-october` until Oct 1 passes.
- */
-
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import Nav from '@/components/Nav'
+import Link from 'next/link'
+import { OCT_1_2026_UTC_MS } from '@/lib/october'
 
-const pad = (n: number) => String(n).padStart(2, '0')
+function getNativeAppMode(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const params = new URLSearchParams(window.location.search)
+    return (
+      params.get('hhs_app') === '1' ||
+      !!(window as { __HHS_NATIVE_APP__?: boolean }).__HHS_NATIVE_APP__ ||
+      localStorage.getItem('__hhs_native_app__') === '1'
+    )
+  } catch {
+    return false
+  }
+}
 
-function useOct1Countdown() {
+export default function PreOctoberPage() {
+  const router = useRouter()
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
+  const [nativeApp] = useState(getNativeAppMode)
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
 
+  // Once Oct 1 arrives, hand off to the regular home/Today route
+  useEffect(() => {
+    if (Date.now() >= OCT_1_2026_UTC_MS) {
+      router.replace('/')
+    }
+  }, [router])
+
+  // Auth — needed to pass user prop to Nav
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
+  }, [])
+
+  // Live countdown to Oct 1 2026 Pacific midnight
   useEffect(() => {
     const tick = () => {
-      const now = new Date()
-      const oct1 = new Date(now.getFullYear(), 9, 1) // month is 0-indexed; 9 = October
-      if (now >= oct1) oct1.setFullYear(oct1.getFullYear() + 1)
-      const diff = oct1.getTime() - now.getTime()
+      const diff = Math.max(0, OCT_1_2026_UTC_MS - Date.now())
       setCountdown({
-        days: Math.floor(diff / 86_400_000),
-        hours: Math.floor((diff % 86_400_000) / 3_600_000),
-        minutes: Math.floor((diff % 3_600_000) / 60_000),
-        seconds: Math.floor((diff % 60_000) / 1_000),
+        days: Math.floor(diff / 86400000),
+        hours: Math.floor((diff % 86400000) / 3600000),
+        minutes: Math.floor((diff % 3600000) / 60000),
+        seconds: Math.floor((diff % 60000) / 1000),
       })
     }
     tick()
@@ -38,162 +55,111 @@ function useOct1Countdown() {
     return () => clearInterval(id)
   }, [])
 
-  return countdown
-}
-
-export default function PreOctoberPage() {
-  const countdown = useOct1Countdown()
+  const pad = (n: number) => String(n).padStart(2, '0')
 
   return (
-    <div
-      style={{
-        minHeight: '100dvh',
-        background: 'var(--bg)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '4rem 1.5rem 5rem',
-      }}
-    >
-      {/* ── Logo ─────────────────────────────────────────────────────── */}
-      <Image
-        src="/hhs_no_circles_300dpi.webp"
-        alt="Hallowed Hop Society"
-        width={80}
-        height={80}
-        style={{ opacity: 0.9, marginBottom: '2.5rem' }}
-        priority
-      />
+    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
+      {!nativeApp && <Nav user={user} />}
 
-      {/* ── Heading ───────────────────────────────────────────────────── */}
-      <h1
-        style={{
-          fontFamily: "'Modern Antiqua', serif",
-          color: 'var(--text)',
-          fontSize: 'clamp(2rem, 6vw, 3.5rem)',
-          fontWeight: 900,
-          letterSpacing: '0.06em',
-          textAlign: 'center',
-          lineHeight: 1.1,
-          marginBottom: '0.6rem',
-        }}
-      >
-        HALLOWED
-        <br />
-        HOP SOCIETY
-      </h1>
+      {/* ── Countdown ── */}
+      <section style={{ textAlign: 'center', padding: 'clamp(2.5rem, 5vw, 4rem) 1.5rem 0' }}>
 
-      <p
-        style={{
+        <p style={{
           fontFamily: "'Modern Antiqua', serif",
-          color: 'var(--gold)',
+          color: 'var(--text-muted)',
           fontSize: '0.7rem',
           letterSpacing: '0.35em',
           textTransform: 'uppercase',
-          marginBottom: '3rem',
-          textAlign: 'center',
-        }}
-      >
-        October 2026
-      </p>
-
-      {/* ── Countdown ─────────────────────────────────────────────────── */}
-      <p
-        style={{
-          fontFamily: "'Modern Antiqua', serif",
-          color: 'var(--text-muted)',
-          fontSize: '0.75rem',
-          letterSpacing: '0.3em',
-          textTransform: 'uppercase',
           marginBottom: '1.75rem',
-          textAlign: 'center',
-        }}
-      >
-        The ritual begins in
-      </p>
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 'clamp(1.25rem, 4vw, 3rem)',
-          marginBottom: '4rem',
-        }}
-      >
-        {[
-          { val: countdown.days, label: 'Days' },
-          { val: countdown.hours, label: 'Hours' },
-          { val: countdown.minutes, label: 'Minutes' },
-          { val: countdown.seconds, label: 'Seconds' },
-        ].map(({ val, label }) => (
-          <div key={label} style={{ textAlign: 'center' }}>
-            <div
-              style={{
-                fontFamily: "'Modern Antiqua', serif",
-                color: 'var(--gold)',
-                fontSize: 'clamp(2.5rem, 6vw, 4.5rem)',
-                fontWeight: 700,
-                lineHeight: 1,
-              }}
-            >
-              {pad(val)}
-            </div>
-            <div
-              style={{
-                fontFamily: "'Modern Antiqua', serif",
-                color: 'var(--text-muted)',
-                fontSize: '0.7rem',
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-                marginTop: '0.5rem',
-              }}
-            >
-              {label}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Divider ───────────────────────────────────────────────────── */}
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '560px',
-          borderTop: '2px solid var(--border)',
-          marginBottom: '3.5rem',
-        }}
-      />
-
-      {/* ── Brewery Map ───────────────────────────────────────────────── */}
-      <div style={{ width: '100%', maxWidth: '600px', textAlign: 'center' }}>
-        <p
-          style={{
-            fontFamily: "'Modern Antiqua', serif",
-            color: 'var(--text-muted)',
-            fontSize: '0.7rem',
-            letterSpacing: '0.28em',
-            textTransform: 'uppercase',
-            marginBottom: '1.25rem',
-          }}
-        >
-          North Sound Breweries
+        }}>
+          October 2026 · The Ritual Begins In
         </p>
 
-        <Image
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(1.25rem, 5vw, 3.5rem)', marginBottom: '3rem' }}>
+          {[
+            { val: countdown.days,    label: 'Days'    },
+            { val: countdown.hours,   label: 'Hours'   },
+            { val: countdown.minutes, label: 'Minutes' },
+            { val: countdown.seconds, label: 'Seconds' },
+          ].map(({ val, label }) => (
+            <div key={label} style={{ textAlign: 'center' }}>
+              <div style={{
+                fontFamily: "'Modern Antiqua', serif",
+                color: 'var(--gold)',
+                fontSize: 'clamp(2.75rem, 8vw, 5rem)',
+                fontWeight: 700,
+                lineHeight: 1,
+                letterSpacing: '0.04em',
+              }}>
+                {pad(val)}
+              </div>
+              <div style={{
+                fontFamily: "'Modern Antiqua', serif",
+                color: 'var(--text-muted)',
+                fontSize: '0.65rem',
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                marginTop: '0.5rem',
+              }}>
+                {label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Brewery map ── */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src="/brewery-map-north-sound.png"
-          alt="Brewery map – North Sound region"
-          width={1200}
-          height={1200}
+          alt="North Sound Brewery Map — Hallowed Hop Society 2026 territory"
           style={{
-            width: '100%',
+            display: 'block',
+            margin: '0 auto',
+            maxWidth: '100%',
+            width: '680px',
             height: 'auto',
-            borderRadius: '12px',
-            border: '1px solid var(--border)',
-            opacity: 0.92,
+            borderRadius: '14px',
+            opacity: 0.93,
           }}
-          priority={false}
         />
-      </div>
+
+      </section>
+
+      {/* ── Join CTA — web-only ── */}
+      {!nativeApp && (
+        <section className="container mx-auto max-w-6xl px-6 py-16">
+          <div className="text-center">
+            <div style={{ borderTop: '3px solid var(--gold)', paddingTop: '3rem' }}>
+              <h2 style={{
+                fontFamily: "'Modern Antiqua', serif",
+                color: 'var(--text)',
+                fontSize: '1.75rem',
+                marginBottom: '2rem',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+              }}>
+                WANT TO JOIN THE SOCIETY?
+              </h2>
+              <Link
+                href="/auth"
+                style={{
+                  background: 'var(--gold)',
+                  color: 'var(--bg)',
+                  fontFamily: "'Modern Antiqua', serif",
+                  fontSize: '0.75rem',
+                  letterSpacing: '0.2em',
+                  padding: '0.875rem 2.5rem',
+                  fontWeight: 700,
+                  borderRadius: '8px',
+                }}
+                className="uppercase tracking-widest inline-block hover:opacity-80 transition-opacity"
+              >
+                I Want In
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

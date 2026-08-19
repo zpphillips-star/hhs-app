@@ -180,7 +180,7 @@ export default function PreOctoberPage() {
         </p>
 
         <Image
-          src="/brewery-map-north-sound.png"
+          src="/brewery-map-north-sound-v4.png"
           alt="Brewery map – North Sound region"
           width={1200}
           height={1200}

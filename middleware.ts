@@ -1,24 +1,25 @@
 /**
- * HHS pre-October redirect middleware.
+ * HHS middleware.
  *
- * While the current UTC time is before Oct 1 2026 00:00 PDT (= 07:00 UTC),
- * visiting "/" is redirected to "/pre-october".
- * On/after Oct 1 the middleware is a no-op and the existing home/Today page serves normally.
+ * The pre-October authenticated-member redirect was previously handled here,
+ * but doing so also redirected unauthenticated public visitors away from the
+ * public landing page at "/".  That was a regression.
  *
- * Intentionally narrow: only matches "/", touches no other routes.
+ * The redirect is now handled client-side inside app/page.tsx, gated on
+ * confirmed auth state, so anonymous visitors always reach the public page.
+ *
+ * This file is intentionally a pass-through; it is kept so the module
+ * boundary and import of OCT_1_2026_UTC_MS remain intact for future use.
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { OCT_1_2026_UTC_MS } from '@/lib/october'
 
-export function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname === '/' && Date.now() < OCT_1_2026_UTC_MS) {
-    return NextResponse.redirect(new URL('/pre-october', request.url))
-  }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function middleware(_request: NextRequest) {
   return NextResponse.next()
 }
 
 export const config = {
-  /** Only run on the root path — no other routes affected. */
-  matcher: ['/'],
+  /** No routes actively intercepted — middleware is a pass-through. */
+  matcher: [],
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Beer, Rating } from '@/lib/types'
 import StarRating from '@/components/StarRating'
@@ -11,6 +12,7 @@ import { BeersPageContent } from '@/components/BeersPageContent'
 import HomeHeroIntro from '@/components/HomeHeroIntro'
 import HomeCountdownJoin from '@/components/HomeCountdownJoin'
 import HomeMemberSignIn from '@/components/HomeMemberSignIn'
+import { isBeforeOctober2026 } from '@/lib/october'
 
 function getNativeHomeView() {
   if (typeof window === 'undefined') return { appMode: false, view: '' }
@@ -27,6 +29,7 @@ function getNativeHomeView() {
 }
 
 export default function HomePage() {
+  const router = useRouter()
   const [nativeView] = useState(getNativeHomeView)
   const [beer, setBeer] = useState<Beer | null>(null)
   const [loading, setLoading] = useState(true)
@@ -115,7 +118,13 @@ export default function HomePage() {
     setUserRating(json.rating)
   }
 
+  // Authenticated members: redirect to pre-October page before Oct 1 2026;
+  // on/after Oct 1 fall through to the full Today/home view.
   if (authChecked && user) {
+    if (isBeforeOctober2026()) {
+      router.replace('/pre-october')
+      return null
+    }
     return <BeersPageContent forceTodayOnly />
   }
 

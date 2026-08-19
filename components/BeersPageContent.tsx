@@ -658,14 +658,17 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
   }
 
   useEffect(() => {
-    if (loading || todayOnly || !todayDay) return
+    // Only auto-scroll to today during Oct 1–31, 2026 (the live event window).
+    // Before October, todayDay may be set by PREVIEW_ACTIVE_MONTH but the calendar
+    // has no real "today" to anchor, so we must gate on isOctober too.
+    if (loading || todayOnly || !todayDay || !isOctober) return
     const scrollId = window.setTimeout(() => {
       const todayCells = Array.from(document.querySelectorAll<HTMLElement>('[data-hhs-today-cell="true"]'))
       const visibleTodayCell = todayCells.find(el => el.offsetParent !== null) ?? todayCells[0]
       visibleTodayCell?.scrollIntoView({ block: 'center', behavior: 'smooth' })
     }, 175)
     return () => window.clearTimeout(scrollId)
-  }, [loading, todayOnly, todayDay, beers.length])
+  }, [loading, todayOnly, todayDay, isOctober, beers.length])
 
   // ── Calendar helpers ────────────────────────────────────────────────────────
   const beerMap = Object.fromEntries(beers.map(b => [b.day_number, b]))
@@ -1024,6 +1027,63 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
             ══════════════════════════════════════════════════════════════ */}
             {!todayOnly && <section style={{ paddingTop: '2rem' }}>
 
+              {/* ── Pre-October deliberation banner (hidden once Oct 1 2026 arrives) ── */}
+              {!isOctober && (
+                <div style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--gold)',
+                  borderRadius: '14px',
+                  padding: '2rem 1.75rem',
+                  marginBottom: '2.5rem',
+                  textAlign: 'center',
+                }}>
+                  {/* Ritual divider */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--gold)', opacity: 0.45 }} />
+                    <span style={{
+                      fontFamily: "'Modern Antiqua', serif",
+                      color: 'var(--gold)',
+                      fontSize: '0.7rem',
+                      letterSpacing: '0.22em',
+                      textTransform: 'uppercase',
+                    }}>The Deliberation Is Underway</span>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--gold)', opacity: 0.45 }} />
+                  </div>
+                  <p style={{
+                    fontFamily: "'Modern Antiqua', serif",
+                    color: 'var(--text)',
+                    fontSize: 'clamp(1rem, 2.5vw, 1.2rem)',
+                    lineHeight: 1.65,
+                    marginBottom: '1rem',
+                  }}>
+                    The Society is selecting its thirty-one beers.
+                  </p>
+                  <p style={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.95rem',
+                    lineHeight: 1.7,
+                    maxWidth: '520px',
+                    margin: '0 auto 1.25rem',
+                    fontStyle: 'italic',
+                  }}>
+                    Each choice is debated, contested, and earned. The 31 slots are reserved.
+                    The beers will be named on <strong style={{ color: 'var(--text)', fontStyle: 'normal' }}>October 1</strong>.
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'center', marginTop: '0.25rem' }}>
+                    <div style={{ width: '2.5rem', height: '1px', background: 'var(--gold)', opacity: 0.4 }} />
+                    <span style={{
+                      fontFamily: "'Modern Antiqua', serif",
+                      color: 'var(--gold)',
+                      fontSize: '0.7rem',
+                      letterSpacing: '0.2em',
+                      textTransform: 'uppercase',
+                      opacity: 0.8,
+                    }}>Day 1 · October 2026</span>
+                    <div style={{ width: '2.5rem', height: '1px', background: 'var(--gold)', opacity: 0.4 }} />
+                  </div>
+                </div>
+              )}
+
               {/* Month header */}
               <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                 <div style={{
@@ -1059,8 +1119,10 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                    {calendarCells.map((day, idx) => {
                      if (!day) return <div key={`e-${idx}`} style={{ height: '110px' }} />
                      const beer       = beerMap[day]
-                     const isToday    = day === todayDay
-                     const isPast     = todayDay ? day < todayDay : false
+                     // isToday/isPast only apply during Oct 1–31 2026 (live event).
+                     // Before October, todayDay may be set by PREVIEW_ACTIVE_MONTH but must not highlight any day.
+                     const isToday    = isOctober && day === todayDay
+                     const isPast     = (isOctober && todayDay) ? day < todayDay : false
                      const showBeer   = Boolean(beer && (isPast || isToday) && canShowBeerDetails(beerAccess, day))
                      const hiddenByTier = Boolean(beer && (isPast || isToday) && !showBeer)
                       const clickable  = (isToday && Boolean(beer)) || (isPast && showBeer)
@@ -1142,8 +1204,9 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                    {slots.map(day => {
                      const beer    = beerMap[day]
-                     const isToday = day === todayDay
-                     const isPast  = todayDay ? day < todayDay : false
+                     // isToday/isPast only apply during Oct 1–31 2026 (live event).
+                     const isToday = isOctober && day === todayDay
+                     const isPast  = (isOctober && todayDay) ? day < todayDay : false
                       const showBeer = Boolean(beer && (isPast || isToday) && canShowBeerDetails(beerAccess, day))
                       const hiddenByTier = Boolean(beer && (isPast || isToday) && !showBeer)
                       const clickable = (isToday && Boolean(beer)) || (isPast && showBeer)

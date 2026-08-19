@@ -1069,18 +1069,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                     Each choice is debated, contested, and earned. The 31 slots are reserved.
                     The beers will be named on <strong style={{ color: 'var(--text)', fontStyle: 'normal' }}>October 1</strong>.
                   </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', justifyContent: 'center', marginTop: '0.25rem' }}>
-                    <div style={{ width: '2.5rem', height: '1px', background: 'var(--gold)', opacity: 0.4 }} />
-                    <span style={{
-                      fontFamily: "'Modern Antiqua', serif",
-                      color: 'var(--gold)',
-                      fontSize: '0.7rem',
-                      letterSpacing: '0.2em',
-                      textTransform: 'uppercase',
-                      opacity: 0.8,
-                    }}>Day 1 · October 2026</span>
-                    <div style={{ width: '2.5rem', height: '1px', background: 'var(--gold)', opacity: 0.4 }} />
-                  </div>
+
                 </div>
               )}
 

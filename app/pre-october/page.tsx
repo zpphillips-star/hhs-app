@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import { OCT_1_2026_UTC_MS } from '@/lib/october'
+import { HHS_APP_HOME_ROUTE } from '@/lib/routes'
 
 // ── Daily Beer Facts ────────────────────────────────────────────────────────
 // Rotates once per day at 2am Pacific (= 09:00 UTC during PDT).
@@ -102,7 +103,7 @@ export default function PreOctoberPage() {
   // Once Oct 1 arrives, hand off to the regular home/Today route
   useEffect(() => {
     if (Date.now() >= OCT_1_2026_UTC_MS) {
-      router.replace('/')
+      router.replace(HHS_APP_HOME_ROUTE)
     }
   }, [router])
 

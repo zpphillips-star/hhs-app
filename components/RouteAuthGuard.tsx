@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { isBeforeOctober2026 } from '@/lib/october'
 import { HHS_APP_HOME_ROUTE, HHS_SETUP_GATE_ROUTE } from '@/lib/routes'
 
 const PROTECTED_ROUTE_PREFIXES = [
@@ -140,6 +141,10 @@ export default function RouteAuthGuard({ children }: { children: ReactNode }) {
         else setVerifiedPath(pathname)
         return
       }
+      if (pathname === HHS_APP_HOME_ROUTE && isBeforeOctober2026()) {
+        router.replace('/pre-october')
+        return
+      }
       if (setupGatedAppRoute && !isNativeApp()) {
         isPrelaunchSetupComplete(user.id).then(complete => {
           if (cancelled) return
@@ -162,6 +167,11 @@ export default function RouteAuthGuard({ children }: { children: ReactNode }) {
         if (protectedRoute) router.replace('/auth')
         else setVerifiedPath(pathname)
       } else {
+        if (pathname === HHS_APP_HOME_ROUTE && isBeforeOctober2026()) {
+          setVerifiedPath(null)
+          router.replace('/pre-october')
+          return
+        }
         if (setupGatedAppRoute && !isNativeApp()) {
           setVerifiedPath(null)
           isPrelaunchSetupComplete(session.user.id).then(complete => {

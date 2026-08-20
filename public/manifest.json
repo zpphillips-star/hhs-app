@@ -3,7 +3,7 @@
   "short_name": "HHS",
   "description": "31 unique beers in 31 haunted days.",
   "id": "/",
-  "start_url": "/today",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "launch_handler": {

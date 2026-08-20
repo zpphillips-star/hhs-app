@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { isBeforeOctober2026 } from '@/lib/october'
 import { HHS_APP_HOME_ROUTE } from '@/lib/routes'
 
 declare global {
@@ -55,6 +56,8 @@ function hasExplicitNonLaunchIntent() {
 }
 
 function homeRouteForCurrentContext() {
+  if (isBeforeOctober2026()) return '/'
+
   try {
     const params = new URLSearchParams(window.location.search)
     if (params.get('hhs_app') === '1' || window.__HHS_NATIVE_APP__ || localStorage.getItem('__hhs_native_app__') === '1') {

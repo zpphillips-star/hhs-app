@@ -105,6 +105,41 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true, comment: data })
 }
 
+export async function DELETE(req: NextRequest) {
+  const auth = await requireBearerUser(supabase, req.headers.get('authorization'))
+  if ('error' in auth) return auth.error
+
+  let body: { comment_id?: unknown }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const commentId = typeof body.comment_id === 'string' ? body.comment_id.trim() : ''
+  if (!commentId) return NextResponse.json({ error: 'comment_id is required' }, { status: 400 })
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('post_comments')
+    .select('id, post_id, user_id')
+    .eq('id', commentId)
+    .maybeSingle()
+
+  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
+  if (!existing) return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
+  if (existing.user_id !== auth.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const { error } = await supabase
+    .from('post_comments')
+    .delete()
+    .eq('id', commentId)
+    .eq('user_id', auth.user.id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ ok: true, post_id: existing.post_id })
+}
+
 function validateCommentContent(content: string): string | null {
   if (!content) return 'Comment content cannot be empty'
   if (content.length > MAX_COMMENT_CONTENT_LENGTH) {

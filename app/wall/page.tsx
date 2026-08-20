@@ -59,6 +59,7 @@ function PostCard({
   onReact,
   onComment,
   onEditComment,
+  onDeleteComment,
   onDelete,
   onEdit,
   onBeerClick,
@@ -68,6 +69,7 @@ function PostCard({
   onReact: (postId: string, reaction: ReactionKey) => Promise<void>
   onComment: (postId: string, content: string) => Promise<void>
   onEditComment: (postId: string, commentId: string, content: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  onDeleteComment: (postId: string, commentId: string) => Promise<{ ok: true } | { ok: false; error: string }>
   onDelete: (postId: string) => Promise<void>
   onEdit: (postId: string, content: string) => Promise<{ ok: true } | { ok: false; error: string }>
   onBeerClick?: (beerId: string, label: string) => void
@@ -84,6 +86,7 @@ function PostCard({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
   const [savingCommentId, setSavingCommentId] = useState<string | null>(null)
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null)
   const [commentError, setCommentError] = useState('')
 
   const displayName = post.profiles?.display_name || post.profiles?.username || 'Member'
@@ -142,6 +145,24 @@ function PostCard({
     }
     setEditingCommentId(null)
     setEditCommentText('')
+  }
+
+  const deleteComment = async (commentId: string) => {
+    if (savingCommentId || deletingCommentId) return
+    if (!window.confirm('Delete this comment? This cannot be undone.')) return
+
+    setDeletingCommentId(commentId)
+    setCommentError('')
+    const result = await onDeleteComment(post.id, commentId)
+    setDeletingCommentId(null)
+    if (!result.ok) {
+      setCommentError(result.error)
+      return
+    }
+    if (editingCommentId === commentId) {
+      setEditingCommentId(null)
+      setEditCommentText('')
+    }
   }
 
   const ts = new Date(post.created_at).toLocaleDateString('en-US', {
@@ -412,23 +433,42 @@ function PostCard({
                   </span>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>· {cTs}{cEdited ? ' · edited' : ''}</span>
                   {ownComment && !editingComment && (
-                    <button
-                      onClick={() => startCommentEdit(c.id, c.content)}
-                      style={{
-                        marginLeft: 'auto',
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        fontFamily: "'Modern Antiqua', serif",
-                        fontSize: '0.72rem',
-                        padding: '0 2px',
-                        opacity: 0.7,
-                      }}
-                      title="Edit comment"
-                    >
-                      Edit
-                    </button>
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                      <button
+                        onClick={() => startCommentEdit(c.id, c.content)}
+                        disabled={deletingCommentId === c.id}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: deletingCommentId === c.id ? 'default' : 'pointer',
+                          fontFamily: "'Modern Antiqua', serif",
+                          fontSize: '0.72rem',
+                          padding: '0 2px',
+                          opacity: deletingCommentId === c.id ? 0.35 : 0.7,
+                        }}
+                        title="Edit comment"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => deleteComment(c.id)}
+                        disabled={deletingCommentId === c.id}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: deletingCommentId === c.id ? 'default' : 'pointer',
+                          fontFamily: "'Modern Antiqua', serif",
+                          fontSize: '0.72rem',
+                          padding: '0 2px',
+                          opacity: deletingCommentId === c.id ? 0.35 : 0.6,
+                        }}
+                        title="Delete comment"
+                      >
+                        {deletingCommentId === c.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
                   )}
                 </div>
                 {editingComment ? (
@@ -837,6 +877,25 @@ export default function WallPage() {
     return { ok: true }
   }
 
+  const handleDeleteComment = async (postId: string, commentId: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    if (!user) return { ok: false, error: 'You must be signed in to delete comments.' }
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/wall/comment', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ comment_id: commentId }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string }
+      return { ok: false, error: err.error ?? 'Unable to delete comment.' }
+    }
+    await reloadPost(postId)
+    return { ok: true }
+  }
+
   const handleEdit = async (postId: string, content: string): Promise<{ ok: true } | { ok: false; error: string }> => {
     if (!user) return { ok: false, error: 'You must be signed in to edit posts.' }
     const { data: { session } } = await supabase.auth.getSession()
@@ -1059,7 +1118,7 @@ export default function WallPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {posts.map(p => (
-              <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onEditComment={handleEditComment} onDelete={handleDelete} onEdit={handleEdit} onBeerClick={handleBeerFilter} />
+              <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onEditComment={handleEditComment} onDeleteComment={handleDeleteComment} onDelete={handleDelete} onEdit={handleEdit} onBeerClick={handleBeerFilter} />
             ))}
           </div>
         )}

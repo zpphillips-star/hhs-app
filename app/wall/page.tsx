@@ -36,6 +36,7 @@ type WallPost = {
   content: string
   photo_url: string | null
   created_at: string
+  updated_at?: string | null
   beer_id: string
   user_id: string
   profiles: { username: string; display_name: string | null } | null
@@ -56,6 +57,7 @@ function PostCard({
   onReact,
   onComment,
   onDelete,
+  onEdit,
   onBeerClick,
 }: {
   post: WallPost
@@ -63,12 +65,17 @@ function PostCard({
   onReact: (postId: string, reaction: ReactionKey) => Promise<void>
   onComment: (postId: string, content: string) => Promise<void>
   onDelete: (postId: string) => Promise<void>
+  onEdit: (postId: string, content: string) => Promise<{ ok: true } | { ok: false; error: string }>
   onBeerClick?: (beerId: string, label: string) => void
 }){
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState(post.content)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
   const [lightboxOpen, setLightboxOpen] = useState(false)
 
   const displayName = post.profiles?.display_name || post.profiles?.username || 'Member'
@@ -92,6 +99,39 @@ function PostCard({
   const ts = new Date(post.created_at).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   })
+  const updatedAtMs = post.updated_at ? new Date(post.updated_at).getTime() : 0
+  const createdAtMs = new Date(post.created_at).getTime()
+  const isEdited = Boolean(updatedAtMs && updatedAtMs - createdAtMs > 1000)
+
+  const startEdit = () => {
+    setEditText(post.content)
+    setEditError('')
+    setEditing(true)
+  }
+
+  const cancelEdit = () => {
+    setEditText(post.content)
+    setEditError('')
+    setEditing(false)
+  }
+
+  const saveEdit = async () => {
+    const nextContent = editText.trim()
+    if (!nextContent) {
+      setEditError('Post content cannot be empty.')
+      return
+    }
+    if (editSaving) return
+    setEditSaving(true)
+    setEditError('')
+    const result = await onEdit(post.id, nextContent)
+    setEditSaving(false)
+    if (!result.ok) {
+      setEditError(result.error)
+      return
+    }
+    setEditing(false)
+  }
 
   return (
     <div style={{
@@ -131,23 +171,86 @@ function PostCard({
         <span style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.875rem', fontWeight: 700 }}>
           {displayName}
         </span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>· {ts}</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>· {ts}{isEdited ? ' · edited' : ''}</span>
         {user && post.user_id === user.id && (
-          <button
-            onClick={() => setConfirmingDelete(true)}
-            style={{
-              marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-muted)', fontSize: '0.75rem', padding: '0 2px', opacity: 0.6,
-            }}
-            title="Delete post"
-          >✕</button>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+            <button
+              onClick={startEdit}
+              disabled={editing}
+              style={{
+                background: 'none', border: 'none', cursor: editing ? 'default' : 'pointer',
+                color: 'var(--text-muted)', fontSize: '0.75rem', padding: '0 2px', opacity: editing ? 0.35 : 0.7,
+                fontFamily: "'Modern Antiqua', serif",
+              }}
+              title="Edit post"
+            >Edit</button>
+            <button
+              onClick={() => setConfirmingDelete(true)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-muted)', fontSize: '0.75rem', padding: '0 2px', opacity: 0.6,
+              }}
+              title="Delete post"
+            >✕</button>
+          </div>
         )}
       </div>
 
       {/* Content */}
-      <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.65, marginBottom: 0 }}>
-        {post.content}
-      </p>
+      {editing ? (
+        <div>
+          <textarea
+            value={editText}
+            onChange={e => { setEditText(e.target.value); if (editError) setEditError('') }}
+            rows={4}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              background: 'var(--bg)',
+              border: `1px solid ${editError ? '#e05555' : 'var(--border)'}`,
+              color: 'var(--text)',
+              borderRadius: '8px',
+              padding: '0.6rem 0.75rem',
+              fontFamily: "'Modern Antiqua', serif",
+              fontSize: '0.95rem',
+              lineHeight: 1.55,
+              resize: 'vertical',
+              outline: 'none',
+            }}
+          />
+          {editError && (
+            <p style={{ color: '#e05555', fontSize: '0.78rem', marginTop: '0.35rem', marginBottom: 0 }}>
+              {editError}
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.55rem' }}>
+            <button
+              onClick={cancelEdit}
+              disabled={editSaving}
+              style={{
+                background: 'transparent', border: '1px solid var(--border)',
+                color: 'var(--text-muted)', padding: '0.35rem 0.8rem', borderRadius: '8px',
+                cursor: editSaving ? 'default' : 'pointer', fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem',
+              }}
+            >Cancel</button>
+            <button
+              onClick={saveEdit}
+              disabled={editSaving || !editText.trim()}
+              style={{
+                background: editText.trim() ? 'var(--gold)' : 'var(--bg)',
+                border: 'none', color: editText.trim() ? 'var(--bg)' : 'var(--text-muted)',
+                padding: '0.35rem 0.9rem', borderRadius: '8px',
+                cursor: editText.trim() && !editSaving ? 'pointer' : 'default',
+                fontFamily: "'Modern Antiqua', serif", fontSize: '0.8rem', fontWeight: 700,
+              }}
+            >{editSaving ? 'Saving...' : 'Save'}</button>
+          </div>
+        </div>
+      ) : (
+        <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.65, marginBottom: 0 }}>
+          {post.content}
+        </p>
+      )}
 
       {/* Photo */}
       {post.photo_url && (
@@ -550,6 +653,25 @@ export default function WallPage() {
     await reloadPost(postId)
   }
 
+  const handleEdit = async (postId: string, content: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    if (!user) return { ok: false, error: 'You must be signed in to edit posts.' }
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/wall/post', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ post_id: postId, content }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string }
+      return { ok: false, error: err.error ?? 'Unable to save edit.' }
+    }
+    await reloadPost(postId)
+    return { ok: true }
+  }
+
   const handleDelete = async (postId: string) => {
     if (!user) return
     const { error } = await supabase.from('posts').delete().eq('id', postId).eq('user_id', user.id)
@@ -753,7 +875,7 @@ export default function WallPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {posts.map(p => (
-              <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} onBeerClick={handleBeerFilter} />
+              <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} onEdit={handleEdit} onBeerClick={handleBeerFilter} />
             ))}
           </div>
         )}

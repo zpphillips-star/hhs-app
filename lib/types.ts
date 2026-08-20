@@ -19,6 +19,7 @@ export type Post = {
   content: string
   photo_url: string | null
   created_at: string
+  updated_at?: string | null
   profiles?: { username: string; display_name: string | null }
   post_reactions?: PostReaction[]
   post_comments?: PostComment[]

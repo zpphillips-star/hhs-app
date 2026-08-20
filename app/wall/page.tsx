@@ -247,7 +247,14 @@ function PostCard({
           </div>
         </div>
       ) : (
-        <p style={{ color: 'var(--text)', fontSize: '0.95rem', lineHeight: 1.65, marginBottom: 0 }}>
+        <p style={{
+          color: 'var(--text)',
+          fontSize: '0.95rem',
+          lineHeight: 1.65,
+          marginBottom: 0,
+          whiteSpace: 'pre-wrap',
+          overflowWrap: 'anywhere',
+        }}>
           {post.content}
         </p>
       )}

@@ -5,20 +5,22 @@
  *   - To the post owner: "social_comment_on_your_items"
  *   - To all commenters on the post: "social_new_comment" (other participants)
  *
- * Body: { post_id, user_id, content }
+ * Body: { post_id, content }
  * Returns: the inserted comment row
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase-server'
+import { requireBearerUser } from '@/lib/access'
 import { sendExpoPush } from '@/lib/expo-push'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
-)
+const supabase = createServiceClient()
+const MAX_COMMENT_CONTENT_LENGTH = 2000
 
 export async function POST(req: NextRequest) {
+  const auth = await requireBearerUser(supabase, req.headers.get('authorization'))
+  if ('error' in auth) return auth.error
+
   let body: { post_id?: unknown; user_id?: unknown; content?: unknown }
   try {
     body = await req.json()
@@ -27,17 +29,24 @@ export async function POST(req: NextRequest) {
   }
 
   const post_id = typeof body.post_id === 'string' ? body.post_id.trim() : null
-  const user_id = typeof body.user_id === 'string' ? body.user_id.trim() : null
-  const content = typeof body.content === 'string' ? body.content.trim() : null
+  const requested_user_id = typeof body.user_id === 'string' ? body.user_id.trim() : null
+  const content = typeof body.content === 'string' ? body.content.trim() : ''
 
-  if (!post_id || !user_id || !content) {
-    return NextResponse.json({ error: 'post_id, user_id, and content are required' }, { status: 400 })
+  if (requested_user_id && requested_user_id !== auth.user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  if (!post_id) {
+    return NextResponse.json({ error: 'post_id is required' }, { status: 400 })
+  }
+  const validationError = validateCommentContent(content)
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 })
   }
 
   // 1. Insert the comment
   const { data: comment, error: insertErr } = await supabase
     .from('post_comments')
-    .insert({ post_id, user_id, content })
+    .insert({ post_id, user_id: auth.user.id, content })
     .select()
     .single()
 
@@ -47,11 +56,61 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Fetch post + existing commenters for notification targeting (fire-and-forget)
-  void triggerCommentNotifications(post_id, user_id, content).catch(err => {
+  void triggerCommentNotifications(post_id, auth.user.id, content).catch(err => {
     console.error('[wall/comment] notification error:', err instanceof Error ? err.message : err)
   })
 
   return NextResponse.json({ ok: true, comment })
+}
+
+export async function PATCH(req: NextRequest) {
+  const auth = await requireBearerUser(supabase, req.headers.get('authorization'))
+  if ('error' in auth) return auth.error
+
+  let body: { comment_id?: unknown; content?: unknown }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const commentId = typeof body.comment_id === 'string' ? body.comment_id.trim() : ''
+  const content = typeof body.content === 'string' ? body.content.trim() : ''
+
+  if (!commentId) return NextResponse.json({ error: 'comment_id is required' }, { status: 400 })
+  const validationError = validateCommentContent(content)
+  if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('post_comments')
+    .select('id, user_id')
+    .eq('id', commentId)
+    .maybeSingle()
+
+  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
+  if (!existing) return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
+  if (existing.user_id !== auth.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const { data, error } = await supabase
+    .from('post_comments')
+    .update({ content, updated_at: new Date().toISOString() })
+    .eq('id', commentId)
+    .eq('user_id', auth.user.id)
+    .select('id, user_id, content, updated_at')
+    .maybeSingle()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!data) return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
+
+  return NextResponse.json({ ok: true, comment: data })
+}
+
+function validateCommentContent(content: string): string | null {
+  if (!content) return 'Comment content cannot be empty'
+  if (content.length > MAX_COMMENT_CONTENT_LENGTH) {
+    return `Comment content must be ${MAX_COMMENT_CONTENT_LENGTH} characters or fewer`
+  }
+  return null
 }
 
 async function triggerCommentNotifications(

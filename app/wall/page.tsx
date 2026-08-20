@@ -8,6 +8,7 @@ import Link from 'next/link'
 import TierSelectionModal from '@/components/TierSelectionModal'
 
 const PAGE_SIZE = 15
+const COMMENT_MAX_LENGTH = 2000
 
 function getNativeAppMode() {
   if (typeof window === 'undefined') return false
@@ -45,6 +46,7 @@ type WallPost = {
     id: string
     content: string
     created_at: string
+    updated_at?: string | null
     user_id: string
     profiles: { username: string; display_name: string | null } | null
   }[]
@@ -56,6 +58,7 @@ function PostCard({
   user,
   onReact,
   onComment,
+  onEditComment,
   onDelete,
   onEdit,
   onBeerClick,
@@ -64,6 +67,7 @@ function PostCard({
   user: { id: string } | null
   onReact: (postId: string, reaction: ReactionKey) => Promise<void>
   onComment: (postId: string, content: string) => Promise<void>
+  onEditComment: (postId: string, commentId: string, content: string) => Promise<{ ok: true } | { ok: false; error: string }>
   onDelete: (postId: string) => Promise<void>
   onEdit: (postId: string, content: string) => Promise<{ ok: true } | { ok: false; error: string }>
   onBeerClick?: (beerId: string, label: string) => void
@@ -77,6 +81,10 @@ function PostCard({
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentText, setEditCommentText] = useState('')
+  const [savingCommentId, setSavingCommentId] = useState<string | null>(null)
+  const [commentError, setCommentError] = useState('')
 
   const displayName = post.profiles?.display_name || post.profiles?.username || 'Member'
   const reactions = post.post_reactions || []
@@ -91,9 +99,49 @@ function PostCard({
   const submitComment = async () => {
     if (!commentText.trim() || submitting) return
     setSubmitting(true)
-    await onComment(post.id, commentText.trim())
-    setCommentText('')
+    setCommentError('')
+    try {
+      await onComment(post.id, commentText.trim())
+      setCommentText('')
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : 'Unable to post comment.')
+    }
     setSubmitting(false)
+  }
+
+  const startCommentEdit = (commentId: string, content: string) => {
+    setEditingCommentId(commentId)
+    setEditCommentText(content)
+    setCommentError('')
+  }
+
+  const cancelCommentEdit = () => {
+    setEditingCommentId(null)
+    setEditCommentText('')
+    setCommentError('')
+  }
+
+  const saveCommentEdit = async (commentId: string) => {
+    const nextContent = editCommentText.trim()
+    if (!nextContent) {
+      setCommentError('Comment content cannot be empty.')
+      return
+    }
+    if (nextContent.length > COMMENT_MAX_LENGTH) {
+      setCommentError(`Comment content must be ${COMMENT_MAX_LENGTH} characters or fewer.`)
+      return
+    }
+    if (savingCommentId) return
+    setSavingCommentId(commentId)
+    setCommentError('')
+    const result = await onEditComment(post.id, commentId, nextContent)
+    setSavingCommentId(null)
+    if (!result.ok) {
+      setCommentError(result.error)
+      return
+    }
+    setEditingCommentId(null)
+    setEditCommentText('')
   }
 
   const ts = new Date(post.created_at).toLocaleDateString('en-US', {
@@ -351,27 +399,130 @@ function PostCard({
           {comments.map(c => {
             const cName = c.profiles?.display_name || c.profiles?.username || 'Member'
             const cTs = new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            const cUpdatedAtMs = c.updated_at ? new Date(c.updated_at).getTime() : 0
+            const cCreatedAtMs = new Date(c.created_at).getTime()
+            const cEdited = Boolean(cUpdatedAtMs && cUpdatedAtMs - cCreatedAtMs > 1000)
+            const ownComment = Boolean(user && c.user_id === user.id)
+            const editingComment = editingCommentId === c.id
             return (
               <div key={c.id} style={{ marginBottom: '0.6rem' }}>
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'baseline' }}>
                   <span style={{ color: 'var(--gold)', fontSize: '0.8rem', fontWeight: 700, fontFamily: "'Modern Antiqua', serif" }}>
                     {cName}
                   </span>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>· {cTs}</span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>· {cTs}{cEdited ? ' · edited' : ''}</span>
+                  {ownComment && !editingComment && (
+                    <button
+                      onClick={() => startCommentEdit(c.id, c.content)}
+                      style={{
+                        marginLeft: 'auto',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontFamily: "'Modern Antiqua', serif",
+                        fontSize: '0.72rem',
+                        padding: '0 2px',
+                        opacity: 0.7,
+                      }}
+                      title="Edit comment"
+                    >
+                      Edit
+                    </button>
+                  )}
                 </div>
-                <p style={{ color: 'var(--text)', fontSize: '0.875rem', lineHeight: 1.5, marginTop: '0.1rem' }}>
-                  {c.content}
-                </p>
+                {editingComment ? (
+                  <div style={{ marginTop: '0.35rem' }}>
+                    <textarea
+                      value={editCommentText}
+                      onChange={e => { setEditCommentText(e.target.value); if (commentError) setCommentError('') }}
+                      maxLength={COMMENT_MAX_LENGTH}
+                      rows={3}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        background: 'var(--bg)',
+                        border: `1px solid ${commentError ? '#e05555' : 'var(--border)'}`,
+                        color: 'var(--text)',
+                        borderRadius: '8px',
+                        padding: '0.5rem 0.65rem',
+                        fontFamily: "'Modern Antiqua', serif",
+                        fontSize: '0.875rem',
+                        lineHeight: 1.5,
+                        resize: 'vertical',
+                        outline: 'none',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'flex-end', marginTop: '0.4rem' }}>
+                      <span style={{ marginRight: 'auto', color: 'var(--text-muted)', fontSize: '0.68rem' }}>
+                        {editCommentText.length}/{COMMENT_MAX_LENGTH}
+                      </span>
+                      <button
+                        onClick={cancelCommentEdit}
+                        disabled={savingCommentId === c.id}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid var(--border)',
+                          color: 'var(--text-muted)',
+                          padding: '0.3rem 0.75rem',
+                          borderRadius: '8px',
+                          cursor: savingCommentId === c.id ? 'default' : 'pointer',
+                          fontFamily: "'Modern Antiqua', serif",
+                          fontSize: '0.75rem',
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => saveCommentEdit(c.id)}
+                        disabled={savingCommentId === c.id || !editCommentText.trim()}
+                        style={{
+                          background: editCommentText.trim() ? 'var(--gold)' : 'var(--bg)',
+                          border: 'none',
+                          color: editCommentText.trim() ? 'var(--bg)' : 'var(--text-muted)',
+                          padding: '0.3rem 0.8rem',
+                          borderRadius: '8px',
+                          cursor: editCommentText.trim() && savingCommentId !== c.id ? 'pointer' : 'default',
+                          fontFamily: "'Modern Antiqua', serif",
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {savingCommentId === c.id ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{
+                    color: 'var(--text)',
+                    fontSize: '0.875rem',
+                    lineHeight: 1.5,
+                    marginTop: '0.1rem',
+                    whiteSpace: 'pre-wrap',
+                    overflowWrap: 'anywhere',
+                  }}>
+                    {c.content}
+                  </p>
+                )}
               </div>
             )
           })}
+          {commentError && (
+            <p style={{ color: '#e05555', fontSize: '0.75rem', marginTop: '0.25rem', marginBottom: 0 }}>
+              {commentError}
+            </p>
+          )}
           {user && (
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-              <input
+              <textarea
                 value={commentText}
-                onChange={e => setCommentText(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submitComment()}
+                onChange={e => { setCommentText(e.target.value); if (commentError) setCommentError('') }}
+                onKeyDown={e => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') void submitComment()
+                }}
+                maxLength={COMMENT_MAX_LENGTH}
                 placeholder="Add a comment..."
+                rows={2}
                 style={{
                   flex: 1,
                   background: 'var(--bg)',
@@ -381,7 +532,9 @@ function PostCard({
                   borderRadius: '8px',
                   fontSize: '0.875rem',
                   fontFamily: "'Modern Antiqua', serif",
+                  lineHeight: 1.5,
                   outline: 'none',
+                  resize: 'vertical',
                 }}
               />
               <button
@@ -393,13 +546,13 @@ function PostCard({
                   color: commentText.trim() ? 'var(--bg)' : 'var(--text-muted)',
                   padding: '0.4rem 0.9rem',
                   borderRadius: '8px',
-                  cursor: commentText.trim() ? 'pointer' : 'default',
+                  cursor: commentText.trim() && !submitting ? 'pointer' : 'default',
                   fontSize: '0.8rem',
                   fontFamily: "'Modern Antiqua', serif",
                   fontWeight: 700,
                 }}
               >
-                Post
+                {submitting ? 'Posting...' : 'Post'}
               </button>
             </div>
           )}
@@ -648,16 +801,40 @@ export default function WallPage() {
 
   const handleComment = async (postId: string, content: string) => {
     if (!user) return
+    const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch('/api/wall/comment', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ post_id: postId, user_id: user.id, content }),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ post_id: postId, content }),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({})) as { error?: string }
       console.error('[wall] comment error:', err?.error ?? res.status)
+      throw new Error(err.error ?? 'Unable to post comment.')
     }
     await reloadPost(postId)
+  }
+
+  const handleEditComment = async (postId: string, commentId: string, content: string): Promise<{ ok: true } | { ok: false; error: string }> => {
+    if (!user) return { ok: false, error: 'You must be signed in to edit comments.' }
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/wall/comment', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ comment_id: commentId, content }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string }
+      return { ok: false, error: err.error ?? 'Unable to save comment.' }
+    }
+    await reloadPost(postId)
+    return { ok: true }
   }
 
   const handleEdit = async (postId: string, content: string): Promise<{ ok: true } | { ok: false; error: string }> => {
@@ -882,7 +1059,7 @@ export default function WallPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {posts.map(p => (
-              <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onDelete={handleDelete} onEdit={handleEdit} onBeerClick={handleBeerFilter} />
+              <PostCard key={p.id} post={p} user={user} onReact={handleReact} onComment={handleComment} onEditComment={handleEditComment} onDelete={handleDelete} onEdit={handleEdit} onBeerClick={handleBeerFilter} />
             ))}
           </div>
         )}

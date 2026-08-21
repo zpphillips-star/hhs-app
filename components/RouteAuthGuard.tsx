@@ -46,6 +46,10 @@ function isSetupGatedAppRoute(pathname: string | null): boolean {
   )
 }
 
+function isPreOctoberBeerFlowRoute(pathname: string | null): boolean {
+  return pathname === HHS_APP_HOME_ROUTE || pathname === '/beers' || pathname?.startsWith('/beers/') === true
+}
+
 function isPWA() {
   if (typeof window === 'undefined') return false
   return (
@@ -141,7 +145,7 @@ export default function RouteAuthGuard({ children }: { children: ReactNode }) {
         else setVerifiedPath(pathname)
         return
       }
-      if (pathname === HHS_APP_HOME_ROUTE && isBeforeOctober2026()) {
+      if (isPreOctoberBeerFlowRoute(pathname) && isBeforeOctober2026()) {
         router.replace('/pre-october')
         return
       }
@@ -167,7 +171,7 @@ export default function RouteAuthGuard({ children }: { children: ReactNode }) {
         if (protectedRoute) router.replace('/auth')
         else setVerifiedPath(pathname)
       } else {
-        if (pathname === HHS_APP_HOME_ROUTE && isBeforeOctober2026()) {
+        if (isPreOctoberBeerFlowRoute(pathname) && isBeforeOctober2026()) {
           setVerifiedPath(null)
           router.replace('/pre-october')
           return

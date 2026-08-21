@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { sendExpoPush } from '@/lib/expo-push'
+import { isBeforeOctober2026 } from '@/lib/october'
 
 function configureWebPush() {
   const subject = process.env.VAPID_EMAIL
@@ -127,6 +128,15 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (isBeforeOctober2026()) {
+    return NextResponse.json({
+      skipped: true,
+      reason: 'Daily beer notifications are gated until Oct 1, 2026.',
+      web: { sent: 0, failed: [], skipped: 0, notificationId: null, configured: null },
+      expo: { sent: 0, skipped: 0, failed: [] },
+    })
   }
 
   const today = new Date()

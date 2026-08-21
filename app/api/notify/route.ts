@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { sendExpoPush } from '@/lib/expo-push'
-import { isBeforeOctober2026 } from '@/lib/october'
+import { getPacificDateParts, isOctober2026Pacific } from '@/lib/october'
 
 function configureWebPush() {
   const subject = process.env.VAPID_EMAIL
@@ -130,29 +130,42 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (isBeforeOctober2026()) {
+  const now = new Date()
+  const pacificToday = getPacificDateParts(now)
+
+  if (!isOctober2026Pacific(now)) {
     return NextResponse.json({
       skipped: true,
-      reason: 'Daily beer notifications are gated until Oct 1, 2026.',
+      reason: 'Daily beer notifications only send during October 2026 in Pacific time.',
+      pacificDate: pacificToday,
       web: { sent: 0, failed: [], skipped: 0, notificationId: null, configured: null },
       expo: { sent: 0, skipped: 0, failed: [] },
     })
   }
 
-  const today = new Date()
-  const dayNumber = today.getDate()
+  const dayNumber = pacificToday.day
   const isOddDay = dayNumber % 2 !== 0
 
-  const { data: beer } = await supabase
+  const { data: beer, error: beerError } = await supabase
     .from('beers')
     .select('name, brewery, style')
     .eq('day_number', dayNumber)
     .maybeSingle()
 
+  if (beerError || !beer) {
+    return NextResponse.json({
+      skipped: true,
+      reason: beerError
+        ? `Beer lookup failed for Pacific day ${dayNumber}: ${beerError.message}`
+        : `No beer found for Pacific day ${dayNumber}; no daily beer notification sent.`,
+      pacificDate: pacificToday,
+      web: { sent: 0, failed: [], skipped: 0, notificationId: null, configured: null },
+      expo: { sent: 0, skipped: 0, failed: [] },
+    })
+  }
+
   const title = '🍺 Your Next Beer is Ready'
-  const body = beer
-    ? `Day ${dayNumber}: ${beer.name} by ${beer.brewery}`
-    : `Day ${dayNumber} beer has been poured. Come rate it!`
+  const body = `Day ${dayNumber}: ${beer.name} by ${beer.brewery}`
 
   // Odd days: both tiers. Even days: Hallowed only.
   const tiers = isOddDay ? ['hallowed', 'oddballs'] : ['hallowed']

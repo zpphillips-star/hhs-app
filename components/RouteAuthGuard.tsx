@@ -47,7 +47,7 @@ function isSetupGatedAppRoute(pathname: string | null): boolean {
 }
 
 function isPreOctoberBeerFlowRoute(pathname: string | null): boolean {
-  return pathname === HHS_APP_HOME_ROUTE || pathname === '/beers' || pathname?.startsWith('/beers/') === true
+  return pathname === HHS_APP_HOME_ROUTE
 }
 
 function isPWA() {

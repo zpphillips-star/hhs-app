@@ -10,9 +10,28 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+const HHS_PRODUCTION_HOSTS = new Set(['hallowedhopsociety.com', 'www.hallowedhopsociety.com'])
+
+function assertSafeApprovalSetupUrl(url: URL): void {
+  const hostname = url.hostname.toLowerCase()
+  const isProduction = process.env.VERCEL_ENV === 'production'
+  const isHhsHost = HHS_PRODUCTION_HOSTS.has(hostname)
+  const isLocalDevHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+  const isVercelPreviewHost = hostname.endsWith('.vercel.app')
+
+  const isSafe =
+    (url.protocol === 'https:' && (isHhsHost || (!isProduction && isVercelPreviewHost))) ||
+    ((url.protocol === 'http:' || url.protocol === 'https:') && !isProduction && isLocalDevHost)
+
+  if (!isSafe) {
+    throw new Error('Unsafe NEXT_PUBLIC_SITE_URL for approval setup email')
+  }
+}
+
 function getReusableApprovalLink(requestId: string, userId: string, email: string): string {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://hallowedhopsociety.com'
   const setupUrl = new URL('/auth/approved', siteUrl)
+  assertSafeApprovalSetupUrl(setupUrl)
   setupUrl.searchParams.set('token', createApprovalSetupToken({ requestId, userId, email }))
   return setupUrl.toString()
 }

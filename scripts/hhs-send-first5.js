@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+if (process.env.HHS_EMAIL_SENDING_ENABLED !== 'true') {
+  console.error('HHS email sending scripts are disabled for security containment. Do not enable until Resend/Gmail credentials are rotated and the incident is cleared.');
+  process.exit(1);
+}
 /**
  * HHS Send First 5 — sends to first 5 pending breweries
  */
@@ -5,7 +10,11 @@ const nodemailer = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
 
 const GMAIL_USER = 'hallowedhopsociety@gmail.com';
-const GMAIL_PASS = 'dgrdhvkolhmoufrh';
+const GMAIL_PASS = process.env.HHS_GMAIL_APP_PASSWORD;
+if (!GMAIL_PASS) {
+  console.error('HHS_GMAIL_APP_PASSWORD is required when HHS email sending scripts are explicitly enabled.');
+  process.exit(1);
+}
 const supabase = createClient(
   'https://dnicdsjvqxthkktlcshe.supabase.co',
   'process.env.SUPABASE_SECRET_KEY'

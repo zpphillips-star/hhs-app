@@ -17,6 +17,43 @@ const textSub  = '#a09a92'
 const gold     = '#d97c2b'
 const border   = 'rgba(217,124,43,0.18)'
 
+export function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function safeSubject(value: unknown): string {
+  return String(value ?? '').replace(/[\r\n\u0000-\u001F\u007F]+/g, ' ').trim()
+}
+
+function safeHref(value: unknown): string {
+  const href = String(value ?? '').trim()
+
+  try {
+    const url = new URL(href)
+    const hostname = url.hostname.toLowerCase()
+    const isProduction = process.env.VERCEL_ENV === 'production'
+    const isHhsHost = hostname === 'hallowedhopsociety.com' || hostname === 'www.hallowedhopsociety.com'
+    const isLocalDevHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+    const isVercelPreviewHost = hostname.endsWith('.vercel.app')
+
+    if (
+      (url.protocol === 'https:' && (isHhsHost || (!isProduction && isVercelPreviewHost))) ||
+      (url.protocol === 'http:' && !isProduction && isLocalDevHost)
+    ) {
+      return escapeHtml(url.toString())
+    }
+  } catch {
+    // Fall through to the safe inert link below.
+  }
+
+  return '#'
+}
+
 const base = (content: string) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -72,22 +109,22 @@ const base = (content: string) => `
 `
 
 const eyebrow = (label: string) =>
-  `<div style="font-size:0.58rem;letter-spacing:0.35em;text-transform:uppercase;color:${gold};margin-bottom:12px;">${label}</div>`
+  `<div style="font-size:0.58rem;letter-spacing:0.35em;text-transform:uppercase;color:${gold};margin-bottom:12px;">${escapeHtml(label)}</div>`
 
 const headline = (txt: string) =>
-  `<div style="font-size:1.35rem;font-weight:700;color:${text};letter-spacing:0.05em;line-height:1.3;margin-bottom:14px;">${txt}</div>`
+  `<div style="font-size:1.35rem;font-weight:700;color:${text};letter-spacing:0.05em;line-height:1.3;margin-bottom:14px;">${escapeHtml(txt)}</div>`
 
 const body = (txt: string) =>
-  `<p style="font-size:0.95rem;color:${textSub};line-height:1.8;margin:0 0 22px;font-style:italic;">${txt}</p>`
+  `<p style="font-size:0.95rem;color:${textSub};line-height:1.8;margin:0 0 22px;font-style:italic;">${escapeHtml(txt)}</p>`
 
 const ctaButton = (href: string, label: string) => `
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px;">
     <tr><td align="center">
-      <a href="${href}"
+      <a href="${safeHref(href)}"
          style="display:inline-block;background:${gold};color:${bg};
-                font-size:0.75rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;
-                text-decoration:none;padding:14px 40px;border-radius:8px;">
-        ${label}
+                 font-size:0.75rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;
+                 text-decoration:none;padding:14px 40px;border-radius:8px;">
+        ${escapeHtml(label)}
       </a>
     </td></tr>
   </table>
@@ -113,23 +150,28 @@ export interface MembershipRequestData {
 }
 
 export function membershipRequestEmail(d: MembershipRequestData) {
+  const firstName = escapeHtml(d.first_name)
+  const lastName = escapeHtml(d.last_name)
+  const email = escapeHtml(d.email)
+  const requestedAt = escapeHtml(d.requested_at)
+
   return {
-    subject: `New membership request — ${d.first_name} ${d.last_name}`,
+    subject: safeSubject(`New membership request — ${d.first_name} ${d.last_name}`),
     html: base(`
       ${eyebrow('Membership Request')}
       ${headline('Someone wants in.')}
       <table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:22px;">
         <tr>
           <td style="font-size:0.8rem;color:${textMuted};padding:6px 0;letter-spacing:0.05em;text-transform:uppercase;width:90px;">Name</td>
-          <td style="font-size:0.9rem;color:${text};padding:6px 0;">${d.first_name} ${d.last_name}</td>
+          <td style="font-size:0.9rem;color:${text};padding:6px 0;">${firstName} ${lastName}</td>
         </tr>
         <tr>
           <td style="font-size:0.8rem;color:${textMuted};padding:6px 0;letter-spacing:0.05em;text-transform:uppercase;">Email</td>
-          <td style="font-size:0.9rem;color:${text};padding:6px 0;">${d.email}</td>
+          <td style="font-size:0.9rem;color:${text};padding:6px 0;">${email}</td>
         </tr>
         <tr>
           <td style="font-size:0.8rem;color:${textMuted};padding:6px 0;letter-spacing:0.05em;text-transform:uppercase;">Requested</td>
-          <td style="font-size:0.9rem;color:${text};padding:6px 0;">${d.requested_at}</td>
+          <td style="font-size:0.9rem;color:${text};padding:6px 0;">${requestedAt}</td>
         </tr>
       </table>
       ${ctaButton('https://hallowedhopsociety.com/admin', 'Review in Admin')}

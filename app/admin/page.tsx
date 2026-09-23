@@ -28,6 +28,38 @@ type NotifDetail = {
   notOpened: { id: string; name: string }[]
 }
 
+type TestPushInfo = {
+  targets?: {
+    web?: { hasSubscription: boolean }[]
+    expo?: {
+      platform: string | null
+      device_id: string | null
+      created_at: string | null
+      updated_at: string | null
+    }[]
+  }
+  prefs?: {
+    daily_beer?: boolean
+    social_all?: boolean
+  } | null
+  summary?: {
+    webTargets: number
+    expoTargets: number
+    dailyBeerEnabled: boolean
+  }
+}
+
+type PushTarget = {
+  id: string
+  username: string | null
+  display_name: string | null
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  auth_email: string | null
+  status: string | null
+}
+
 type Member = {
   id: string
   first_name: string | null
@@ -97,6 +129,28 @@ function getAdminPaymentCopy(member: Member) {
   }
 }
 
+function compactName(parts: Array<string | null | undefined>) {
+  return parts.map(part => part?.trim()).filter(Boolean).join(' ')
+}
+
+function getPushTargetName(target: PushTarget) {
+  return (
+    target.display_name?.trim()
+    || compactName([target.first_name, target.last_name])
+    || target.username?.trim()
+    || target.auth_email?.trim()
+    || target.email?.trim()
+    || 'Unnamed user'
+  )
+}
+
+function getPushTargetSecondary(target: PushTarget) {
+  if (target.auth_email) return target.auth_email
+  if (target.email) return target.email
+  if (target.username) return `@${target.username}`
+  return target.status || 'No username or email'
+}
+
 async function getAuthHeaders(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
@@ -121,6 +175,15 @@ export default function AdminPage() {
   const [broadcastTiers, setBroadcastTiers] = useState<string[]>(['hallowed', 'oddballs']) // default: everyone
   const [broadcasting, setBroadcasting] = useState(false)
   const [broadcastResult, setBroadcastResult] = useState('')
+  const [pushTargets, setPushTargets] = useState<PushTarget[]>([])
+  const [testPushMemberId, setTestPushMemberId] = useState('')
+  const [testPushInfo, setTestPushInfo] = useState<TestPushInfo | null>(null)
+  const [testPushLoading, setTestPushLoading] = useState(false)
+  const [testPushSending, setTestPushSending] = useState(false)
+  const [testPushDryRun, setTestPushDryRun] = useState(true)
+  const [testPushTitle, setTestPushTitle] = useState('🍺 HHS test push')
+  const [testPushBody, setTestPushBody] = useState('This is a one-person HHS admin test notification.')
+  const [testPushResult, setTestPushResult] = useState('')
   const [notifHistory, setNotifHistory] = useState<NotificationLog[]>([])
   const [expandedNotif, setExpandedNotif] = useState<string | null>(null)
   const [notifDetail, setNotifDetail] = useState<Record<string, NotifDetail>>({})
@@ -138,6 +201,7 @@ export default function AdminPage() {
       fetchRequests()
       fetchNotifHistory()
       fetchMembers()
+      fetchPushTargets()
       if ('Notification' in window) setMyNotifStatus(Notification.permission)
     })
   }, [])
@@ -229,6 +293,45 @@ export default function AdminPage() {
     })))
   }
 
+  async function fetchPushTargets() {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, first_name, last_name, email, status, created_at')
+      .order('created_at', { ascending: true })
+
+    const profileRows = (profiles || []) as Array<Omit<PushTarget, 'auth_email'> & { created_at?: string | null }>
+    let authEmailById = new Map<string, string>()
+
+    if (profileRows.length) {
+      const emailRes = await fetch('/api/admin/member-auth-emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ member_ids: profileRows.map(p => p.id) }),
+      })
+      if (emailRes.ok) {
+        const emailJson = await emailRes.json().catch(() => null) as { emails?: Record<string, string | null> } | null
+        authEmailById = new Map(
+          Object.entries(emailJson?.emails || {})
+            .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].length > 0),
+        )
+      }
+    }
+
+    setPushTargets(profileRows
+      .map(p => ({
+        id: p.id,
+        username: p.username || null,
+        display_name: p.display_name || null,
+        first_name: p.first_name || null,
+        last_name: p.last_name || null,
+        email: p.email || null,
+        auth_email: authEmailById.get(p.id) || null,
+        status: p.status || null,
+      }))
+      .sort((a, b) => getPushTargetName(a).localeCompare(getPushTargetName(b), undefined, { sensitivity: 'base' })),
+    )
+  }
+
   const updateSetupOverride = async (member: Member, action: 'enable' | 'disable') => {
     const memberName = member.first_name && member.last_name ? `${member.first_name} ${member.last_name}` : member.username
     const memberIdentifier = member.auth_email || member.email || `@${member.username}`
@@ -285,6 +388,75 @@ export default function AdminPage() {
   const markPaymentPaid = (member: Member) => updatePaymentConfirmation(member, 'paid')
   const markPaymentNotPaid = (member: Member) => updatePaymentConfirmation(member, 'not_paid')
   const markPaymentNotReviewed = (member: Member) => updatePaymentConfirmation(member, 'not_reviewed')
+
+  const selectedTestPushTarget = pushTargets.find(target => target.id === testPushMemberId) || null
+  const selectedTestPushLabel = selectedTestPushTarget
+    ? `${getPushTargetName(selectedTestPushTarget)} (${getPushTargetSecondary(selectedTestPushTarget)})`
+    : ''
+
+  async function inspectTestPushMember(memberId: string) {
+    setTestPushMemberId(memberId)
+    setTestPushInfo(null)
+    setTestPushResult('')
+    if (!memberId) return
+
+    setTestPushLoading(true)
+    try {
+      const res = await fetch('/api/admin/test-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({ action: 'inspect', user_id: memberId }),
+      })
+      const json = await res.json().catch(() => ({})) as TestPushInfo & { error?: string }
+      if (!res.ok) {
+        setTestPushResult(`Error: ${json.error || 'Could not inspect push targets.'}`)
+      } else {
+        setTestPushInfo(json)
+      }
+    } catch {
+      setTestPushResult('Something went wrong inspecting push targets.')
+    } finally {
+      setTestPushLoading(false)
+    }
+  }
+
+  async function handleTestPush(e: React.FormEvent) {
+    e.preventDefault()
+    if (!testPushMemberId || !selectedTestPushTarget) {
+      setTestPushResult('Choose one person first.')
+      return
+    }
+    if (!testPushDryRun && !confirm(`Send a live one-off push only to ${selectedTestPushLabel}?`)) return
+
+    setTestPushSending(true)
+    setTestPushResult('')
+    try {
+      const res = await fetch('/api/admin/test-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+        body: JSON.stringify({
+          action: 'send',
+          user_id: testPushMemberId,
+          title: testPushTitle,
+          body: testPushBody,
+          dry_run: testPushDryRun,
+        }),
+      })
+      const json = await res.json().catch(() => ({})) as { error?: string; dryRun?: boolean; sent?: number; skipped?: number; failed?: string[]; summary?: TestPushInfo['summary'] }
+      if (!res.ok) {
+        setTestPushResult(`Error: ${json.error || 'Could not send targeted push.'}`)
+      } else if (json.dryRun) {
+        setTestPushResult(`✅ Dry run only — selected ${json.summary?.webTargets ?? 0} web and ${json.summary?.expoTargets ?? 0} native target(s); no push was sent.`)
+      } else {
+        setTestPushResult(`✅ Sent ${json.sent ?? 0} push target(s) to ${selectedTestPushLabel}. Skipped ${json.skipped ?? 0}${json.failed?.length ? `; failed: ${json.failed.join('; ')}` : ''}.`)
+        await inspectTestPushMember(testPushMemberId)
+      }
+    } catch {
+      setTestPushResult('Something went wrong sending the targeted push.')
+    } finally {
+      setTestPushSending(false)
+    }
+  }
 
   async function fetchBeers() {
     const { data } = await supabase.from('beers').select('*').order('day_number')
@@ -677,6 +849,120 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* One-person targeted push */}
+        <div className="mb-10">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.15em] mb-4" style={{ color: 'var(--text-muted)' }}>One-Off Push to One Person</h2>
+          <div className="rounded-2xl p-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <form onSubmit={handleTestPush} className="space-y-4">
+              <div>
+                <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Person</label>
+                <select
+                  value={testPushMemberId}
+                  onChange={e => inspectTestPushMember(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                >
+                  <option value="">Select by name…</option>
+                  {pushTargets.map(target => (
+                    <option key={target.id} value={target.id}>
+                      {getPushTargetName(target)} — {getPushTargetSecondary(target)}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
+                  Lists all profiles by display/real name first, with username or email only as fallback.
+                </p>
+              </div>
+
+              {testPushMemberId && (
+                <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                  {testPushLoading ? (
+                    <p style={{ color: 'var(--text-muted)' }}>Checking push targets…</p>
+                  ) : (
+                    <>
+                      <p className="font-semibold" style={{ color: 'var(--gold)' }}>{selectedTestPushLabel}</p>
+                      <div className="grid grid-cols-3 gap-2 mt-3 text-xs">
+                        <div>
+                          <p style={{ color: 'var(--text-muted)' }}>Web subscriptions</p>
+                          <p className="font-bold" style={{ color: (testPushInfo?.summary?.webTargets ?? 0) > 0 ? '#4ade80' : 'var(--text-muted)' }}>
+                            {testPushInfo?.summary?.webTargets ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p style={{ color: 'var(--text-muted)' }}>Native targets</p>
+                          <p className="font-bold" style={{ color: (testPushInfo?.summary?.expoTargets ?? 0) > 0 ? '#4ade80' : 'var(--text-muted)' }}>
+                            {testPushInfo?.summary?.expoTargets ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p style={{ color: 'var(--text-muted)' }}>Daily push pref</p>
+                          <p className="font-bold" style={{ color: testPushInfo?.summary?.dailyBeerEnabled === false ? '#fca5a5' : '#4ade80' }}>
+                            {testPushInfo?.summary?.dailyBeerEnabled === false ? 'Off' : 'On/default'}
+                          </p>
+                        </div>
+                      </div>
+                      {testPushInfo?.targets?.expo && testPushInfo.targets.expo.length > 0 && (
+                        <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
+                          Native: {testPushInfo.targets.expo.map(token => token.platform || 'unknown').join(', ')}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Title</label>
+                <input
+                  type="text"
+                  value={testPushTitle}
+                  onChange={e => setTestPushTitle(e.target.value)}
+                  required
+                  className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs mb-1 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Custom notification text</label>
+                <textarea
+                  value={testPushBody}
+                  onChange={e => setTestPushBody(e.target.value)}
+                  required
+                  rows={3}
+                  className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <label className="flex items-start gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                <input
+                  type="checkbox"
+                  checked={testPushDryRun}
+                  onChange={e => setTestPushDryRun(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>Dry run / inspect only. Leave checked unless Zach explicitly wants a live one-person push.</span>
+              </label>
+
+              {testPushResult && (
+                <p className={`text-sm ${testPushResult.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>
+                  {testPushResult}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={testPushSending || testPushLoading || !testPushMemberId}
+                className="w-full font-bold py-2.5 rounded-lg transition-colors text-sm disabled:opacity-40"
+                style={{ background: testPushDryRun ? 'rgba(217,124,43,0.18)' : 'var(--gold)', color: testPushDryRun ? 'var(--gold)' : 'var(--bg)', border: testPushDryRun ? '1px solid rgba(217,124,43,0.35)' : '1px solid transparent' }}
+              >
+                {testPushSending ? 'Checking…' : testPushDryRun ? 'Dry Run Selected Person' : 'Send Live Push to Selected Person'}
+              </button>
+            </form>
+          </div>
         </div>
 
         {/* Membership Requests */}

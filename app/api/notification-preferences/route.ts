@@ -3,11 +3,12 @@
  * POST /api/notification-preferences
  *
  * Read or write per-user notification preferences.
- * The native app calls these (bridged through the WebView) to persist settings.
+ * The native app calls these directly and must authenticate with a Supabase bearer token.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-server'
+import { getBearerUser, isAuthorizedForUser } from '@/lib/native-api-auth'
 
 const supabase = createServiceClient()
 
@@ -36,6 +37,11 @@ export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('user_id')
   if (!userId) {
     return NextResponse.json({ error: 'user_id query param required' }, { status: 400 })
+  }
+
+  const { user, error: authError } = await getBearerUser(req)
+  if (authError || !isAuthorizedForUser(user, userId)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: authError === 'missing_token' ? 401 : 403 })
   }
 
   const { data, error } = await supabase
@@ -67,6 +73,11 @@ export async function POST(req: NextRequest) {
 
   if (!user_id) {
     return NextResponse.json({ error: 'user_id is required' }, { status: 400 })
+  }
+
+  const { user, error: authError } = await getBearerUser(req)
+  if (authError || !isAuthorizedForUser(user, user_id)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: authError === 'missing_token' ? 401 : 403 })
   }
 
   // Pick only recognised pref keys with boolean values

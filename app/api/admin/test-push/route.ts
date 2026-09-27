@@ -46,7 +46,19 @@ export async function POST(req: NextRequest) {
         .eq('user_id', user_id)
         .maybeSingle(),
     ])
-    return NextResponse.json({ ok: true, tokens: tokens ?? [], prefs: prefs ?? null })
+    return NextResponse.json({
+      ok: true,
+      tokens: (tokens ?? []).map((row) => ({
+        ...row,
+        provider:
+          typeof row.token === 'string' && (row.token.startsWith('ExponentPushToken[') || row.token.startsWith('ExpoPushToken['))
+            ? 'expo'
+            : row.platform === 'android'
+              ? 'fcm'
+              : 'unknown',
+      })),
+      prefs: prefs ?? null,
+    })
   }
 
   if (action === 'send') {

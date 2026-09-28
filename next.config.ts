@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         destination: '/auth',
         permanent: false,
       },
+      {
+        source: '/yikes',
+        destination: 'https://youtu.be/dQw4w9WgXcQ?si=AJ63_T01_Emg6acz',
+        permanent: false,
+      },
     ]
   },
 };

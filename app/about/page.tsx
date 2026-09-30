@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import HomeHeroIntro from '@/components/HomeHeroIntro'
 import HomeCountdownJoin from '@/components/HomeCountdownJoin'
 import HomeMemberSignIn from '@/components/HomeMemberSignIn'
+import LegalFooter from '@/components/LegalFooter'
 
 type User = { id: string; email?: string }
 
@@ -54,6 +55,7 @@ export default function AboutPage() {
       />
       <HomeCountdownJoin countdown={countdown} showJoinCta={!user} />
       {!user && <HomeMemberSignIn />}
+      <LegalFooter />
     </div>
   )
 }

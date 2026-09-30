@@ -12,6 +12,7 @@ import { BeersPageContent } from '@/components/BeersPageContent'
 import HomeHeroIntro from '@/components/HomeHeroIntro'
 import HomeCountdownJoin from '@/components/HomeCountdownJoin'
 import HomeMemberSignIn from '@/components/HomeMemberSignIn'
+import LegalFooter from '@/components/LegalFooter'
 import { isBeforeOctober2026 } from '@/lib/october'
 
 function getNativeHomeView() {
@@ -229,6 +230,8 @@ export default function HomePage() {
       {!user && !nativeView.appMode && (
         <HomeMemberSignIn />
       )}
+
+      {!nativeView.appMode && <LegalFooter />}
     </div>
   )
 }

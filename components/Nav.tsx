@@ -83,6 +83,11 @@ export default function Nav({ user }: Props) {
     ...(user ? [{ href: '/membership', label: 'The Settings' }] : []),
   ]
 
+  const legalLinks = [
+    { href: '/privacy', label: 'Privacy' },
+    { href: '/support', label: 'Support' },
+  ]
+
   const mobileLinks = user
     ? [
         { href: '/beers', label: 'The Beer', labelLines: ['The', 'Beer'] },
@@ -114,6 +119,25 @@ export default function Nav({ user }: Props) {
                   color: pathname === link.href ? 'var(--gold)' : 'var(--text-muted)',
                   fontSize: '0.75rem',
                   letterSpacing: '0.15em',
+                }}
+                className="uppercase tracking-wider transition-colors hover:text-[var(--gold)]"
+              >
+                {link.label}
+              </Link>
+            ))}
+
+            <span aria-hidden="true" style={{ color: 'var(--border)' }}>·</span>
+
+            {legalLinks.map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={handleTopNavClick(link.href)}
+                style={{
+                  fontFamily: "'Modern Antiqua', serif",
+                  color: pathname === link.href ? 'var(--gold)' : 'var(--text-muted)',
+                  fontSize: '0.68rem',
+                  letterSpacing: '0.14em',
                 }}
                 className="uppercase tracking-wider transition-colors hover:text-[var(--gold)]"
               >

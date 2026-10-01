@@ -134,7 +134,7 @@ export default function HomePage() {
       {!nativeView.appMode && <Nav user={user} />}
 
       <HomeHeroIntro
-        media={isOctober && beer ? (
+        media={isOctober && beer && user ? (
           <div className="hhs-hero-imgwrap">
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '2rem', borderRadius: '16px' }}>
               <div style={{ color: 'var(--gold)', fontFamily: "'Modern Antiqua', serif", fontSize: '0.7rem', letterSpacing: '0.3em', marginBottom: '1.5rem' }} className="uppercase">

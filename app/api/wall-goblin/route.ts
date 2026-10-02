@@ -921,15 +921,20 @@ async function generateRecap(context: RecapContext) {
       max_tokens: 460,
       temperature: 0.8,
       system: [
-        'You are writing ONE cohesive in-character Hallowed Hop Society Wall comment in a playful goblin/member voice.',
-        'This is not a daily recap, not a report, and not a list of per-person actions.',
+        'You are writing ONE tight in-character Hallowed Hop Society Wall comment in a playful goblin/member voice.',
+        'This is not a daily recap, not a report, not a list of per-person actions, and not a celebrity impression.',
         'Do not refer to yourself as "The Wall Goblin", "the Goblin", "this goblin", or any narrator watching from outside the conversation.',
         'Post like a mischievous person in the thread, not like a mascot announcing what it found.',
+        'Voice target: punchy roast-comic cadence, gleeful heckling, quick turns, absurd-but-understandable punchlines, and playful insult-comic energy that stays friendly.',
+        'Do not name, quote, imitate, or pattern-match any real comedian, puppet, show character, trademark line, signature catchphrase, or famous insult-comic bit.',
+        'Make the comedy feel like an HHS Wall comment: beer-specific, member-specific, and born from the supplied posts/comments/reactions/timing.',
         'When enough activity exists, weave 5 to 7 actual active members into one flowing roast using their supplied labels.',
         'If fewer than five members were active, use only those active members and keep the comment short without pretending there was a crowd.',
         'Ground jokes in the meaning of specific post/comment/reaction/rating/open clues, local timing/order, reply context, and recurring callbacks supplied in the data, but do not show raw stats up front.',
         'Infer what members are insinuating or implying, then joke about that specific meaning: questionable beer color, fizzing out, account/Instagram trouble, rejected puns, suspicious pours, flavor judgments, timing excuses, or whatever the supplied text actually says.',
         'Prefer a specific content-based joke over a generic activity joke whenever snippets make one possible; quote or closely paraphrase exact snippets when that is the only safe way to stay grounded.',
+        'Favor setup/punchline sentences over explanations: short setup, sharper punch, move on.',
+        'Punch down on the bit, the timing, the typo, the reaction, or the beer take; do not punch down on the person.',
         'Find a theme across the active posts/comments when possible and riff on that theme instead of marching through activity types.',
         'Use timing when it matters: who was first through the door, who arrived early, who posted late evening/night, who only reacted after someone else said something, and what they were replying/reacting to.',
         'Do not joke only that someone posted/commented/reacted; joke about what their supplied text or reaction was actually about.',
@@ -938,10 +943,10 @@ async function generateRecap(context: RecapContext) {
         'No abstract scene-setting unless it clearly comes from the day’s actual content.',
         'Do not copy examples, templates, or prior posts; priorGoblinMemory is only for lightweight callbacks/themes.',
         'Mention the featured beer only if it helps the joke.',
-        'Write 3 to 5 sentences as a single playful HHS-specific comment in a pointed-but-friendly goblin voice.',
+        'Write 2 to 4 sentences as a single playful HHS-specific comment in a pointed-but-friendly goblin voice, usually 60 to 120 words.',
         'No sensitive/private info. Never use emails or unsupplied names.',
         'If calling out a member, use only supplied member labels; otherwise say someone or one brave soul.',
-        'Keep it funny, not cruel: no harassment, threats, protected-class insults, sexual content, or repeated pile-on.',
+        'Keep it funny, not cruel: friendly teasing only; no harassment, threats, protected-class insults, sensitive-attribute jokes, sexual content, doxxing, invented claims, or repeated pile-on.',
         'Do not invent counts, users, breweries, beers, or activity.',
       ].join(' '),
       messages: [
@@ -995,6 +1000,7 @@ async function generateRecap(context: RecapContext) {
               'Do not begin with aggregate counts.',
               'Do not include the words daily recap or recap.',
               'Do not make a bullet list or line-separated list.',
+              'Do not mention or imitate any real comedian, puppet, TV show, catchphrase, or signature bit.',
               'Return only the Wall comment text.',
             ],
           }),
@@ -1044,27 +1050,27 @@ function deterministicRecap(context: RecapContext) {
   const totalWallActions = counts.posts + counts.comments + counts.reactions
 
   if (totalWallActions === 0) {
-    return `Nobody gave ${beer.name} from ${beer.brewery} a Wall argument to work with, which is bold for a ${style}beer that apparently had to sit there and wonder if the whole Society had learned silent tasting. Somebody please type one suspicious adjective tomorrow so this place does not become a monastery with bottle openers.`
+    return `Nobody gave ${beer.name} from ${beer.brewery} a Wall argument to work with. Not one post, not one brave adjective, just a ${style}beer staring at the room like it asked a question at an all-hands. Somebody type “piney” tomorrow so the Wall has something to heckle.`
   }
 
-  const targets = memberActivity.slice(0, 7)
+  const targets = memberActivity.slice(0, 3)
   if (targets.length === 1) {
     const roast = memberRoastClause(targets[0])
-    return `${roast}. ${beer.name} from ${beer.brewery} still got dragged onto the Wall, while the rest of the Society contributed ${reactionSummary} and the kind of silence that makes one typed sentence look like a keynote address.`
+    return `${roast}. The rest of the Society contributed ${reactionSummary} and a silence so polished it made one Wall comment look like a keynote. ${beer.name} from ${beer.brewery} deserved notes; it got a room pretending the keyboard was decorative.`
   }
 
   if (targets.length >= 2) {
     const sharedTheme = summarizeSharedTheme(targets, context)
     const wovenRoast = weaveMemberRoasts(targets)
-    const beerNod = shouldMentionBeer(context) ? ` ${beer.name} from ${beer.brewery} did not ask to host this bit, but here we are.` : ''
+    const beerNod = shouldMentionBeer(context) ? ` ${beer.name} did not ask to host open mic night, yet here we are.` : ''
     return `${sharedTheme} ${wovenRoast}${beerNod}`
   }
 
   if (counts.posts === 0) {
-    return `${handle} managed to make the Wall move without anyone starting a fresh post, which is basically conversational recycling with better beer. ${beer.name} from ${beer.brewery} deserved at least one direct take, but the Society mostly answered in ${reactionSummary} and side-eye-level quiet.`
+    return `${handle} made the Wall move without anyone starting a fresh post, which is conversational recycling with better beer. ${beer.name} from ${beer.brewery} asked for a take and got ${reactionSummary}, the app equivalent of nodding from the bushes.`
   }
 
-  return `${handle} got closest to making the Wall sound like a room instead of a loading screen. ${beer.name} from ${beer.brewery} did not need a spreadsheet of applause; it just needed somebody to stop lurking long enough to say what the pour was doing.`
+  return `${handle} got closest to making the Wall sound like a room instead of a loading screen. ${beer.name} from ${beer.brewery} did not need a tasting seminar; it needed one person to stop lurking and admit what the pour was doing.`
 }
 
 function weaveMemberRoasts(members: MemberActivity[]) {
@@ -1074,15 +1080,15 @@ function weaveMemberRoasts(members: MemberActivity[]) {
     .slice(0, 5)
 
   const callback = firstCallbackFor(members)
-  const callbackSentence = callback ? ` Also not forgotten: ${callback.label} ${callback.callback.replace(/^this member\s*/i, '')}, because this Wall keeps receipts even when everyone pretends it does not.` : ''
+  const callbackSentence = callback ? ` Also not forgotten: ${callback.label} ${callback.callback.replace(/^this member\s*/i, '')}; look at that, the receipts grew legs.` : ''
 
-  if (phrases.length === 0) return `The actual words were thin today, so the safest roast is simply that everyone made lurking look rehearsed.${callbackSentence}`
-  if (phrases.length === 1) return `${phrases[0]}, and that is enough material to make the Wall blink twice.${callbackSentence}`
+  if (phrases.length === 0) return `The actual words were thin today, so congratulations to everyone for making lurking look rehearsed.${callbackSentence}`
+  if (phrases.length === 1) return `${phrases[0]}, which is enough material to make the Wall blink twice.${callbackSentence}`
   if (phrases.length === 2) return `${phrases[0]}, while ${phrases[1]}.${callbackSentence}`
-  const opening = `${phrases[0]}, while ${phrases[1]}.`
+  const opening = `${phrases[0]}, while ${phrases[1]}`
   const rest = phrases.slice(2)
-  if (rest.length === 1) return `${opening} Then ${rest[0]}.${callbackSentence}`
-  return `${opening} Then ${joinWithSemicolons(rest)}.${callbackSentence}`
+  if (rest.length === 1) return `${opening}; then ${rest[0]}.${callbackSentence}`
+  return `${opening}; then ${joinWithSemicolons(rest)}.${callbackSentence}`
 }
 
 function memberRoastClause(member: MemberActivity, index = 0) {
@@ -1097,30 +1103,30 @@ function memberRoastClause(member: MemberActivity, index = 0) {
     if (snippet) {
       const riff = contentRiff(evidence.text, index)
       const openings = [
-        `${member.label} brought ${snippet} as ${timing}, ${riff}`,
-        `${member.label} followed with ${snippet} as ${timing}, ${riff}`,
-        `${member.label} tossed in ${snippet} as ${timing}, ${riff}`,
+        `${member.label} brought ${snippet} ${timing ? `as ${timing}` : ''}, ${riff}`,
+        `${member.label} followed with ${snippet} ${timing ? `as ${timing}` : ''}, ${riff}`,
+        `${member.label} tossed in ${snippet} ${timing ? `as ${timing}` : ''}, ${riff}`,
       ]
       return openings[index % openings.length]
     }
-    return `${member.label} made the Wall blink awake at ${timing} without giving the rest of us a sentence to overanalyze`
+    return `${member.label} woke the Wall at ${timing} and still left us guessing like that was a strategy`
   }
 
   if (evidence.kind === 'comment') {
     const snippet = quoteSnippet(evidence.text)
     const context = evidence.context ? ` while ${sanitizeInlineSnippet(evidence.context)}` : ''
-    if (snippet) return `${member.label} answered as ${timing} with ${snippet}${context}, ${contentRiff(evidence.text, index)}`
-    return `${member.label} answering as ${timing}${context}, which is a brave amount of participation for almost no quotable material`
+    if (snippet) return `${member.label} answered with ${snippet}${context}, ${contentRiff(evidence.text, index)}`
+    return `${member.label} answered ${context || `during ${evidence.timingLabel}`}, a bold little cameo with almost no quotable evidence`
   }
 
   if (evidence.kind === 'reaction') {
     const context = evidence.context ? ` ${sanitizeInlineSnippet(evidence.context)}` : ''
-    return `${member.label} waiting until ${evidence.localTime} to throw ${evidence.text || 'a reaction'}${context}, which is basically co-signing the bit without accepting speaking-role liability`
+    return `${member.label} waited until ${evidence.localTime} to throw ${evidence.text || 'a reaction'}${context}, co-signing the bit without taking the speaking-role risk`
   }
 
   if (evidence.kind === 'rating') {
     const snippet = quoteSnippet(evidence.text)
-    return `${member.label} filing ${snippet || 'a rating'} during ${evidence.timingLabel}, because apparently the beer needed a tiny courtroom scorecard`
+    return `${member.label} filed ${snippet || 'a rating'} during ${evidence.timingLabel}, because apparently the beer needed a tiny courtroom scorecard`
   }
 
   return `${member.label} only cracking the door during ${evidence.timingLabel}${theme ? ` around ${theme}` : ''}, which is lurking with enough intent to be noticed`
@@ -1151,28 +1157,28 @@ function summarizeSharedTheme(members: MemberActivity[], context: RecapContext) 
     .toLowerCase()
 
   if (/\b(color|colour|pour|hazy|cloudy|clear|dark|light|brown|orange|yellow|gold|amber|murky|looks?)\b/.test(text)) {
-    return 'Apparently today’s theme was making the pour itself look suspicious before anyone even got to the tasting notes.'
+    return 'Today the pour got treated like it arrived under an assumed name.'
   }
   if (/\b(fizz|fizzled|flat|carbonation|bubbles?|foam|head)\b|f[iv]zz+\w*led|fvzz/i.test(text)) {
-    return 'Apparently today’s theme was whether the beer, the joke, or the conversation was going to fizzle out first.'
+    return 'Today the bubbles, jokes, and confidence all had to prove they were still alive.'
   }
   if (/\b(instagram|account|login|logged|password|email|app|phone|notification)\b/.test(text)) {
-    return 'Apparently today’s theme was turning beer day into an emergency comms meeting with a beverage nearby.'
+    return 'Today beer day briefly became tech support with a beverage nearby.'
   }
   if (/\b(pun|joke|name|called|nickname)\b/.test(text)) {
-    return 'Apparently today’s theme was dragging the beer-name bit into public and seeing if it survived committee.'
+    return 'Today the beer-name bit got dragged into public and asked to survive committee.'
   }
   if (/\b(good|great|solid|love|liked|favorite|bad|rough|weird|meh|gross|excellent|terrible)\b/.test(text)) {
-    return 'Apparently today’s theme was everyone trying to decide whether this beer deserved applause, probation, or a polite nod.'
+    return 'Today the beer was apparently up for applause, probation, or the world’s smallest nod.'
   }
   if (/\b(taste|tastes|tasting|flavor|sweet|bitter|hoppy|malty|citrus|pine|roast|coffee|chocolate|sour|crisp|dry|juicy)\b/.test(text)) {
-    return 'Apparently today’s theme was making the flavor notes testify under friendly cross-examination.'
+    return 'Today the flavor notes got cross-examined like they owed somebody money.'
   }
   if (/\?/.test(text) || /\b(why|how|what|who|where|when)\b/.test(text)) {
-    return 'Apparently today’s theme was asking just enough questions to make the Wall feel like a tiny investigation.'
+    return 'Today the Wall asked just enough questions to look like a tiny investigation.'
   }
 
-  return 'Apparently today’s theme was taking the exact words people typed and making them everybody else’s problem.'
+  return 'Today’s exact words became everybody else’s problem, which is what community is for.'
 }
 
 function contentRiff(value: string | null, index = 0) {
@@ -1217,7 +1223,7 @@ function quoteSnippet(value: string | null) {
   if (!value) return ''
   const cleaned = sanitizeInlineSnippet(value)
   if (!cleaned) return ''
-  return `“${cleaned.slice(0, 110)}”`
+  return `“${cleaned.slice(0, 82)}”`
 }
 
 function sanitizeInlineSnippet(value: string) {

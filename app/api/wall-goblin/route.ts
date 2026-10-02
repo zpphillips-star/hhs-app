@@ -13,7 +13,11 @@ const MAX_POST_CONTENT_LENGTH = 2000
 const MARKER_PREFIX = 'Goblin receipt:'
 const PAGE_SIZE = 1000
 const MAX_SNIPPET_LENGTH = 180
+const MAX_DIRECT_QUOTE_WORDS = 3
+const MAX_DIRECT_QUOTE_CHARS = 32
+const MAX_QUOTED_SPANS = 3
 const GOBLIN_MEMORY_LOOKBACK = 7
+const WALL_GOBLIN_POSTING_ENABLED = isTruthy(process.env.WALL_GOBLIN_POSTING_ENABLED)
 const BANNED_RECAP_PATTERNS = [
   /\bthe\s+wall\s+goblin\b/i,
   /\bwall\s+goblin\s+(found|saw|caught|heard|pressed|watched)\b/i,
@@ -234,6 +238,20 @@ async function handleWallGoblin(req: NextRequest) {
     } satisfies RecapResponse)
   }
 
+  // Temporary safety gate while Zach dials in the voice: previews/dry-runs still work,
+  // but live inserts stay paused until WALL_GOBLIN_POSTING_ENABLED is explicitly enabled.
+  if (!dryRun && !WALL_GOBLIN_POSTING_ENABLED) {
+    return NextResponse.json({
+      ok: true,
+      dryRun,
+      inserted: false,
+      skipped: true,
+      reason: 'Wall Goblin live posting is temporarily paused; set WALL_GOBLIN_POSTING_ENABLED=1 only after Zach says to resume.',
+      postDate,
+      recapDate,
+    } satisfies RecapResponse)
+  }
+
   const botUserId = process.env.WALL_GOBLIN_USER_ID?.trim()
   if (!dryRun && !botUserId) {
     return NextResponse.json(
@@ -340,8 +358,8 @@ async function handleWallGoblin(req: NextRequest) {
   }
 
   let content = await generateRecap(context)
-  if (containsBannedGoblinOutput(content)) {
-    warnings.push('Generated Wall Goblin text tripped the self-reference/generic-phrase guard; used contextual fallback instead.')
+  if (containsBannedGoblinOutput(content) || hasQuoteGuardViolation(content)) {
+    warnings.push('Generated Wall Goblin text tripped the self-reference/generic-phrase/long-quote guard; used contextual fallback instead.')
     content = deterministicRecap(context)
   }
   content = `${content}\n\n${marker}`
@@ -932,7 +950,9 @@ async function generateRecap(context: RecapContext) {
         'If fewer than five members were active, use only those active members and keep the comment short without pretending there was a crowd.',
         'Ground jokes in the meaning of specific post/comment/reaction/rating/open clues, local timing/order, reply context, and recurring callbacks supplied in the data, but do not show raw stats up front.',
         'Infer what members are insinuating or implying, then joke about that specific meaning: questionable beer color, fizzing out, account/Instagram trouble, rejected puns, suspicious pours, flavor judgments, timing excuses, or whatever the supplied text actually says.',
-        'Prefer a specific content-based joke over a generic activity joke whenever snippets make one possible; quote or closely paraphrase exact snippets when that is the only safe way to stay grounded.',
+        'Prefer a specific content-based joke over a generic activity joke whenever snippets make one possible; interpret or paraphrase the member text instead of repeating it.',
+        'Do not dump member snippets or long direct quotes. You may call out only a tiny exact fragment or keyword in quotes (one to three words maximum, like “questionable”, “fvzzzzzled”, or “overripe”) if it helps the joke.',
+        'If a member wrote a long sentence, joke about the meaning, timing, typo, implication, or theme; do not reproduce the sentence.',
         'Favor setup/punchline sentences over explanations: short setup, sharper punch, move on.',
         'Punch down on the bit, the timing, the typo, the reaction, or the beer take; do not punch down on the person.',
         'Find a theme across the active posts/comments when possible and riff on that theme instead of marching through activity types.',
@@ -1000,6 +1020,7 @@ async function generateRecap(context: RecapContext) {
               'Do not begin with aggregate counts.',
               'Do not include the words daily recap or recap.',
               'Do not make a bullet list or line-separated list.',
+              'Do not include direct quotes longer than three words; paraphrase member meaning instead.',
               'Do not mention or imitate any real comedian, puppet, TV show, catchphrase, or signature bit.',
               'Return only the Wall comment text.',
             ],
@@ -1035,6 +1056,7 @@ function cleanGeneratedRecap(text: string, context: RecapContext) {
     .trim()
   if (containsBannedGoblinOutput(cleaned)) return ''
   if (looksLikeRecapOrList(cleaned, context)) return ''
+  if (hasQuoteGuardViolation(cleaned)) return ''
   return cleaned
 }
 
@@ -1114,13 +1136,13 @@ function memberRoastClause(member: MemberActivity, index = 0) {
 
   if (evidence.kind === 'comment') {
     const snippet = quoteSnippet(evidence.text)
-    const context = evidence.context ? ` while ${sanitizeInlineSnippet(evidence.context)}` : ''
+    const context = evidence.context ? ` while ${contextRiff(evidence.context)}` : ''
     if (snippet) return `${member.label} answered with ${snippet}${context}, ${contentRiff(evidence.text, index)}`
     return `${member.label} answered ${context || `during ${evidence.timingLabel}`}, a bold little cameo with almost no quotable evidence`
   }
 
   if (evidence.kind === 'reaction') {
-    const context = evidence.context ? ` ${sanitizeInlineSnippet(evidence.context)}` : ''
+    const context = evidence.context ? ` ${contextRiff(evidence.context)}` : ''
     return `${member.label} waited until ${evidence.localTime} to throw ${evidence.text || 'a reaction'}${context}, co-signing the bit without taking the speaking-role risk`
   }
 
@@ -1212,9 +1234,9 @@ function contentRiff(value: string | null, index = 0) {
   }
 
   const fallbacks = [
-    'making that exact sentence the thing we all have to squint at now',
+    'making that specific take the thing we all have to squint at now',
     'leaving a line specific enough that nobody gets to replace it with generic beer fog',
-    'giving the Wall an actual quote to chew on instead of vague tasting-room noises',
+    'giving the Wall an actual implication to chew on instead of vague tasting-room noises',
   ]
   return fallbacks[index % fallbacks.length]
 }
@@ -1223,7 +1245,8 @@ function quoteSnippet(value: string | null) {
   if (!value) return ''
   const cleaned = sanitizeInlineSnippet(value)
   if (!cleaned) return ''
-  return `“${cleaned.slice(0, 82)}”`
+  const fragment = tinyQuoteFragment(cleaned)
+  return fragment ? `“${fragment}”` : ''
 }
 
 function sanitizeInlineSnippet(value: string) {
@@ -1231,6 +1254,65 @@ function sanitizeInlineSnippet(value: string) {
     .replace(/@\w[\w.-]*/g, 'that handle')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function contextRiff(value: string) {
+  const text = value.toLowerCase()
+  if (/\b(color|colour|pour|hazy|cloudy|clear|dark|light|brown|orange|yellow|gold|amber|murky|looks?)\b/.test(text)) {
+    return 'replying to a pour-color interrogation'
+  }
+  if (/\b(fizz|fizzled|flat|carbonation|bubbles?|foam|head)\b|f[iv]zz+\w*led|fvzz/i.test(text)) {
+    return 'replying to bubble-related uncertainty'
+  }
+  if (/\b(instagram|account|login|logged|password|email|app|phone|notification)\b/.test(text)) {
+    return 'replying to beer-adjacent tech support'
+  }
+  if (/\b(pun|joke|name|called|nickname)\b/.test(text)) {
+    return 'replying to a wordplay incident'
+  }
+  if (/\b(good|great|solid|love|liked|favorite|excellent|bad|rough|weird|meh|gross|terrible)\b/.test(text)) {
+    return 'replying to a beer verdict'
+  }
+  if (/\?/.test(value) || /\b(why|how|what|who|where|when)\b/.test(text)) {
+    return 'replying to a tiny Wall investigation'
+  }
+  return 'replying to the earlier Wall bit'
+}
+
+function tinyQuoteFragment(value: string) {
+  const words = value
+    .split(/\s+/)
+    .map(word => word.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, ''))
+    .filter(Boolean)
+
+  if (!words.length) return ''
+
+  if (words.length <= MAX_DIRECT_QUOTE_WORDS && value.length <= MAX_DIRECT_QUOTE_CHARS) {
+    return value
+  }
+
+  const stopWords = new Set([
+    'the', 'and', 'but', 'for', 'with', 'that', 'this', 'was', 'were', 'are', 'you', 'your', 'beer', 'beers',
+    'from', 'have', 'has', 'had', 'just', 'like', 'what', 'when', 'where', 'why', 'how', 'not', 'very',
+  ])
+  const preferred = words.find(word => {
+    const lower = word.toLowerCase()
+    return lower.length <= MAX_DIRECT_QUOTE_CHARS && lower.length >= 5 && !stopWords.has(lower)
+  })
+
+  return preferred || ''
+}
+
+function hasQuoteGuardViolation(text: string) {
+  const quoteMatches = [...text.matchAll(/[“"]([^”"]+)[”"]/g)]
+  if (quoteMatches.length > MAX_QUOTED_SPANS) return true
+
+  return quoteMatches.some(match => {
+    const quoted = match[1].trim()
+    if (quoted.length > MAX_DIRECT_QUOTE_CHARS) return true
+    const wordCount = quoted.split(/\s+/).filter(Boolean).length
+    return wordCount > MAX_DIRECT_QUOTE_WORDS
+  })
 }
 
 function shouldMentionBeer(context: RecapContext) {
@@ -1386,7 +1468,7 @@ function cleanSnippet(value: string | null | undefined) {
     .slice(0, MAX_SNIPPET_LENGTH)
 }
 
-function isTruthy(value: string | null) {
+function isTruthy(value: string | null | undefined) {
   return value === '1' || value === 'true' || value === 'yes'
 }
 

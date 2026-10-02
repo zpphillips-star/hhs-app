@@ -43,6 +43,7 @@ Required production env vars:
 
 - `CRON_SECRET` — required for Vercel cron because Vercel sends it as the `Authorization: Bearer ...` header.
 - `WALL_GOBLIN_USER_ID` — auth/profile UUID the service-role insert should use for the bot post. This must already exist in `profiles`; the route refuses to fake a human user.
+- `WALL_GOBLIN_POSTING_ENABLED=1` — required for live inserts. Leave unset while tuning; dry-runs still work and cron/manual non-dry-run calls skip without posting.
 - `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) and `NEXT_PUBLIC_SUPABASE_URL` — existing server Supabase config.
 
 Optional env vars:

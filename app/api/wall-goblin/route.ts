@@ -524,6 +524,7 @@ async function buildRecapContext({
     usernamesById,
     labelsById,
     displayNamesById,
+    beer,
     posts,
     comments,
     reactions,
@@ -666,6 +667,7 @@ function buildMemberActivity({
   usernamesById,
   labelsById,
   displayNamesById,
+  beer,
   posts,
   comments,
   reactions,
@@ -676,6 +678,7 @@ function buildMemberActivity({
   usernamesById: Map<string, string>
   labelsById: Map<string, string>
   displayNamesById: Map<string, string>
+  beer: BeerRow
   posts: PostActivityRow[]
   comments: CommentActivityRow[]
   reactions: ReactionActivityRow[]
@@ -733,7 +736,7 @@ function buildMemberActivity({
     member.score += 4
     const snippet = cleanSnippet(post.content)
     if (snippet) member.posts.push(snippet)
-    addMemberEvidence(member, 'post', post.created_at, orderByEvent, snippet || null, null, post.user_id)
+    addMemberEvidence(member, 'post', post.created_at, orderByEvent, snippet || null, postBeerContext(post.beer_id, beer), post.user_id)
   }
 
   for (const comment of comments) {
@@ -752,7 +755,10 @@ function buildMemberActivity({
       comment.created_at,
       orderByEvent,
       snippet || null,
-      comment.posts?.content ? `replying to “${cleanSnippet(comment.posts.content)}”` : null,
+      combineEvidenceContext(
+        comment.posts?.content ? `replying to “${cleanSnippet(comment.posts.content)}”` : null,
+        postBeerContext(comment.posts?.beer_id || null, beer)
+      ),
       comment.user_id
     )
   }
@@ -770,7 +776,10 @@ function buildMemberActivity({
       reaction.created_at,
       orderByEvent,
       reaction.reaction || 'reaction',
-      reaction.posts?.content ? `reacting to “${cleanSnippet(reaction.posts.content)}”` : null,
+      combineEvidenceContext(
+        reaction.posts?.content ? `reacting to “${cleanSnippet(reaction.posts.content)}”` : null,
+        postBeerContext(reaction.posts?.beer_id || null, beer)
+      ),
       reaction.user_id
     )
   }
@@ -809,6 +818,16 @@ function buildMemberActivity({
   return [...members.values()]
     .filter(member => member.score > 0)
     .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
+}
+
+function postBeerContext(postBeerId: string | null, beer: BeerRow) {
+  if (!postBeerId || postBeerId === beer.id) return null
+  return `activity was attached to a different day’s beer instead of Day ${beer.day_number} (${beer.name})`
+}
+
+function combineEvidenceContext(...parts: Array<string | null>) {
+  const present = parts.filter((part): part is string => Boolean(part))
+  return present.length ? present.join('; ') : null
 }
 
 function addMemberEvidence(
@@ -931,6 +950,7 @@ function attachMemberCallbacks(members: MemberActivity[], memory: GoblinMemoryEn
 async function generateRecap(context: RecapContext) {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
   if (!apiKey) return deterministicRecap(context)
+  const roastTargets = selectRoastTargets(context.memberActivity)
 
   try {
     const anthropic = new Anthropic({ apiKey })
@@ -947,9 +967,11 @@ async function generateRecap(context: RecapContext) {
         'Do not name, quote, imitate, or pattern-match any real comedian, puppet, show character, trademark line, signature catchphrase, or famous insult-comic bit.',
         'Make the comedy feel like an HHS Wall comment: beer-specific, member-specific, and born from the supplied posts/comments/reactions/timing.',
         'When enough activity exists, weave 5 to 7 actual active members into one flowing roast using their supplied labels.',
+        'Use roastTargets as the intended callout mix when provided: it deliberately includes frequent posters plus other members with enough real post/comment/reaction/rating material, so do not default only to the loudest repeat posters.',
         'If fewer than five members were active, use only those active members and keep the comment short without pretending there was a crowd.',
         'Ground jokes in the meaning of specific post/comment/reaction/rating/open clues, local timing/order, reply context, and recurring callbacks supplied in the data, but do not show raw stats up front.',
         'Infer what members are insinuating or implying, then joke about that specific meaning: questionable beer color, fizzing out, account/Instagram trouble, rejected puns, suspicious pours, flavor judgments, timing excuses, or whatever the supplied text actually says.',
+        'Look for people posting or replying on the wrong day/about a different day’s beer when that context is supplied, and only joke about it if the evidence says it happened.',
         'Prefer a specific content-based joke over a generic activity joke whenever snippets make one possible; interpret or paraphrase the member text instead of repeating it.',
         'Do not dump member snippets or long direct quotes. You may call out only a tiny exact fragment or keyword in quotes (one to three words maximum, like “questionable”, “fvzzzzzled”, or “overripe”) if it helps the joke.',
         'If a member wrote a long sentence, joke about the meaning, timing, typo, implication, or theme; do not reproduce the sentence.',
@@ -982,6 +1004,7 @@ async function generateRecap(context: RecapContext) {
             },
             counts: context.counts,
             reactions: context.reactionCounts,
+            roastTargets: roastTargets.map(member => member.label),
             memberActivity: context.memberActivity.map(member => ({
               label: member.label,
               username: member.username ? `@${member.username}` : null,
@@ -1075,7 +1098,7 @@ function deterministicRecap(context: RecapContext) {
     return `Nobody gave ${beer.name} from ${beer.brewery} a Wall argument to work with. Not one post, not one brave adjective, just a ${style}beer staring at the room like it asked a question at an all-hands. Somebody type “piney” tomorrow so the Wall has something to heckle.`
   }
 
-  const targets = memberActivity.slice(0, 3)
+  const targets = selectRoastTargets(memberActivity)
   if (targets.length === 1) {
     const roast = memberRoastClause(targets[0])
     return `${roast}. The rest of the Society contributed ${reactionSummary} and a silence so polished it made one Wall comment look like a keynote. ${beer.name} from ${beer.brewery} deserved notes; it got a room pretending the keyboard was decorative.`
@@ -1099,7 +1122,7 @@ function weaveMemberRoasts(members: MemberActivity[]) {
   const phrases = members
     .map((member, index) => memberRoastClause(member, index))
     .filter(Boolean)
-    .slice(0, 5)
+    .slice(0, 7)
 
   const callback = firstCallbackFor(members)
   const callbackSentence = callback ? ` Also not forgotten: ${callback.label} ${callback.callback.replace(/^this member\s*/i, '')}; look at that, the receipts grew legs.` : ''
@@ -1111,6 +1134,41 @@ function weaveMemberRoasts(members: MemberActivity[]) {
   const rest = phrases.slice(2)
   if (rest.length === 1) return `${opening}; then ${rest[0]}.${callbackSentence}`
   return `${opening}; then ${joinWithSemicolons(rest)}.${callbackSentence}`
+}
+
+function selectRoastTargets(members: MemberActivity[]) {
+  const eligible = members.filter(hasEnoughRoastMaterial)
+  const pool = eligible.length ? eligible : members.filter(member => member.score > 0)
+  if (pool.length <= 7) return pool
+
+  const selected = new Map<string, MemberActivity>()
+  const add = (member: MemberActivity | undefined) => {
+    if (member && selected.size < 7) selected.set(member.userId, member)
+  }
+
+  const sortedByScore = [...pool].sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
+  sortedByScore.slice(0, 3).forEach(add)
+
+  const quieterWithMaterial = sortedByScore
+    .slice(3)
+    .sort((a, b) => {
+      const callbackDelta = Number(a.callbacks.length > 0) - Number(b.callbacks.length > 0)
+      if (callbackDelta !== 0) return callbackDelta
+      const substanceDelta = substanceScore(b) - substanceScore(a)
+      if (substanceDelta !== 0) return substanceDelta
+      return a.label.localeCompare(b.label)
+    })
+  quieterWithMaterial.forEach(add)
+
+  return [...selected.values()]
+}
+
+function hasEnoughRoastMaterial(member: MemberActivity) {
+  return member.evidence.some(item => item.kind !== 'open' && Boolean(item.text || item.context))
+}
+
+function substanceScore(member: MemberActivity) {
+  return member.counts.posts * 5 + member.counts.comments * 4 + member.counts.ratings * 3 + member.counts.reactions * 2
 }
 
 function memberRoastClause(member: MemberActivity, index = 0) {
@@ -1258,6 +1316,9 @@ function sanitizeInlineSnippet(value: string) {
 
 function contextRiff(value: string) {
   const text = value.toLowerCase()
+  if (/\bdifferent day.s beer\b|\binstead of day\b/.test(text)) {
+    return 'doing beer-day hopscotch on the calendar'
+  }
   if (/\b(color|colour|pour|hazy|cloudy|clear|dark|light|brown|orange|yellow|gold|amber|murky|looks?)\b/.test(text)) {
     return 'replying to a pour-color interrogation'
   }

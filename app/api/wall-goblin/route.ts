@@ -28,6 +28,10 @@ type BaseActivityRow = {
   user_id: string | null
 }
 
+type OpenActivityRow = BaseActivityRow & {
+  opened_at: string
+}
+
 type PostActivityRow = BaseActivityRow & {
   id: string
   beer_id: string | null
@@ -60,6 +64,7 @@ type ReactionActivityRow = BaseActivityRow & {
 type RatingActivityRow = BaseActivityRow & {
   stars?: number | null
   notes?: string | null
+  created_at: string
 }
 
 type ProfileRow = {
@@ -87,6 +92,23 @@ type MemberActivity = {
   ratings: string[]
   callbacks: string[]
   standout: string[]
+  earliestActivityLocal: string | null
+  latestActivityLocal: string | null
+  timingRole: string | null
+  contentThemes: string[]
+  evidence: ActivityEvidence[]
+}
+
+type ActivityKind = 'post' | 'comment' | 'reaction' | 'rating' | 'open'
+
+type ActivityEvidence = {
+  kind: ActivityKind
+  createdAt: string
+  localTime: string
+  orderLabel: string
+  timingLabel: string
+  text: string | null
+  context: string | null
 }
 
 type GoblinMemoryEntry = {
@@ -116,6 +138,9 @@ type RecapContext = {
     content: string
     beerId: string | null
     createdAt: string
+    localTime: string
+    orderLabel: string
+    timingLabel: string
   }>
   comments: Array<{
     author: string
@@ -123,6 +148,9 @@ type RecapContext = {
     postAuthor: string | null
     postSnippet: string | null
     createdAt: string
+    localTime: string
+    orderLabel: string
+    timingLabel: string
   }>
   reactions: Array<{
     author: string
@@ -130,6 +158,9 @@ type RecapContext = {
     postAuthor: string | null
     postSnippet: string | null
     createdAt: string
+    localTime: string
+    orderLabel: string
+    timingLabel: string
   }>
 }
 
@@ -412,7 +443,7 @@ async function buildRecapContext({
         .order('created_at', { ascending: true })
         .range(from, to)
     ),
-    fetchAllRowsOptional<BaseActivityRow>((from, to) =>
+    fetchAllRowsOptional<OpenActivityRow>((from, to) =>
       supabase
         .from('notification_opens')
         .select('user_id, opened_at')
@@ -482,25 +513,34 @@ async function buildRecapContext({
     topUsername,
     memberActivity,
     goblinMemory,
-    posts: posts.map(post => ({
+    posts: posts.map((post, index) => ({
       author: labelFor(post.user_id, labelsById),
       content: cleanSnippet(post.content),
       beerId: post.beer_id,
       createdAt: post.created_at,
+      localTime: formatPacificTime(post.created_at),
+      orderLabel: orderLabel(index, posts.length, 'post'),
+      timingLabel: timingLabel(post.created_at),
     })),
-    comments: comments.map(comment => ({
+    comments: comments.map((comment, index) => ({
       author: labelFor(comment.user_id, labelsById),
       content: cleanSnippet(comment.content),
       postAuthor: comment.posts?.user_id ? labelFor(comment.posts.user_id, labelsById) : null,
       postSnippet: comment.posts?.content ? cleanSnippet(comment.posts.content) : null,
       createdAt: comment.created_at,
+      localTime: formatPacificTime(comment.created_at),
+      orderLabel: orderLabel(index, comments.length, 'comment'),
+      timingLabel: timingLabel(comment.created_at),
     })),
-    reactions: reactions.map(reaction => ({
+    reactions: reactions.map((reaction, index) => ({
       author: labelFor(reaction.user_id, labelsById),
       reaction: reaction.reaction || 'reaction',
       postAuthor: reaction.posts?.user_id ? labelFor(reaction.posts.user_id, labelsById) : null,
       postSnippet: reaction.posts?.content ? cleanSnippet(reaction.posts.content) : null,
       createdAt: reaction.created_at,
+      localTime: formatPacificTime(reaction.created_at),
+      orderLabel: orderLabel(index, reactions.length, 'reaction'),
+      timingLabel: timingLabel(reaction.created_at),
     })),
   }
 }
@@ -602,9 +642,23 @@ function buildMemberActivity({
   comments: CommentActivityRow[]
   reactions: ReactionActivityRow[]
   ratings: RatingActivityRow[]
-  clicks: BaseActivityRow[]
+  clicks: OpenActivityRow[]
 }) {
   const members = new Map<string, MemberActivity>()
+  const allEvents = [
+    ...posts.map(row => ({ userId: row.user_id, kind: 'post' as const, createdAt: row.created_at })),
+    ...comments.map(row => ({ userId: row.user_id, kind: 'comment' as const, createdAt: row.created_at })),
+    ...reactions.map(row => ({ userId: row.user_id, kind: 'reaction' as const, createdAt: row.created_at })),
+    ...ratings.map(row => ({ userId: row.user_id, kind: 'rating' as const, createdAt: row.created_at })),
+    ...clicks.map(row => ({ userId: row.user_id, kind: 'open' as const, createdAt: row.opened_at })),
+  ]
+    .filter(event => Boolean(event.userId))
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+  const orderByEvent = new Map<string, string>()
+  allEvents.forEach((event, index) => {
+    orderByEvent.set(eventKey(event.kind, event.createdAt, event.userId), orderLabel(index, allEvents.length, 'wall action'))
+  })
+
   const getMember = (userId: string) => {
     const existing = members.get(userId)
     if (existing) return existing
@@ -622,6 +676,11 @@ function buildMemberActivity({
       ratings: [],
       callbacks: [],
       standout: [],
+      earliestActivityLocal: null,
+      latestActivityLocal: null,
+      timingRole: null,
+      contentThemes: [],
+      evidence: [],
     }
     members.set(userId, member)
     return member
@@ -636,6 +695,7 @@ function buildMemberActivity({
     member.score += 4
     const snippet = cleanSnippet(post.content)
     if (snippet) member.posts.push(snippet)
+    addMemberEvidence(member, 'post', post.created_at, orderByEvent, snippet || null, null, post.user_id)
   }
 
   for (const comment of comments) {
@@ -648,6 +708,15 @@ function buildMemberActivity({
       const postContext = comment.posts?.content ? ` on “${cleanSnippet(comment.posts.content)}”` : ''
       member.comments.push(`${snippet}${postContext}`)
     }
+    addMemberEvidence(
+      member,
+      'comment',
+      comment.created_at,
+      orderByEvent,
+      snippet || null,
+      comment.posts?.content ? `replying to “${cleanSnippet(comment.posts.content)}”` : null,
+      comment.user_id
+    )
   }
 
   for (const reaction of reactions) {
@@ -657,6 +726,15 @@ function buildMemberActivity({
     member.score += 1
     const postContext = reaction.posts?.content ? ` on “${cleanSnippet(reaction.posts.content)}”` : ''
     member.reactions.push(`${reaction.reaction || 'reaction'}${postContext}`)
+    addMemberEvidence(
+      member,
+      'reaction',
+      reaction.created_at,
+      orderByEvent,
+      reaction.reaction || 'reaction',
+      reaction.posts?.content ? `reacting to “${cleanSnippet(reaction.posts.content)}”` : null,
+      reaction.user_id
+    )
   }
 
   for (const rating of ratings) {
@@ -667,6 +745,7 @@ function buildMemberActivity({
     const stars = rating.stars ? `${rating.stars}★` : 'rated'
     const note = cleanSnippet(rating.notes)
     member.ratings.push(note ? `${stars}: ${note}` : stars)
+    addMemberEvidence(member, 'rating', rating.created_at, orderByEvent, note ? `${stars}: ${note}` : stars, null, rating.user_id)
   }
 
   for (const click of clicks) {
@@ -674,6 +753,7 @@ function buildMemberActivity({
     const member = getMember(click.user_id)
     member.counts.opens += 1
     member.score += 0.5
+    addMemberEvidence(member, 'open', click.opened_at, orderByEvent, null, null, click.user_id)
   }
 
   for (const member of members.values()) {
@@ -681,11 +761,112 @@ function buildMemberActivity({
     if (member.counts.comments >= 3) member.standout.push('comment-section goblin')
     if (member.counts.reactions >= 4) member.standout.push('emoji sprinkler')
     if (member.counts.ratings > 0 && member.posts.length === 0 && member.comments.length === 0) member.standout.push('rated quietly')
+    const sortedEvidence = member.evidence.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    member.earliestActivityLocal = sortedEvidence[0]?.localTime || null
+    member.latestActivityLocal = sortedEvidence[sortedEvidence.length - 1]?.localTime || null
+    member.timingRole = describeTimingRole(sortedEvidence, member.counts)
+    member.contentThemes = deriveContentThemes(member)
   }
 
   return [...members.values()]
     .filter(member => member.score > 0)
     .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
+}
+
+function addMemberEvidence(
+  member: MemberActivity,
+  kind: ActivityKind,
+  createdAt: string,
+  orderByEvent: Map<string, string>,
+  text: string | null,
+  context: string | null,
+  userId: string | null
+) {
+  member.evidence.push({
+    kind,
+    createdAt,
+    localTime: formatPacificTime(createdAt),
+    orderLabel: orderByEvent.get(eventKey(kind, createdAt, userId)) || 'wall action',
+    timingLabel: timingLabel(createdAt),
+    text,
+    context,
+  })
+}
+
+function eventKey(kind: ActivityKind, createdAt: string, userId: string | null) {
+  return `${kind}:${createdAt}:${userId || 'unknown'}`
+}
+
+function orderLabel(index: number, total: number, noun: string) {
+  if (total <= 1) return `only ${noun}`
+  if (index === 0) return `first ${noun}`
+  if (index === 1) return `second ${noun}`
+  if (index <= Math.max(1, Math.floor(total * 0.25))) return `early ${noun}`
+  if (index === total - 1) return `last ${noun}`
+  if (index >= Math.floor(total * 0.75)) return `late ${noun}`
+  return `middle ${noun}`
+}
+
+function formatPacificTime(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: TIME_ZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(new Date(value))
+}
+
+function timingLabel(value: string) {
+  const hour = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: TIME_ZONE,
+    hour: '2-digit',
+    hour12: false,
+  }).format(new Date(value)))
+  if (hour < 5) return 'after-midnight goblin hours'
+  if (hour < 11) return 'morning'
+  if (hour < 17) return 'afternoon'
+  if (hour < 21) return 'evening'
+  return 'late night'
+}
+
+function describeTimingRole(evidence: ActivityEvidence[], counts: MemberActivity['counts']) {
+  if (!evidence.length) return null
+  const first = evidence[0]
+  const last = evidence[evidence.length - 1]
+  if (first.orderLabel.startsWith('first')) return 'first through the door'
+  if (evidence.every(item => item.kind === 'comment')) return 'comment lurker'
+  if (evidence.every(item => item.kind === 'reaction')) return 'emoji lurker'
+  if (last.timingLabel === 'late night' || last.timingLabel === 'after-midnight goblin hours') return 'late-night goblin'
+  if (counts.posts > 0 && counts.comments > 0) return 'started a table and stayed to heckle'
+  if (counts.posts > 0) return 'post starter'
+  if (counts.comments > 0) return 'comment stirrer'
+  if (counts.ratings > 0) return 'quiet rater'
+  return 'wall lurker'
+}
+
+function deriveContentThemes(member: MemberActivity) {
+  const sourceSnippets = [...member.posts, ...member.comments, ...member.ratings, ...member.reactions]
+    .map(snippet => snippet.replace(/[“”]/g, '"'))
+    .filter(Boolean)
+  const combined = sourceSnippets.join(' ').toLowerCase()
+  const themes: string[] = []
+  const addTheme = (label: string, pattern: RegExp) => {
+    if (pattern.test(combined) && !themes.includes(label)) themes.push(label)
+  }
+
+  addTheme('flavor note', /\b(taste|tastes|tasting|flavor|sweet|bitter|hoppy|malty|citrus|pine|roast|coffee|chocolate|sour|crisp|dry|juicy)\b/)
+  addTheme('beer judgment', /\b(good|great|solid|love|liked|favorite|bad|rough|weird|meh|gross|excellent|terrible)\b/)
+  addTheme('brewery or beer-name riff', /\b(brewery|brewing|beer|ale|lager|ipa|stout|porter|pils|kolsch|saison|cider)\b/)
+  addTheme('timing/weather/life context', /\b(late|night|morning|work|dinner|rain|cold|warm|home|game|kids|today|tonight)\b/)
+  addTheme('reaction to someone else', /\bon\s+"[^"]+"/)
+
+  for (const snippet of sourceSnippets) {
+    if (themes.length >= 4) break
+    const trimmed = snippet.replace(/\s+on\s+“.*$/, '').trim()
+    if (trimmed && !themes.some(theme => trimmed.toLowerCase().includes(theme))) themes.push(`said “${trimmed.slice(0, 70)}”`)
+  }
+
+  return themes.slice(0, 4)
 }
 
 function attachMemberCallbacks(members: MemberActivity[], memory: GoblinMemoryEntry[]) {
@@ -725,7 +906,10 @@ async function generateRecap(context: RecapContext) {
         'Write as if a goblin/person in the room is jokingly calling out members while the Wall conversation is happening.',
         'When enough activity exists, weave 5 to 7 actual active members into one flowing roast using their supplied labels.',
         'If fewer than five members were active, use only those active members and keep the comment short without pretending there was a crowd.',
-        'Ground jokes in specific post/comment/reaction/rating/open clues and recurring callbacks supplied in the data, but do not show raw stats up front.',
+        'Ground jokes in the meaning of specific post/comment/reaction/rating/open clues, local timing/order, reply context, and recurring callbacks supplied in the data, but do not show raw stats up front.',
+        'Prefer a specific content-based joke over a generic activity joke whenever snippets make one possible.',
+        'Use timing when it matters: who was first through the door, who arrived early, who posted late evening/night, who only reacted after someone else said something, and what they were replying/reacting to.',
+        'Do not joke only that someone posted/commented/reacted; joke about what their supplied text or reaction was actually about.',
         'Do not use a formula like “@a did this. @b did that. @c did this.” Vary sentence shape and connect members through one scene or bit.',
         'Do not copy examples, templates, or prior posts; priorGoblinMemory is only for lightweight callbacks/themes.',
         'Mention the featured beer only if it helps the joke.',
@@ -754,6 +938,18 @@ async function generateRecap(context: RecapContext) {
               displayName: member.displayName,
               counts: member.counts,
               standout: member.standout,
+              earliestActivityLocal: member.earliestActivityLocal,
+              latestActivityLocal: member.latestActivityLocal,
+              timingRole: member.timingRole,
+              contentThemes: member.contentThemes,
+              evidence: member.evidence.map(item => ({
+                kind: item.kind,
+                localTime: item.localTime,
+                orderLabel: item.orderLabel,
+                timingLabel: item.timingLabel,
+                text: item.text,
+                context: item.context,
+              })),
               posts: member.posts,
               comments: member.comments,
               reactions: member.reactions,
@@ -822,6 +1018,11 @@ function deterministicRecap(context: RecapContext) {
   }
 
   const targets = memberActivity.slice(0, 7)
+  if (targets.length === 1) {
+    const roast = memberRoastClause(targets[0])
+    return `The Wall Goblin found just one clear set of muddy footprints today: ${roast}. ${beer.name} from ${beer.brewery} still got a witness statement, even if the rest of the Society chose suspicious silence and ${reactionSummary}.`
+  }
+
   if (targets.length >= 2) {
     const goblinScene = targets.length < 5
       ? 'The room was not exactly packed, but the few brave souls who left crumbs made enough noise for the Goblin to crawl out of the tap lines.'
@@ -839,52 +1040,92 @@ function deterministicRecap(context: RecapContext) {
 }
 
 function weaveMemberRoasts(members: MemberActivity[]) {
-  const groups = [
-    {
-      members: members.filter(member => member.counts.posts > 0 && member.counts.comments > 0),
-      phrase: (labels: string) => `${labels} turned the Wall into a sticky little tavern booth`,
-    },
-    {
-      members: members.filter(member => member.counts.posts > 0 && member.counts.comments === 0),
-      phrase: (labels: string) => `${labels} tossed fresh crumbs onto the floorboards`,
-    },
-    {
-      members: members.filter(member => member.counts.comments > 0 && member.counts.posts === 0),
-      phrase: (labels: string) => `${labels} kept the comment cauldron bubbling`,
-    },
-    {
-      members: members.filter(member => member.counts.reactions > 0 && member.counts.posts === 0 && member.counts.comments === 0),
-      phrase: (labels: string) => `${labels} heckled in emoji from the rafters`,
-    },
-    {
-      members: members.filter(member => member.counts.ratings > 0 && member.counts.posts === 0 && member.counts.comments === 0 && member.counts.reactions === 0),
-      phrase: (labels: string) => `${labels} slid quiet ratings under the door`,
-    },
-    {
-      members: members.filter(member => member.counts.opens > 0 && member.score <= 0.5),
-      phrase: (labels: string) => `${labels} cracked the door just enough to count as suspicious`,
-    },
-  ]
-
-  const seen = new Set<string>()
-  const phrases: string[] = []
-  for (const group of groups) {
-    const labels = group.members
-      .filter(member => {
-        if (seen.has(member.userId)) return false
-        seen.add(member.userId)
-        return true
-      })
-      .map(member => member.label)
-    if (labels.length) phrases.push(group.phrase(formatLabels(labels)))
-  }
+  const phrases = members
+    .map((member, index) => memberRoastClause(member, index))
+    .filter(Boolean)
+    .slice(0, 5)
 
   const callback = firstCallbackFor(members)
   const callbackSentence = callback ? ` The Goblin also remembers how ${callback.label} ${callback.callback.replace(/^this member\s*/i, '')}, so that callback is staying in the rafters for later.` : ''
 
+  if (phrases.length === 0) return `the evidence was mostly creaky floorboards and suspicious glances, which is still enough for one damp little gremlin.${callbackSentence}`
   if (phrases.length === 1) return `${phrases[0]}, which is plenty of evidence for one damp little gremlin.${callbackSentence}`
-  if (phrases.length === 2) return `At one end, ${phrases[0]}; at the other, ${phrases[1]}.${callbackSentence}`
-  return `At one end, ${phrases[0]}; near the taps, ${phrases[1]}; and from the rafters, ${joinWithSemicolons(phrases.slice(2))}.${callbackSentence}`
+  if (phrases.length === 2) return `The Goblin clock caught ${phrases[0]}, while also catching ${phrases[1]}.${callbackSentence}`
+  const opening = `The Goblin clock caught ${phrases[0]}, while also catching ${phrases[1]}.`
+  const rest = phrases.slice(2)
+  if (rest.length === 1) return `${opening} Then ${rest[0]}.${callbackSentence}`
+  return `${opening} Then ${joinWithSemicolons(rest)}.${callbackSentence}`
+}
+
+function memberRoastClause(member: MemberActivity, index = 0) {
+  const evidence = bestEvidenceForRoast(member)
+  const timing = member.timingRole ? `${member.timingRole} at ${member.earliestActivityLocal || evidence?.localTime}` : evidence?.localTime
+  const theme = member.contentThemes[0]
+
+  if (!evidence) return `${member.label} left only enough fingerprints for a suspicious squint`
+
+  if (evidence.kind === 'post') {
+    const snippet = quoteSnippet(evidence.text)
+    if (snippet) {
+      const endings = [
+        'making the Goblin sniff the actual words instead of counting empty mugs',
+        'which is either Wall evidence or proof the can started arguing back',
+        'and the Goblin is legally required to poke that sentence with a tiny stick',
+      ]
+      return `${member.label} showing up as ${timing} with ${snippet}, ${endings[index % endings.length]}`
+    }
+    return `${member.label} showing up as ${timing} and making the Wall blink awake`
+  }
+
+  if (evidence.kind === 'comment') {
+    const snippet = quoteSnippet(evidence.text)
+    const context = evidence.context ? ` while ${sanitizeInlineSnippet(evidence.context)}` : ''
+    if (snippet) return `${member.label} playing ${timing} with ${snippet}${context}, a tiny spoon clanking directly in someone else's cauldron`
+    return `${member.label} playing ${timing}${context}, stirring the comment pot without leaving a full meal`
+  }
+
+  if (evidence.kind === 'reaction') {
+    const context = evidence.context ? ` ${sanitizeInlineSnippet(evidence.context)}` : ''
+    return `${member.label} waiting until ${evidence.localTime} to throw ${evidence.text || 'a reaction'}${context}, classic rafter-goblin behavior`
+  }
+
+  if (evidence.kind === 'rating') {
+    const snippet = quoteSnippet(evidence.text)
+    return `${member.label} filing ${snippet || 'a rating'} during ${evidence.timingLabel}, the official Society paperwork of pretending this is science`
+  }
+
+  return `${member.label} only cracking the door during ${evidence.timingLabel}${theme ? ` around ${theme}` : ''}, which the Goblin is counting as lurking with intent`
+}
+
+function bestEvidenceForRoast(member: MemberActivity) {
+  const priority: Record<ActivityKind, number> = {
+    post: 5,
+    comment: 4,
+    rating: 3,
+    reaction: 2,
+    open: 1,
+  }
+  return [...member.evidence].sort((a, b) => {
+    const priorityDelta = priority[b.kind] - priority[a.kind]
+    if (priorityDelta !== 0) return priorityDelta
+    const textDelta = Number(Boolean(b.text)) - Number(Boolean(a.text))
+    if (textDelta !== 0) return textDelta
+    return Date.parse(a.createdAt) - Date.parse(b.createdAt)
+  })[0] || null
+}
+
+function quoteSnippet(value: string | null) {
+  if (!value) return ''
+  const cleaned = sanitizeInlineSnippet(value)
+  if (!cleaned) return ''
+  return `“${cleaned.slice(0, 110)}”`
+}
+
+function sanitizeInlineSnippet(value: string) {
+  return value
+    .replace(/@\w[\w.-]*/g, 'that handle')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function shouldMentionBeer(context: RecapContext) {
@@ -895,12 +1136,6 @@ function joinWithSemicolons(parts: string[]) {
   if (parts.length === 0) return ''
   if (parts.length === 1) return `${parts[0]}`
   return `${parts.slice(0, -1).join('; ')}; and ${parts[parts.length - 1]}`
-}
-
-function formatLabels(labels: string[]) {
-  if (labels.length === 1) return labels[0]
-  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`
-  return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`
 }
 
 function firstCallbackFor(members: MemberActivity[]) {

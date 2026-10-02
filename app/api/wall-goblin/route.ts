@@ -13,6 +13,7 @@ const MAX_POST_CONTENT_LENGTH = 2000
 const MARKER_PREFIX = 'Goblin receipt:'
 const PAGE_SIZE = 1000
 const MAX_SNIPPET_LENGTH = 180
+const GOBLIN_MEMORY_LOOKBACK = 7
 
 type BeerRow = {
   id: string
@@ -84,7 +85,13 @@ type MemberActivity = {
   comments: string[]
   reactions: string[]
   ratings: string[]
+  callbacks: string[]
   standout: string[]
+}
+
+type GoblinMemoryEntry = {
+  recapDate: string | null
+  content: string
 }
 
 type RecapContext = {
@@ -103,6 +110,7 @@ type RecapContext = {
   labelsById: Map<string, string>
   topUsername: string | null
   memberActivity: MemberActivity[]
+  goblinMemory: GoblinMemoryEntry[]
   posts: Array<{
     author: string
     content: string
@@ -366,7 +374,7 @@ async function buildRecapContext({
   const start = windowStart.toISOString()
   const end = windowEnd.toISOString()
 
-  const [postRows, commentRows, reactionRows, ratingRows, clickRows] = await Promise.all([
+  const [postRows, commentRows, reactionRows, ratingRows, clickRows, goblinMemory] = await Promise.all([
     fetchAllRows<PostActivityRow>((from, to) =>
       supabase
         .from('posts')
@@ -413,6 +421,7 @@ async function buildRecapContext({
         .order('opened_at', { ascending: true })
         .range(from, to)
     ),
+    fetchPriorGoblinMemory(windowStart),
   ])
 
   const botUserId = process.env.WALL_GOBLIN_USER_ID?.trim()
@@ -452,6 +461,7 @@ async function buildRecapContext({
     ratings,
     clicks,
   })
+  attachMemberCallbacks(memberActivity, goblinMemory)
   const topUserId = [...scores.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null
   const topUsername = topUserId ? usernamesById.get(topUserId) || null : null
 
@@ -471,6 +481,7 @@ async function buildRecapContext({
     labelsById,
     topUsername,
     memberActivity,
+    goblinMemory,
     posts: posts.map(post => ({
       author: labelFor(post.user_id, labelsById),
       content: cleanSnippet(post.content),
@@ -512,6 +523,38 @@ async function fetchAllRowsOptional<T>(buildQuery: (from: number, to: number) =>
     return await fetchAllRows<T>(buildQuery)
   } catch {
     return [] as T[]
+  }
+}
+
+async function fetchPriorGoblinMemory(before: Date): Promise<GoblinMemoryEntry[]> {
+  try {
+    let query = supabase
+      .from('posts')
+      .select('content, created_at')
+      .ilike('content', `%${MARKER_PREFIX}%`)
+      .lt('created_at', before.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(GOBLIN_MEMORY_LOOKBACK)
+
+    const botUserId = process.env.WALL_GOBLIN_USER_ID?.trim()
+    if (botUserId) query = query.eq('user_id', botUserId)
+
+    const { data, error } = await query
+    if (error) throw new Error(error.message)
+
+    return (data || [])
+      .map(row => {
+        const content = cleanGoblinMemoryText(typeof row.content === 'string' ? row.content : '')
+        if (!content) return null
+        return {
+          recapDate: row.content?.match(new RegExp(`${MARKER_PREFIX}\\s*(\\d{4}-\\d{2}-\\d{2})`, 'i'))?.[1] || null,
+          content,
+        }
+      })
+      .filter((entry): entry is GoblinMemoryEntry => Boolean(entry))
+  } catch (error) {
+    console.warn('[wall-goblin] Prior Goblin memory unavailable; continuing without callbacks:', error instanceof Error ? error.message : error)
+    return []
   }
 }
 
@@ -577,6 +620,7 @@ function buildMemberActivity({
       comments: [],
       reactions: [],
       ratings: [],
+      callbacks: [],
       standout: [],
     }
     members.set(userId, member)
@@ -644,6 +688,27 @@ function buildMemberActivity({
     .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
 }
 
+function attachMemberCallbacks(members: MemberActivity[], memory: GoblinMemoryEntry[]) {
+  if (!memory.length || !members.length) return
+
+  for (const member of members) {
+    const callbacks: string[] = []
+    for (const entry of memory) {
+      for (const sentence of splitMemorySentences(entry.content)) {
+        if (!sentence.includes(member.label)) continue
+        const cleaned = sentence
+          .replace(member.label, 'this member')
+          .replace(/\s+/g, ' ')
+          .trim()
+        if (cleaned && !callbacks.includes(cleaned)) callbacks.push(cleaned)
+        if (callbacks.length >= 2) break
+      }
+      if (callbacks.length >= 2) break
+    }
+    member.callbacks = callbacks
+  }
+}
+
 async function generateRecap(context: RecapContext) {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
   if (!apiKey) return deterministicRecap(context)
@@ -655,12 +720,16 @@ async function generateRecap(context: RecapContext) {
       max_tokens: 460,
       temperature: 0.8,
       system: [
-        'You write the Hallowed Hop Society Wall Goblin daily recap.',
-        'This is not a bland stats recap; it is a funny goblin roast built from the supplied wall activity.',
-        'Pick 5 to 7 actual active members from the supplied memberActivity when that many are available, and tease each by their supplied label.',
-        'If fewer than five members were active, use every supplied active member and acknowledge the tiny turnout without inventing people.',
-        'Use specific post/comment/reaction/rating clues from the supplied data, not only aggregate counts.',
-        'Write 4 to 6 punchy sentences in a pointed-but-friendly HHS goblin voice.',
+        'You are the Hallowed Hop Society Wall Goblin writing ONE cohesive in-character Wall comment.',
+        'This is not a daily recap, not a report, and not a list of per-person actions.',
+        'Write as if a goblin/person in the room is jokingly calling out members while the Wall conversation is happening.',
+        'When enough activity exists, weave 5 to 7 actual active members into one flowing roast using their supplied labels.',
+        'If fewer than five members were active, use only those active members and keep the comment short without pretending there was a crowd.',
+        'Ground jokes in specific post/comment/reaction/rating/open clues and recurring callbacks supplied in the data, but do not show raw stats up front.',
+        'Do not use a formula like “@a did this. @b did that. @c did this.” Vary sentence shape and connect members through one scene or bit.',
+        'Do not copy examples, templates, or prior posts; priorGoblinMemory is only for lightweight callbacks/themes.',
+        'Mention the featured beer only if it helps the joke.',
+        'Write 3 to 5 sentences as a single playful HHS-specific comment in a pointed-but-friendly goblin voice.',
         'No sensitive/private info. Never use emails or unsupplied names.',
         'If calling out a member, use only supplied member labels; otherwise say someone or one brave soul.',
         'Keep it funny, not cruel: no harassment, threats, protected-class insults, sexual content, or repeated pile-on.',
@@ -689,6 +758,11 @@ async function generateRecap(context: RecapContext) {
               comments: member.comments,
               reactions: member.reactions,
               ratings: member.ratings,
+              recurringCallbacks: member.callbacks,
+            })),
+            priorGoblinMemory: context.goblinMemory.map(entry => ({
+              recapDate: entry.recapDate,
+              content: entry.content,
             })),
             wallActivity: {
               posts: context.posts,
@@ -696,7 +770,12 @@ async function generateRecap(context: RecapContext) {
               reactions: context.reactions,
             },
             allowedMemberLabels: [...context.labelsById.values()],
-            preferredOpening: 'Wall Goblin recap:',
+            formatRules: [
+              'Do not begin with aggregate counts.',
+              'Do not include the words daily recap or recap.',
+              'Do not make a bullet list or line-separated list.',
+              'Return only the Wall comment text.',
+            ],
           }),
         },
       ],
@@ -718,13 +797,17 @@ async function generateRecap(context: RecapContext) {
 
 function cleanGeneratedRecap(text: string, context: RecapContext) {
   const allowedHandles = new Set([...context.usernamesById.values()].map(username => `@${username}`))
-  return text
+  const cleaned = text
     .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, 'someone')
     .replace(/@\w[\w.-]*/g, handle => (allowedHandles.has(handle) ? handle : 'someone'))
+    .replace(/^wall goblin recap:\s*/i, '')
+    .replace(/\bdaily recap\b/gi, 'wall muttering')
     .replace(/\s+/g, ' ')
     .replace(new RegExp(MARKER_PREFIX, 'gi'), 'Goblin note:')
     .slice(0, 650)
     .trim()
+  if (looksLikeRecapOrList(cleaned, context)) return ''
+  return cleaned
 }
 
 function deterministicRecap(context: RecapContext) {
@@ -735,39 +818,95 @@ function deterministicRecap(context: RecapContext) {
   const totalWallActions = counts.posts + counts.comments + counts.reactions
 
   if (totalWallActions === 0) {
-    return `Wall Goblin recap: ${beer.name} day brought zero posts, zero comments, and zero reactions — a silence so crisp ${beer.brewery} may try to can it as a ${style}limited release. Someone probably consumed the beer, but the Wall was treated like a tasting note written in invisible ink.`
+    return `The Wall Goblin pressed an ear to the Wall and heard the kind of silence normally reserved for a forgotten cooler. ${beer.name} from ${beer.brewery} may be a ${style}worth discussing, but the Society treated it like a cursed bottle that might demand eye contact.`
   }
 
   const targets = memberActivity.slice(0, 7)
   if (targets.length >= 2) {
-    const roasts = targets.map(member => `${member.label} ${deterministicMemberRoast(member)}`)
-    const turnout = targets.length < 5 ? `Only ${plural(targets.length, 'member')} gave the goblin enough crumbs to chew on, so nobody gets to hide behind invented crowd noise.` : `The goblin found ${plural(targets.length, 'member')} stomping through the evidence pile.`
-    return `Wall Goblin recap: ${beer.name} from ${beer.brewery} produced ${plural(counts.posts, 'post')}, ${plural(counts.comments, 'comment')}, and ${reactionSummary}. ${turnout} ${joinSentence(roasts)}`
+    const goblinScene = targets.length < 5
+      ? 'The room was not exactly packed, but the few brave souls who left crumbs made enough noise for the Goblin to crawl out of the tap lines.'
+      : 'The Wall Goblin found a whole little tavern brawl in the evidence pile and immediately started pointing sticky fingers.'
+    const wovenRoast = weaveMemberRoasts(targets)
+    const beerNod = shouldMentionBeer(context) ? ` ${beer.name} from ${beer.brewery} sat nearby like the official excuse for all this behavior.` : ''
+    return `${goblinScene} ${wovenRoast}${beerNod}`
   }
 
   if (counts.posts === 0) {
-    return `Wall Goblin recap: ${beer.name} day delivered zero new posts, ${plural(counts.comments, 'comment')}, and ${reactionSummary} — engagement best described as “technically carbonated.” ${handle} kept the lights flickering while the rest of you approached this ${style}from ${beer.brewery} like it might ask for eye contact.`
+    return `The Wall Goblin saw ${handle} rattling the empty comment cage while everyone else practiced advanced lurking. ${beer.name} from ${beer.brewery} deserved at least a little table talk, but the Society mostly answered in ${reactionSummary} and suspicious silence.`
   }
 
-  return `Wall Goblin recap: ${beer.name} day produced ${plural(counts.posts, 'post')}, ${plural(counts.comments, 'comment')}, and ${reactionSummary}, which is almost enough activity to qualify as a pulse. ${handle} wandered closest to the cauldron while the rest of the Society let this ${style}from ${beer.brewery} do most of the talking.`
+  return `The Wall Goblin caught ${handle} wandering closest to the cauldron while the rest of the Society hovered at safe tasting-room distance. ${beer.name} from ${beer.brewery} did not need a spreadsheet of applause; it just needed somebody to stop lurking long enough to make the Wall look alive.`
 }
 
-function deterministicMemberRoast(member: MemberActivity) {
-  if (member.counts.posts > 0 && member.counts.comments > 0) return 'posted, commented, and generally treated the Wall like a tiny personal tavern.'
-  if (member.counts.posts >= 2) return 'kept posting like the goblin pays by the paragraph.'
-  if (member.counts.posts === 1) return 'dropped a post and waited for applause from the barrel room.'
-  if (member.counts.comments >= 3) return 'haunted the comments with admirable gremlin stamina.'
-  if (member.counts.comments > 0) return 'chimed in just enough to leave fingerprints on the glass.'
-  if (member.counts.reactions >= 4) return 'sprayed reactions around like confetti from a sticky tap handle.'
-  if (member.counts.reactions > 0) return 'communicated mostly through emoji, the official dialect of avoiding homework.'
-  if (member.counts.ratings > 0) return 'rated the beer quietly, which is still technically a personality.'
-  return 'opened the door, tracked mud in, and called it participation.'
+function weaveMemberRoasts(members: MemberActivity[]) {
+  const groups = [
+    {
+      members: members.filter(member => member.counts.posts > 0 && member.counts.comments > 0),
+      phrase: (labels: string) => `${labels} turned the Wall into a sticky little tavern booth`,
+    },
+    {
+      members: members.filter(member => member.counts.posts > 0 && member.counts.comments === 0),
+      phrase: (labels: string) => `${labels} tossed fresh crumbs onto the floorboards`,
+    },
+    {
+      members: members.filter(member => member.counts.comments > 0 && member.counts.posts === 0),
+      phrase: (labels: string) => `${labels} kept the comment cauldron bubbling`,
+    },
+    {
+      members: members.filter(member => member.counts.reactions > 0 && member.counts.posts === 0 && member.counts.comments === 0),
+      phrase: (labels: string) => `${labels} heckled in emoji from the rafters`,
+    },
+    {
+      members: members.filter(member => member.counts.ratings > 0 && member.counts.posts === 0 && member.counts.comments === 0 && member.counts.reactions === 0),
+      phrase: (labels: string) => `${labels} slid quiet ratings under the door`,
+    },
+    {
+      members: members.filter(member => member.counts.opens > 0 && member.score <= 0.5),
+      phrase: (labels: string) => `${labels} cracked the door just enough to count as suspicious`,
+    },
+  ]
+
+  const seen = new Set<string>()
+  const phrases: string[] = []
+  for (const group of groups) {
+    const labels = group.members
+      .filter(member => {
+        if (seen.has(member.userId)) return false
+        seen.add(member.userId)
+        return true
+      })
+      .map(member => member.label)
+    if (labels.length) phrases.push(group.phrase(formatLabels(labels)))
+  }
+
+  const callback = firstCallbackFor(members)
+  const callbackSentence = callback ? ` The Goblin also remembers how ${callback.label} ${callback.callback.replace(/^this member\s*/i, '')}, so that callback is staying in the rafters for later.` : ''
+
+  if (phrases.length === 1) return `${phrases[0]}, which is plenty of evidence for one damp little gremlin.${callbackSentence}`
+  if (phrases.length === 2) return `At one end, ${phrases[0]}; at the other, ${phrases[1]}.${callbackSentence}`
+  return `At one end, ${phrases[0]}; near the taps, ${phrases[1]}; and from the rafters, ${joinWithSemicolons(phrases.slice(2))}.${callbackSentence}`
 }
 
-function joinSentence(parts: string[]) {
+function shouldMentionBeer(context: RecapContext) {
+  return context.counts.ratings > 0 || context.posts.some(post => post.beerId === context.beer.id)
+}
+
+function joinWithSemicolons(parts: string[]) {
   if (parts.length === 0) return ''
   if (parts.length === 1) return `${parts[0]}`
-  return `${parts.slice(0, -1).join(' ')} ${parts[parts.length - 1]}`
+  return `${parts.slice(0, -1).join('; ')}; and ${parts[parts.length - 1]}`
+}
+
+function formatLabels(labels: string[]) {
+  if (labels.length === 1) return labels[0]
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`
+  return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`
+}
+
+function firstCallbackFor(members: MemberActivity[]) {
+  const member = members.find(candidate => candidate.callbacks.length > 0)
+  if (!member) return null
+  return { label: member.label, callback: member.callbacks[0] }
 }
 
 function summarizeReactions(reactionCounts: Record<string, number>) {
@@ -788,6 +927,36 @@ function summarizeReactions(reactionCounts: Record<string, number>) {
 
 function plural(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? '' : 's'}`
+}
+
+function looksLikeRecapOrList(text: string, context: RecapContext) {
+  if (!text) return true
+  if (/\brecap\b/i.test(text)) return true
+  if (/^\s*[-*•]|\n\s*[-*•]/.test(text)) return true
+  const opening = text.slice(0, 180)
+  if (/\b(produced|delivered|brought|generated|had)\b/i.test(opening) && /\b\d+\s+(posts?|comments?|reactions?|ratings?)\b/i.test(opening)) return true
+  const labels = new Set(context.memberActivity.map(member => member.label))
+  const labelLeadSentences = text
+    .split(/[.!?]+/)
+    .map(sentence => sentence.trim())
+    .filter(sentence => [...labels].some(label => sentence.startsWith(label))).length
+  return labelLeadSentences >= 3
+}
+
+function cleanGoblinMemoryText(content: string) {
+  return content
+    .replace(new RegExp(`${MARKER_PREFIX}\\s*\\d{4}-\\d{2}-\\d{2}`, 'gi'), '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 700)
+}
+
+function splitMemorySentences(content: string) {
+  return content
+    .split(/(?<=[.!?])\s+/)
+    .map(sentence => sentence.trim())
+    .filter(Boolean)
+    .slice(0, 8)
 }
 
 function goblinMarker(recapDate: string) {

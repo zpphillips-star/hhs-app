@@ -36,6 +36,9 @@ type WallPost = {
   id: string
   content: string
   photo_url: string | null
+  media_url?: string | null
+  image_url?: string | null
+  media_type?: string | null
   created_at: string
   updated_at?: string | null
   beer_id: string
@@ -51,6 +54,16 @@ type WallPost = {
     profiles: { username: string; display_name: string | null } | null
   }[]
   beers: { name: string; brewery: string; day_number: number; style: string | null; abv: number | null } | null
+}
+
+function getWallMediaUrl(post: WallPost) {
+  return post.media_url || post.photo_url || post.image_url || null
+}
+
+function isVideoWallMedia(post: WallPost) {
+  const mediaType = (post.media_type || '').toLowerCase()
+  const mediaUrl = getWallMediaUrl(post) || ''
+  return mediaType.startsWith('video') || /\.(mp4|mov|m4v|webm|3gp|3gpp)(?:$|[?#])/i.test(mediaUrl)
 }
 
 function PostCard({
@@ -171,6 +184,9 @@ function PostCard({
   const updatedAtMs = post.updated_at ? new Date(post.updated_at).getTime() : 0
   const createdAtMs = new Date(post.created_at).getTime()
   const isEdited = Boolean(updatedAtMs && updatedAtMs - createdAtMs > 1000)
+  const mediaUrl = getWallMediaUrl(post)
+  const hasVideo = Boolean(mediaUrl && isVideoWallMedia(post))
+  const imageUrl = mediaUrl && !hasVideo ? mediaUrl : null
 
   const startEdit = () => {
     setEditText(post.content)
@@ -328,12 +344,29 @@ function PostCard({
         </p>
       )}
 
-      {/* Photo */}
-      {post.photo_url && (
+      {/* Media */}
+      {hasVideo && mediaUrl && (
+        <video
+          src={mediaUrl}
+          controls
+          playsInline
+          preload="metadata"
+          style={{
+            width: '100%',
+            maxHeight: '360px',
+            borderRadius: '8px',
+            objectFit: 'contain',
+            marginTop: '0.75rem',
+            background: '#000',
+            display: 'block',
+          }}
+        />
+      )}
+      {imageUrl && (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={post.photo_url}
+            src={imageUrl}
             alt="post photo"
             onClick={() => setLightboxOpen(true)}
             style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'cover', marginTop: '0.75rem', cursor: 'zoom-in' }}
@@ -350,7 +383,7 @@ function PostCard({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={post.photo_url}
+                src={imageUrl}
                 alt="post photo full"
                 style={{ maxWidth: '95vw', maxHeight: '90vh', borderRadius: '8px', objectFit: 'contain' }}
               />

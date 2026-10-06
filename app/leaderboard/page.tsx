@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { isVisibleMember } from '@/lib/member-visibility'
+import { isVisibleMemberRanking } from '@/lib/member-visibility'
 import Nav from '@/components/Nav'
 import RavenIcon from '@/components/RavenIcon'
 import FractionalStars, { formatRating } from '@/components/FractionalStars'
@@ -102,7 +102,7 @@ export default function LeaderboardPage() {
 
       setMembers(
         Object.values(memberMap)
-          .filter(isVisibleMember)
+          .filter(isVisibleMemberRanking)
           .sort((a, b) => b.score - a.score)
       )
 

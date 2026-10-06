@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isVisibleMember } from '@/lib/member-visibility'
 import { createServiceClient } from '@/lib/supabase-server'
 
 const supabase = createServiceClient()
@@ -44,7 +45,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Could not load the HHS Roster.' }, { status: 500 })
   }
 
-  const profileRows = ((profiles ?? []) as ProfileRow[]).filter((profile) => Boolean(profile.id))
+  const profileRows = ((profiles ?? []) as ProfileRow[]).filter(
+    (profile) => Boolean(profile.id) && isVisibleMember(profile),
+  )
   const userIds = profileRows.map((profile) => profile.id)
 
   let preferenceByUser = new Map<string, boolean>()

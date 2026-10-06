@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
+import { isVisibleMember } from '@/lib/member-visibility'
 import type { Beer } from '@/lib/types'
 import Nav from '@/components/Nav'
 
@@ -275,7 +276,7 @@ export default function AdminPage() {
       }
     }
 
-    setMembers(profileRows.map(p => ({
+    setMembers(profileRows.filter(isVisibleMember).map(p => ({
       ...p,
       has_notifications: subSet.has(p.id),
       has_pwa: p.has_pwa || false,
@@ -318,6 +319,7 @@ export default function AdminPage() {
     }
 
     setPushTargets(profileRows
+      .filter(isVisibleMember)
       .map(p => ({
         id: p.id,
         username: p.username || null,

@@ -1,85 +1,107 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase-server'
 import { requireBearerUser } from '@/lib/access'
+import { parseWallPostInput, WallPostInputError } from '@/lib/wall-post-input'
 
-const supabase = createServiceClient()
 const MAX_POST_CONTENT_LENGTH = 2000
-const ALLOWED_MEDIA_TYPES = new Set(['image', 'video'])
 
-type PostCreateBody = {
-  user_id?: unknown
-  beer_id?: unknown
-  content?: unknown
-  photo_url?: unknown
-  media_url?: unknown
-  image_url?: unknown
-  media_type?: unknown
+// GET and POST use the same verified caller JWT, never a service-role client.
+async function authenticatedPostClient(req: NextRequest) {
+  const token = req.headers.get('authorization')?.match(/^Bearer\s+(\S+)\s*$/i)?.[1]
+  if (!token) {
+    return { error: NextResponse.json({ error: 'Unauthorized', committed: false }, { status: 401 }) }
+  }
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    },
+  )
+  const { data: auth, error: authError } = await supabase.auth.getUser(token)
+  if (authError) {
+    const status = authError.status === 400 || authError.status === 401 || authError.status === 403
+      ? 401 : 500
+    return { error: NextResponse.json({
+      error: status === 401 ? 'Unauthorized' : 'Authentication failed',
+      ...(status === 401 ? { committed: false } : {}),
+    }, { status }) }
+  }
+  if (!auth.user) return { error: NextResponse.json({ error: 'Unauthorized', committed: false }, { status: 401 }) }
+  return { supabase, user: auth.user }
+}
+
+export async function GET(req: NextRequest) {
+  const headers = { 'Cache-Control': 'no-store' }
+  try {
+    const auth = await authenticatedPostClient(req)
+    if (auth.error) {
+      auth.error.headers.set('Cache-Control', 'no-store')
+      return auth.error
+    }
+    const { data: version, error } = await auth.supabase.rpc('wall_media_capabilities')
+    if (error || version !== 1) {
+      return NextResponse.json({ error: 'Atomic media unavailable' }, { status: 503, headers })
+    }
+    return NextResponse.json({
+      ok: true,
+      atomic_media_version: 1,
+      capabilities: { atomic_wall_post: 1, idempotency_key: 1, ordered_media: 1 },
+    }, { headers })
+  } catch {
+    return NextResponse.json({ error: 'Atomic media unavailable' }, { status: 503, headers })
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireBearerUser(supabase, req.headers.get('authorization'))
-  if ('error' in auth) return auth.error
-
-  let body: PostCreateBody
   try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
-  }
+    const auth = await authenticatedPostClient(req)
+    if (auth.error) return auth.error
+    const { supabase } = auth
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body', committed: false }, { status: 400 })
+    }
+    const input = parseWallPostInput(body, req.headers.get('idempotency-key'))
+    if (input.userId && input.userId !== auth.user.id.toLowerCase()) {
+      return NextResponse.json({ error: 'Forbidden', committed: false }, { status: 403 })
+    }
 
-  const requestedUserId = typeof body.user_id === 'string' ? body.user_id.trim() : ''
-  const beerId = typeof body.beer_id === 'string' && body.beer_id.trim() ? body.beer_id.trim() : null
-  const content = typeof body.content === 'string' ? body.content.trim() : ''
-  const mediaUrl = getOptionalUrl(body.media_url) || getOptionalUrl(body.photo_url) || getOptionalUrl(body.image_url)
-  const photoUrl = getOptionalUrl(body.photo_url) || mediaUrl
-  const mediaType = normalizeMediaType(body.media_type, mediaUrl)
-
-  if (requestedUserId && requestedUserId !== auth.user.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const { data: post, error } = await supabase.rpc('create_wall_post_with_media', {
+      p_content: input.content,
+      p_beer_id: input.beerId,
+      p_media: input.media,
+      p_request_id: input.requestId,
+    })
+    if (error) {
+      const status = ({ '22023': 400, '23505': 409, '42501': 403 } as Record<string, number>)[error.code] ?? 500
+      // These SQLSTATEs reject the atomic transaction; no writes survive.
+      // A conflict may refer to an earlier commit. Unknown/server failures also
+      // remain ambiguous. This marker never disproves a previous attempt.
+      const rolledBack = error.code === '22023' || error.code === '42501'
+      return NextResponse.json({
+        error: error.message,
+        ...(rolledBack ? { committed: false } : {}),
+      }, { status })
+    }
+    if (!post || typeof post !== 'object' || Array.isArray(post) || typeof post.id !== 'string' || !post.id) {
+      return NextResponse.json({ error: 'Invalid post response' }, { status: 500 })
+    }
+    return NextResponse.json({ ok: true, post, id: post.id }, { status: 201 })
+  } catch (error) {
+    if (error instanceof WallPostInputError) {
+      return NextResponse.json({ error: error.message, committed: false }, { status: 400 })
+    }
+    return NextResponse.json({ error: 'Unable to create post' }, { status: 500 })
   }
-  if (!content && !mediaUrl) {
-    return NextResponse.json({ error: 'content or media_url is required' }, { status: 400 })
-  }
-  if (content.length > MAX_POST_CONTENT_LENGTH) {
-    return NextResponse.json({ error: `Post content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer` }, { status: 400 })
-  }
-  if (mediaType && !ALLOWED_MEDIA_TYPES.has(mediaType)) {
-    return NextResponse.json({ error: 'media_type must be image or video' }, { status: 400 })
-  }
-
-  const insertPayload = {
-    user_id: auth.user.id,
-    beer_id: beerId,
-    content,
-    photo_url: photoUrl,
-    media_url: mediaUrl,
-    media_type: mediaType,
-  }
-
-  let result = await supabase
-    .from('posts')
-    .insert(insertPayload)
-    .select('id, user_id, beer_id, content, photo_url, media_url, media_type, created_at, updated_at')
-    .maybeSingle()
-
-  if (isMissingMediaColumnError(result.error)) {
-    result = await supabase
-      .from('posts')
-      .insert({
-        user_id: auth.user.id,
-        beer_id: beerId,
-        content,
-        photo_url: photoUrl,
-      })
-      .select('id, user_id, beer_id, content, photo_url, created_at, updated_at')
-      .maybeSingle()
-  }
-
-  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 })
-  return NextResponse.json({ ok: true, post: result.data }, { status: 201 })
 }
 
 export async function PATCH(req: NextRequest) {
+  const supabase = createServiceClient()
   const auth = await requireBearerUser(supabase, req.headers.get('authorization'))
   if ('error' in auth) return auth.error
 
@@ -121,24 +143,4 @@ export async function PATCH(req: NextRequest) {
   if (!data) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
 
   return NextResponse.json({ ok: true, post: data })
-}
-
-function getOptionalUrl(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null
-}
-
-function normalizeMediaType(value: unknown, mediaUrl: string | null): 'image' | 'video' | null {
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase()
-    if (normalized.startsWith('video')) return 'video'
-    if (normalized.startsWith('image')) return 'image'
-  }
-  if (mediaUrl && /\.(mp4|mov|m4v|webm|3gp|3gpp)(?:$|[?#])/i.test(mediaUrl)) return 'video'
-  return mediaUrl ? 'image' : null
-}
-
-function isMissingMediaColumnError(error: { message?: string; code?: string } | null): boolean {
-  if (!error) return false
-  const message = error.message || ''
-  return error.code === 'PGRST204' || /media_(url|type)|column .* does not exist|Could not find .*media_/i.test(message)
 }

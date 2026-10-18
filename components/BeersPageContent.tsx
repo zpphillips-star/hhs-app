@@ -8,6 +8,9 @@ import Nav from '@/components/Nav'
 import StarRating from '@/components/StarRating'
 import FractionalStars, { formatRating } from '@/components/FractionalStars'
 import SetupGuide from '@/components/SetupGuide'
+import PersonalRatingBadge from '@/components/PersonalRatingBadge'
+import { usePersonalRatings } from '@/lib/usePersonalRatings'
+import { ratingBadgeStars } from '@/lib/personalRatings'
 import {
   DEFAULT_BEER_VISIBILITY_PROFILE,
   canInteractWithBeer,
@@ -274,6 +277,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
   const todayOnly = forceTodayOnly || (nativeView.appMode && nativeView.view === 'today') || pathname === '/today'
 
   const [user,         setUser]         = useState<{ id: string; email?: string } | null>(null)
+  const personalRatings = usePersonalRatings(user?.id ?? null)
   const [beers,        setBeers]        = useState<Beer[]>([])
   const [todayBeer,    setTodayBeer]    = useState<Beer | null>(null)
   const [userRating,   setUserRating]   = useState<Rating | null>(null)
@@ -289,6 +293,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
   // Guard: true until auth + membership check have both resolved.
   // Prevents rendering gated beer content before we know the user's tier.
   const [beerAccessLoading, setBeerAccessLoading] = useState(true)
+  const [beerAccessOwner, setBeerAccessOwner] = useState<string | null>(null)
 
   // Past beer modal
   const [selectedDay,  setSelectedDay]  = useState<number | null>(null)
@@ -308,7 +313,10 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   useEffect(() => {
+    let authChanged = false
+    let active = true
     supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!active || authChanged) return
       setUser(user)
       // If there's no session we can clear the access guard immediately — no
       // membership fetch will run, and the default 'all' preference is correct
@@ -316,12 +324,13 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
       if (!user) setBeerAccessLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
+      authChanged = true
       const u = s?.user ?? null
       setUser(u)
       // Signed out: no membership check pending → clear guard so content renders.
       if (!u) setBeerAccessLoading(false)
     })
-    return () => subscription.unsubscribe()
+    return () => { active = false; subscription.unsubscribe() }
   }, [])
 
   // ── Membership beer visibility ──────────────────────────────────────────────
@@ -367,10 +376,12 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
             : json.effectivePreference ?? getEffectiveBeerVisibilityPreference(tier, null),
           preferenceColumnAvailable: json.supported ?? null,
         })
+        setBeerAccessOwner(user.id)
         setBeerAccessLoading(false) // access resolved — safe to render gated content
       })
       .catch(() => {
         if (!cancelled) {
+          setBeerAccessOwner(null)
           setBeerAccess(current => ({
             ...current,
             tier: 'unknown',
@@ -469,6 +480,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) { alert(json.error ?? 'Failed to save rating'); return }
+    personalRatings.record(json.rating)
     setUserRating(json.rating)
     await loadRatingStats(todayBeer.id, (avg, count) => {
       setAvgRating(avg)
@@ -650,6 +662,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) { alert(json.error ?? 'Failed to save rating'); return }
+    personalRatings.record(json.rating)
     setModalRating(json.rating)
     await loadRatingStats(modalBeer.id, (avg, count) => {
       setModalAvgRating(avg)
@@ -675,6 +688,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
   const slots = Array.from({ length: 31 }, (_, i) => i + 1)
   const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const calendarCells: (number | null)[] = [...Array(oct1DOW).fill(null), ...slots]
+  const canShowPersonalRatings = Boolean(user && !beerAccessLoading && beerAccessOwner === user.id)
   while (calendarCells.length % 7 !== 0) calendarCells.push(null)
   const todayCanShow = todayBeer ? canShowBeerDetails(beerAccess, todayBeer.day_number) : false
   const todayCanInteract = todayBeer ? canInteractWithBeer(beerAccess, todayBeer.day_number) : false
@@ -1106,13 +1120,15 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                 {/* Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
                    {calendarCells.map((day, idx) => {
-                     if (!day) return <div key={`e-${idx}`} style={{ height: '110px' }} />
+                     if (!day) return <div key={`e-${idx}`} style={{ height: '156px' }} />
                      const beer       = beerMap[day]
                      // isToday/isPast only apply during Oct 1–31 2026 (live event).
                      // Before October, todayDay may be set by PREVIEW_ACTIVE_MONTH but must not highlight any day.
                      const isToday    = isOctober && day === todayDay
                      const isPast     = (isOctober && todayDay) ? day < todayDay : false
                      const showBeer   = Boolean(beer && (isPast || isToday) && canShowBeerDetails(beerAccess, day))
+                     const ownStars = isPast && showBeer && beer && canShowPersonalRatings
+                       ? ratingBadgeStars(personalRatings.ratings.get(beer.id)?.stars) : null
                      const hiddenByTier = Boolean(beer && (isPast || isToday) && !showBeer)
                       const clickable  = (isToday && Boolean(beer)) || (isPast && showBeer)
 
@@ -1127,12 +1143,12 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                           border: `1px solid ${isToday ? 'var(--gold)' : 'var(--border)'}`,
                           borderRadius: '10px',
                           padding: '0.6rem',
-                          height: '110px',
+                          height: '156px',
                           overflow: 'hidden',
                           display: 'flex',
                           flexDirection: 'column',
                           boxShadow: isToday ? '0 0 0 1px var(--gold)' : 'none',
-                          opacity: isPast && !isToday ? 0.6 : 1,
+                          opacity: isPast && !isToday && !ownStars ? 0.6 : 1,
                            cursor: clickable ? 'pointer' : 'default',
                         }}
                       >
@@ -1172,6 +1188,11 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                             }}>
                               {beer.brewery}
                             </div>
+                            {ownStars && (
+                              <div style={{ marginTop: 'auto', alignSelf: 'flex-end', lineHeight: 0 }}>
+                                <PersonalRatingBadge stars={ownStars} />
+                              </div>
+                            )}
                           </>
                         ) : hiddenByTier ? (
                           <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontStyle: 'italic', marginTop: 'auto' }}>
@@ -1197,6 +1218,8 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                      const isToday = isOctober && day === todayDay
                      const isPast  = (isOctober && todayDay) ? day < todayDay : false
                       const showBeer = Boolean(beer && (isPast || isToday) && canShowBeerDetails(beerAccess, day))
+                      const ownStars = isPast && showBeer && beer && canShowPersonalRatings
+                        ? ratingBadgeStars(personalRatings.ratings.get(beer.id)?.stars) : null
                       const hiddenByTier = Boolean(beer && (isPast || isToday) && !showBeer)
                       const clickable = (isToday && Boolean(beer)) || (isPast && showBeer)
                       return (
@@ -1208,10 +1231,10 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                           background: 'var(--bg-card)',
                           border: `1px solid ${isToday ? 'var(--gold)' : 'var(--border)'}`,
                           borderRadius: '12px',
-                          padding: '1rem 1.25rem',
-                          display: 'flex', alignItems: 'center', gap: '1rem',
+                          padding: '1rem 0.85rem',
+                          display: 'flex', alignItems: 'center', gap: '0.65rem',
                           boxShadow: isToday ? '0 0 0 1px var(--gold)' : 'none',
-                          opacity: isPast && !isToday ? 0.65 : 1,
+                          opacity: isPast && !isToday && !ownStars ? 0.65 : 1,
                            cursor: clickable ? 'pointer' : 'default',
                         }}
                       >
@@ -1244,6 +1267,10 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                             To be revealed...
                           </div>
                         )}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                        {ownStars && (
+                          <PersonalRatingBadge stars={ownStars} />
+                        )}
                         {isToday && (
                           <span style={{
                             background: 'var(--gold)', color: 'var(--bg)',
@@ -1252,6 +1279,7 @@ export function BeersPageContent({ forceTodayOnly = false }: { forceTodayOnly?: 
                             padding: '0.25rem 0.6rem', borderRadius: '999px', flexShrink: 0,
                           }}>TODAY</span>
                         )}
+                        </div>
                       </div>
                     )
                   })}
